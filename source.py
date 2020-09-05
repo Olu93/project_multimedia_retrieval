@@ -1,12 +1,10 @@
 import sys
 
-from PyQt5 import Qt
-from PyQt5.QtWidgets import QPushButton
-
-import numpy as np
-
 import pyvista as pv
+from PyQt5 import Qt
+from PyQt5.QtWidgets import QPushButton, QFileDialog
 from pyvistaqt import QtInteractor
+
 
 class MainWindow(Qt.QMainWindow):
 
@@ -41,7 +39,9 @@ class MainWindow(Qt.QMainWindow):
         self.add_mesh_action.triggered.connect(self.add_mesh)
         meshMenu.addAction(self.add_mesh_action)
 
-        button = QPushButton("Do not press this!")
+        button = QPushButton("Load File")
+        button.clicked.connect(lambda: self.add_mesh(self.openFileNameDialog()))
+
         vlayout.addWidget(button)
 
         if show:
@@ -53,11 +53,20 @@ class MainWindow(Qt.QMainWindow):
         self.plotter.add_mesh(sphere)
         self.plotter.reset_camera()
 
-    def add_mesh(self):
+    def add_mesh(self, path):
         """ add a sphere to the pyqt frame """
-        mesh = pv.read("m0.off")
+        mesh = pv.read(path)
         self.plotter.add_mesh(mesh)
         self.plotter.reset_camera()
+
+    def openFileNameDialog(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
+                                                  "All Files (*);;Python Files (*.py)", options=options)
+        if fileName:
+            return fileName
+
 
 if __name__ == '__main__':
     app = Qt.QApplication(sys.argv)
