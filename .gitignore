@@ -1,3 +1,5 @@
+data/**
+!data/.gitkeep
 
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,pycharm+all,python,jupyternotebooks
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,pycharm+all,python,jupyternotebooks
@@ -5,7 +7,6 @@
 ### JupyterNotebooks ###
 # gitignore template for Jupyter Notebooks
 # website: http://jupyter.org/
-
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 
@@ -249,5 +250,6 @@ dmypy.json
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
 .history
+
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,pycharm+all,python,jupyternotebooks
