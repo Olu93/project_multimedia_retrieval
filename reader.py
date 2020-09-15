@@ -54,14 +54,20 @@ class DataSet:
 
     def detect_outliers(self):
         assert self.has_stats, "No statistics were computed. Run compute_shape_statistics first"
+        def add_to_stats(m_object):
+            m_object["statistics"]["faces_outlier"] = m_object["faces_outlier"]
+            m_object["statistics"]["vertices_outlier"] = m_object["vertices_outlier"]
+            return m_object
+        
         all_faces_counts, all_vertices_counts = self.all_statistics["faces"], self.all_statistics["vertices"]
         self.faces_mean, self.faces_std = all_faces_counts.mean(), all_faces_counts.std()
         self.vertices_mean, self.vertices_std = all_faces_counts.mean(), all_faces_counts.std()
         init_pipe = (mesh_object for mesh_object in self.full_data)
         faces_pipe = (dict(**mesh_object, faces_outlier = True if np.abs(mesh_object["statistics"]["faces"] - self.faces_mean) > 2 * self.faces_std else False) for mesh_object in init_pipe)
         vertices_pipe = (dict(**mesh_object, vertices_outlier = True if np.abs(mesh_object["statistics"]["vertices"] - self.vertices_mean) > 2 * self.vertices_std else False) for mesh_object in faces_pipe)
-        add_to_stats_pipe = (dict(**mesh_object, statistics = dict(**mesh_object["statistics"],  faces_outlier=mesh_object["faces_outlier"], vertices_outlier=mesh_object["vertices_outlier"])) for mesh_object in vertices_pipe)
-        self.full_data = list(vertices_pipe)
+        add_to_stats_pipe = (add_to_stats(mesh_object) for mesh_object in vertices_pipe)
+
+        self.full_data = list(add_to_stats_pipe)
 
     def _compute_statistics(self, mesh):
         mesh_data = mesh["data"]
