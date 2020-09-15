@@ -68,6 +68,8 @@ class DataSet:
         add_to_stats_pipe = (add_to_stats(mesh_object) for mesh_object in vertices_pipe)
 
         self.full_data = list(add_to_stats_pipe)
+        self.all_statistics = pd.DataFrame([mesh_object["statistics"] for mesh_object in self.full_data])
+
 
     def _compute_statistics(self, mesh):
         mesh_data = mesh["data"]
