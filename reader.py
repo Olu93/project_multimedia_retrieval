@@ -130,4 +130,5 @@ if __name__ == "__main__":
     dataset.load_files_in_memory()
     dataset.compute_shape_statistics()
     dataset.detect_outliers()
+    dataset.save_statistics()
     pprint(dataset.full_data[0])
