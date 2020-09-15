@@ -9,6 +9,7 @@ import os
 import matplotlib.pyplot as plt
 from collections import Counter
 from itertools import chain
+import inspect
 
 
 class DataSet:
@@ -28,32 +29,36 @@ class DataSet:
         self.data_file_paths = list(chain(*[glob.glob(str(path), recursive=True) for path in data_folder]))
 
     def read(self):
-        self.has_descriptors = True
+        raise NotImplementedError
+
 
     def load_files_in_memory(self):
-        assert self.has_descriptors, "Dunno the file locations. Run read function first."
+        assert self.has_descriptors, f"Dunno the file locations. Run {self.read.__name__} function first."
         self.full_data = [{"meta_data": file, "data": self._load_ply(file["path"]) if not file["type"] == ".off" else self._load_off(file["path"])} for file in self.data_descriptors]
         self.has_loaded_data = True
+        print(f"Finished {inspect.currentframe().f_code.co_name}")
 
     def compute_shape_statistics(self):
-        # assert self.has_poly_data, "No pyvista objects available. Run convert_all_to_polydata first"
+        assert self.has_poly_data, f"No pyvista objects available. Run {self.convert_all_to_polydata.__name__} first"
         self.full_data = [dict(object_descriptor, statistics=self._compute_statistics(object_descriptor)) for object_descriptor in self.full_data]
         self.all_statistics = pd.DataFrame([mesh_object["statistics"] for mesh_object in self.full_data])
         self.has_stats = True
+        print(f"Finished {inspect.currentframe().f_code.co_name}")
 
     def save_statistics(self, stats_path=None):
         path_for_statistics = stats_path if stats_path else self.stats_path
-        assert path_for_statistics, "No path for statistics given. Either set it for specific class or provide it as param!"
+        assert path_for_statistics, f"No path for statistics given. Either set it for specific class or provide it as param!"
         self.all_statistics.to_csv(str(path_for_statistics) + "/statistics.csv", index=False)
+        print(f"Finished {inspect.currentframe().f_code.co_name}")
 
     def convert_all_to_polydata(self):
-        assert self.has_loaded_data, "No data was loaded. Run load_files_in_memory first!"
-        assert self.has_stats, "No statistics were computed. Run compute_shape_statistics first"
-        self.full_data = [dict(**mesh_data, poly_data=pv.PolyData(mesh_data["vertices"], mesh_data["faces"])) for mesh_data in self.full_data]
+        assert self.has_loaded_data, f"No data was loaded. Run {self.load_files_in_memory.__name__} first!"
+        self.full_data = [dict(**mesh_data, poly_data=pv.PolyData(mesh_data["data"]["vertices"], mesh_data["data"]["faces"])) for mesh_data in self.full_data]
         self.has_poly_data = True
+        print(f"Finished {inspect.currentframe().f_code.co_name}")
 
     def detect_outliers(self):
-        assert self.has_stats, "No statistics were computed. Run compute_shape_statistics first"
+        assert self.has_stats, f"No statistics were computed. Run {self.compute_shape_statistics.__name__} first"
         def add_to_stats(m_object):
             m_object["statistics"]["faces_outlier"] = m_object["faces_outlier"]
             m_object["statistics"]["vertices_outlier"] = m_object["vertices_outlier"]
@@ -69,17 +74,36 @@ class DataSet:
 
         self.full_data = list(add_to_stats_pipe)
         self.all_statistics = pd.DataFrame([mesh_object["statistics"] for mesh_object in self.full_data])
+        print(f"Finished {inspect.currentframe().f_code.co_name}")
 
 
     def _compute_statistics(self, mesh):
         mesh_data = mesh["data"]
-        poly_data_object = pv.PolyData(*mesh_data.values())
+        poly_data_object = mesh["poly_data"]
         statistics = {}
         statistics["label"] = mesh["meta_data"]["label"]
         statistics["faces"] = poly_data_object.n_faces
         statistics["vertices"] = poly_data_object.n_points
         statistics.update(dict(zip(["bound_" + b for b in "xmin xmax ymin ymax zmin zmax".split()], poly_data_object.bounds)))
+        
+        cell_counter = Counter([len(cell) for cell in self._get_cells(poly_data_object)])
+        statistics.update({f"cell_type_{k}":v for k,v in cell_counter.items()})
         return statistics
+
+    def _get_cells(self, mesh):
+        """Returns a list of the cells from this mesh.
+        This properly unpacks the VTK cells array.
+        There are many ways to do this, but this is
+        safe when dealing with mixed cell types."""
+        offset = 0
+        cells = []
+        for i in range(mesh.n_cells):
+            loc = i + offset
+            nc = mesh.faces[loc]
+            offset += nc
+            cell = mesh.faces[loc+1:loc+nc+1]
+            cells.append(cell)
+        return cells
 
     def _load_ply(self, file):
         ply_data = PlyData.read(file)
@@ -108,18 +132,21 @@ class DataSet:
 
 
 class PSBDataset(DataSet):
-    def __init__(self):
-        search_paths = [Path("data/psb") / "**/*.aff", Path("data/psb") / "**/*.ply"]
-        stats_path = Path("data/psb")
-        super().__init__(search_paths, stats_path)
+    def __init__(self, search_paths=None, stats_path=None):
+        self.search_paths = [Path("data/psb") / "**/*.aff", Path("data/psb") / "**/*.ply"] if not search_paths else search_paths
+        assert type(self.search_paths) == list, f"Provide a list for the search paths not a {type(self.search_paths)}"
+        self.search_paths = [Path(str(myString)) for myString in self.search_paths] #if not self.search_paths else self.search_paths
+        # assert self.search_paths, "No search paths given"
+        stats_path = Path("data/psb") if not stats_path else stats_path
+        super().__init__(self.search_paths, self.stats_path)
 
     def read(self):
         self.data_descriptors = [self._extract_descr(file_path) for file_path in self.data_file_paths]
-        super().read()
+        self.has_descriptors = True
 
     def _extract_descr(self, file_path):
         path = Path(file_path)
-        label = str(path.parents[1]).split("/")[-1]
+        label = path.parents[1].as_posix().split("/")[-1]
         file_name = path.stem
         file_type = path.suffix
         return {"label": int(label), "name": file_name, "type": file_type, "path": path.resolve()}
@@ -130,7 +157,8 @@ if __name__ == "__main__":
     dataset.read()
     # dataset.show_class_histogram()
     dataset.load_files_in_memory()
+    dataset.convert_all_to_polydata()
     dataset.compute_shape_statistics()
-    dataset.detect_outliers()
-    dataset.save_statistics()
+    # dataset.detect_outliers()
+    # dataset.save_statistics()
     pprint(dataset.full_data[0])
