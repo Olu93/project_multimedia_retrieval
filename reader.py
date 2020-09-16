@@ -85,7 +85,7 @@ class DataSet:
         statistics["faces"] = poly_data_object.n_faces
         statistics["vertices"] = poly_data_object.n_points
         statistics.update(dict(zip(["bound_" + b for b in "xmin xmax ymin ymax zmin zmax".split()], poly_data_object.bounds)))
-        
+        # TODO: Fix pandas to csv issue with difference attribute numbers
         cell_counter = Counter([len(cell) for cell in self._get_cells(poly_data_object)])
         statistics.update({f"cell_type_{k}":v for k,v in cell_counter.items()})
         return statistics
