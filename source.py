@@ -3,37 +3,9 @@ import sys
 import pyvista as pv
 from PyQt5 import Qt
 from PyQt5.QtWidgets import QPushButton, QFileDialog
-from pyvistaqt import QtInteractor
+from pyvistaqt import BackgroundPlotter
 
-
-def ply_to_off(file_name):
-    with open(file_name) as file:
-        vertices = []
-        faces = []
-        header_ended = False
-        for i, line in enumerate(file.readlines()):
-            if "vertex " in line:
-                num_vertices = int(line.split("vertex")[1])
-                continue
-            elif "face" in line:
-                num_faces = int(line.split("face")[1])
-                continue
-            elif "end_header" in line:
-                end = (i + 1) + num_vertices
-                header_ended = True
-                continue
-            if header_ended:
-                if i < end:
-                    vertices.append(line)
-                else:
-                    faces.append(line)
-    new_file_name = file_name.split(".")[0] + ".off"
-    new_file = open(new_file_name, "w")
-    new_file.write("OFF\n")
-    new_file.write(str(num_vertices) + " " + str(num_faces) + " " + "0\n")
-    new_file.writelines(vertices)
-    new_file.writelines(faces)
-    return new_file_name
+import reader
 
 
 class MainWindow(Qt.QMainWindow):
@@ -41,13 +13,16 @@ class MainWindow(Qt.QMainWindow):
     def __init__(self, parent=None, show=True):
         Qt.QMainWindow.__init__(self, parent)
 
+        self.meshes = []
+        self.plotter = BackgroundPlotter()
+
         # create the frame
         self.frame = Qt.QFrame()
         vlayout = Qt.QVBoxLayout()
 
         # add the pyvista interactor object
-        self.plotter = QtInteractor(self.frame)
-        vlayout.addWidget(self.plotter.interactor)
+        # self.plotter = QtInteractor(self.frame)
+        # vlayout.addWidget(self.plotter.interactor)
 
         self.frame.setLayout(vlayout)
         self.setCentralWidget(self.frame)
@@ -69,10 +44,14 @@ class MainWindow(Qt.QMainWindow):
         self.add_mesh_action.triggered.connect(self.add_mesh)
         meshMenu.addAction(self.add_mesh_action)
 
-        button = QPushButton("Load File")
-        button.clicked.connect(lambda: self.add_mesh(self.open_file_name_dialog()))
+        load_button = QPushButton("Load File")
+        load_button.clicked.connect(lambda: self.add_mesh(self.open_file_name_dialog()))
 
-        vlayout.addWidget(button)
+        remesh_button = QPushButton("Remesh")
+        remesh_button.clicked.connect(lambda: self.remesh())
+
+        vlayout.addWidget(load_button)
+        vlayout.addWidget(remesh_button)
 
         if show:
             self.show()
@@ -80,23 +59,32 @@ class MainWindow(Qt.QMainWindow):
     def add_sphere(self):
         """ add a sphere to the pyqt frame """
         sphere = pv.Sphere()
+        self.meshes.append(sphere)
         self.plotter.add_mesh(sphere)
         self.plotter.reset_camera()
 
-    def add_mesh(self, path):
+    def add_mesh(self, mesh):
         """ add a sphere to the pyqt frame """
-        if path:
-            mesh = pv.read(path)
-            self.plotter.add_mesh(mesh)
-            self.plotter.reset_camera()
+        self.meshes.append(mesh)
+        self.plotter.add_mesh(mesh)
+        self.plotter.reset_camera()
 
     def open_file_name_dialog(self):
         fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
                                                   "All Files (*);;Model Files (.obj, .off, .ply, .stl)")
+        ds = reader.DataSet("")
         if fileName:
             if str(fileName).split(".")[1] != "off":
-                return ply_to_off(fileName)
-            return fileName
+                mesh = ds._load_ply(fileName)
+            elif str(fileName).split(".")[1] == "off":
+                mesh = ds._load_off(fileName)
+            else:
+                raise Exception("File type not yet supported.")
+            return pv.PolyData(mesh["vertices"], mesh["faces"])
+
+    def remesh(self):
+        globe = self.meshes[-1]
+        globe.points *= 0.5
 
 
 if __name__ == '__main__':

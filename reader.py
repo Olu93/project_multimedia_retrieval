@@ -49,7 +49,8 @@ class DataSet:
     def convert_all_to_polydata(self):
         assert self.has_loaded_data, "No data was loaded. Run load_files_in_memory first!"
         assert self.has_stats, "No statistics were computed. Run compute_shape_statistics first"
-        self.full_data = [dict(**mesh_data, poly_data=pv.PolyData(mesh_data["vertices"], mesh_data["faces"])) for mesh_data in self.full_data]
+        # self.full_data = [dict(**mesh_data, poly_data=pv.PolyData(mesh_data["vertices"], mesh_data["faces"])) for mesh_data in self.full_data]
+        self.full_data = [dict(**mesh_data, poly_data=pv.PolyData(mesh_data["data"]["vertices"], mesh_data["data"]["faces"])) for mesh_data in self.full_data]
         self.has_poly_data = True
 
     def detect_outliers(self):
@@ -110,6 +111,7 @@ class DataSet:
 class PSBDataset(DataSet):
     def __init__(self):
         search_paths = [Path("data/psb") / "**/*.aff", Path("data/psb") / "**/*.ply"]
+        # search_paths = [Path("D:\\Downloads\\psb_v1\\benchmark\\db") / "**/*.off", Path("D:\\Downloads\\psb_v1\\benchmark\\db") / "**/*.ply"]
         stats_path = Path("data/psb")
         super().__init__(search_paths, stats_path)
 
@@ -119,7 +121,7 @@ class PSBDataset(DataSet):
 
     def _extract_descr(self, file_path):
         path = Path(file_path)
-        label = str(path.parents[1]).split("/")[-1]
+        label = path.parents[1].as_posix().split("/")[-1]
         file_name = path.stem
         file_type = path.suffix
         return {"label": int(label), "name": file_name, "type": file_type, "path": path.resolve()}
