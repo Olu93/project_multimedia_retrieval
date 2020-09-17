@@ -1,8 +1,14 @@
+import numpy as np
 import pyacvd
 import pyvista as pv
 import numpy as np
 
 from reader import PSBDataset
+
+
+def unit_vector(vec):
+    unit = vec / np.linalg.norm(vec)
+    return unit
 
 
 class Normalizer:
@@ -21,22 +27,27 @@ class Normalizer:
     def uniform_remeshing(self):
         for i in range(len(self.full_data)):
             if len(self.full_data[i]["poly_data"].points) < self.num_avg_verts:
-                # self.full_data[i]["poly_data"].plot(color="w", show_edges="True")
                 data = self.full_data[i]["poly_data"].clean()
                 remesh = pyacvd.Clustering(data)
                 remesh.subdivide(1)
-                # remesh.mesh.plot(color="w", show_edges="True")
                 self.full_normalized_data.append(remesh.mesh)
             elif len(self.full_data[i]["poly_data"].points) > self.num_avg_verts:
-                self.full_data[i]["poly_data"].plot(color="w", show_edges="True")
                 data = self.full_data[i]["poly_data"].clean()
                 data = data.decimate(0.7)  # Look a MAGIC NUMBER
-                data.plot(color="w", show_edges="True")
                 self.full_normalized_data.append(data)
 
     def center(self):
         # TODO: Take the pivot-point of the model and shift it to a mutual center w.r.t scene coordinates
-        pass
+        for mesh in self.full_normalized_data:
+            print(f"Before: {mesh.center}")
+            offset = np.negative(mesh.center)
+            mesh.translate(offset)
+            print(f"After: {mesh.center}")
+
+    def align(self):
+        # TODO: Align to unit vector
+        for mesh in self.full_normalized_data:
+            pass
 
     def scale_to_union(self, mesh):
         max_range = np.max(mesh.points, axis=0)
@@ -47,12 +58,13 @@ class Normalizer:
         mesh.points = scaled_points
         return mesh
 
-    def save_dataset(self):
-        for i, mesh in enumerate(self.full_normalized_data):
-            mesh.save(f"D:\\Documents\\Programming\\Python\\project_multimedia_retrieval\\data\\m{i}.ply")
+    def save_dataset(self, mesh, index):
+        mesh.save(f"data\\m{i}.ply")
 
 
 if __name__ == '__main__':
     norm = Normalizer()
     norm.uniform_remeshing()
-    norm.save_dataset()
+    norm.center()
+    print("Done")
+    # norm.save_dataset()
