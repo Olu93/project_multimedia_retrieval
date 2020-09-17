@@ -1,5 +1,6 @@
 import pyacvd
 import pyvista as pv
+import numpy as np
 
 from reader import PSBDataset
 
@@ -37,10 +38,14 @@ class Normalizer:
         # TODO: Take the pivot-point of the model and shift it to a mutual center w.r.t scene coordinates
         pass
 
-    def scale_to_union(self):
-        for i, mesh in enumerate(self.full_normalized_data):
-            cube = pv.Cube()
-            # TODO: fit the mesh to unit cube
+    def scale_to_union(self, mesh):
+        max_range = np.max(mesh.points, axis=0)
+        min_range = np.min(mesh.points, axis=0)
+        lengths_range = max_range - min_range
+        longest_range = np.max(lengths_range)
+        scaled_points = (mesh.points - min_range) / longest_range
+        mesh.points = scaled_points
+        return mesh
 
     def save_dataset(self):
         for i, mesh in enumerate(self.full_normalized_data):

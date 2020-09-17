@@ -1,6 +1,7 @@
 import sys
 
 import pyvista as pv
+import numpy as np
 from PyQt5 import Qt
 from PyQt5.QtWidgets import QPushButton, QFileDialog
 from pyvistaqt import BackgroundPlotter
@@ -58,7 +59,7 @@ class MainWindow(Qt.QMainWindow):
 
     def add_sphere(self):
         """ add a sphere to the pyqt frame """
-        sphere = pv.Sphere()
+        sphere = pv.Cube()
         self.meshes.append(sphere)
         self.plotter.add_mesh(sphere)
         self.plotter.reset_camera()
@@ -80,11 +81,22 @@ class MainWindow(Qt.QMainWindow):
                 mesh = ds._load_off(fileName)
             else:
                 raise Exception("File type not yet supported.")
-            return pv.PolyData(mesh["vertices"], mesh["faces"])
+            pdmesh = pv.PolyData(mesh["vertices"], mesh["faces"])
+            # pdmesh = self.rescale(pdmesh)
+            return pdmesh
 
     def remesh(self):
         globe = self.meshes[-1]
         globe.points *= 0.5
+
+    def rescale(self, mesh):
+        max_range = np.max(mesh.points, axis=0)
+        min_range = np.min(mesh.points, axis=0)
+        lengths_range = max_range - min_range
+        longest_range = np.max(lengths_range)
+        scaled_points = (mesh.points - min_range) / longest_range
+        mesh.points = scaled_points
+        return mesh
 
 
 if __name__ == '__main__':
