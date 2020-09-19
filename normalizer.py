@@ -1,15 +1,7 @@
 import numpy as np
 import pyacvd
-import pyvista as pv
-import numpy as np
 
 from reader import PSBDataset
-
-
-def unit_vector(vec):
-    unit = vec / np.linalg.norm(vec)
-    return unit
-
 
 class Normalizer:
 
@@ -37,34 +29,39 @@ class Normalizer:
                 self.full_normalized_data.append(data)
 
     def center(self):
-        # TODO: Take the pivot-point of the model and shift it to a mutual center w.r.t scene coordinates
         for mesh in self.full_normalized_data:
-            print(f"Before: {mesh.center}")
             offset = np.negative(mesh.center)
             mesh.translate(offset)
-            print(f"After: {mesh.center}")
 
     def align(self):
-        # TODO: Align to unit vector
         for mesh in self.full_normalized_data:
-            pass
+            A_cov = np.cov(mesh.points.T)
+            eigenvalues, eigenvectors = np.linalg.eig(A_cov)
+            biggest_idx = np.argsort(-eigenvalues)
+            biggest_vec = eigenvectors[:, biggest_idx]
+            new_points = np.dot(mesh.points, biggest_vec)
+            mesh.points = new_points
 
-    def scale_to_union(self, mesh):
-        max_range = np.max(mesh.points, axis=0)
-        min_range = np.min(mesh.points, axis=0)
-        lengths_range = max_range - min_range
-        longest_range = np.max(lengths_range)
-        scaled_points = (mesh.points - min_range) / longest_range
-        mesh.points = scaled_points
-        return mesh
+    def scale_to_union(self):
+        for mesh in self.full_normalized_data:
+            max_range = np.max(mesh.points, axis=0)
+            min_range = np.min(mesh.points, axis=0)
+            lengths_range = max_range - min_range
+            longest_range = np.max(lengths_range)
+            scaled_points = (mesh.points - min_range) / longest_range
+            mesh.points = scaled_points
 
-    def save_dataset(self, mesh, index):
-        mesh.save(f"data\\m{i}.ply")
+    def save_dataset(self):
+        for index, mesh in enumerate(self.full_normalized_data):
+            mesh.save(f"data\\m{index}.ply")
 
 
 if __name__ == '__main__':
     norm = Normalizer()
-    norm.uniform_remeshing()
     norm.center()
+    norm.align()
+    #FLIP
+    norm.scale_to_union()
+    norm.save_dataset()
+    norm.uniform_remeshing()
     print("Done")
-    # norm.save_dataset()

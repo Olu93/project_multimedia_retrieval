@@ -113,9 +113,9 @@ class PSBDataset(DataSet):
     def __init__(self):
         # search_paths = [Path("data/psb") / "**/*.aff", Path("data/psb") / "**/*.ply"]
         search_paths = [Path("D:\\Downloads\\psb_v1\\benchmark\\db") / "**/*.off", Path("D:\\Downloads\\psb_v1\\benchmark\\db") / "**/*.ply"]
-        search_paths = [Path("data/psb") / "**/*.aff", Path("data/psb") / "**/*.ply"]
         # search_paths = [Path("C:\\Users\\chris\\OneDrive\\Dokumente\\Utrecht Uni Docs\\5.Period\\MS\\psb_v1\\benchmark\\db") / "**/*.off", Path("C:\\Users\\chris\\OneDrive\\Dokumente\\Utrecht Uni Docs\\5.Period\\MS\\psb_v1\\benchmark\\db") / "**/*.ply"]
         # stats_path = Path("C:\\Users\\chris\\OneDrive\\Dokumente\\Utrecht Uni Docs\\5.Period\\MS\\psb_v1\\benchmark\\db")
+        # search_paths = [Path("data/psb") / "**/*.aff", Path("data/psb") / "**/*.ply"]
         stats_path = Path("data/psb")
         super().__init__(search_paths, stats_path)
 
