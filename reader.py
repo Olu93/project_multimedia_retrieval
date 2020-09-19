@@ -16,7 +16,7 @@ class DataSet:
     data_descriptors = []
     full_data = []
     stats_path = None
-
+    schemes = ["**/*.off", "**/*.ply"]
     has_descriptors = None
     has_stats = False
     has_loaded_data = False
@@ -150,12 +150,13 @@ class DataSet:
 
 
 class PSBDataset(DataSet):
-    def __init__(self, search_paths=None, stats_path=None):
-        self.search_paths = [Path("data/psb") / "**/*.off", Path("data/psb") / "**/*.ply"] if not search_paths else search_paths
-        assert type(self.search_paths) == list, f"Provide a list for the search paths not a {type(self.search_paths)}"
-        self.search_paths = [Path(str(myString)) for myString in self.search_paths]  #if not self.search_paths else self.search_paths
+    def __init__(self, search_path=None, stats_path=None):
+
+        self.search_path = "data/psb" if not search_path else search_path
+        # assert type(self.search_paths) == , f"Provide a list for the search paths not a {type(self.search_paths)}"
+        self.search_paths = [Path(self.search_path) / scheme for scheme in self.schemes]  #if not self.search_paths else self.search_paths
         # assert self.search_paths, "No search paths given"
-        stats_path = Path("data/psb") if not stats_path else stats_path
+        stats_path = Path("data/psb") if not stats_path else Path(stats_path)
         super().__init__(self.search_paths, self.stats_path)
 
     def read(self):
