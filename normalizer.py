@@ -16,6 +16,7 @@ class Normalizer:
         self.full_data = self.reader.full_data
         self.history = []
         self.history.append([item["poly_data"] for item in self.full_data])
+        # print(self.history[-1][0].bounds)
 
     def uniform_remeshing(self):
         tmp_mesh = []
@@ -23,21 +24,25 @@ class Normalizer:
         for mesh in self.history[-1]:
             data = mesh.clean()
             if len(mesh.points) < self.num_avg_verts:
-                remesh = pyacvd.Clustering(data)
-                remesh.subdivide(1)
+                clust_mesh = pyacvd.Clustering(data)
+                clust_mesh.subdivide(1)
+                remesh = PolyData(clust_mesh.mesh.points, clust_mesh.mesh.faces)
             elif len(mesh.points) > self.num_avg_verts:
                 remesh = data.decimate(0.7)  # Look a MAGIC NUMBER
             tmp_mesh.append(remesh)
         self.history.append(tmp_mesh)
 
     def center(self):
+        print(self.history)
         tmp_mesh = []
         for mesh in self.history[-1]:
-            remesh = PolyData(mesh.points, mesh.faces)
-            offset = np.negative(remesh.center)
-            remesh.translate(offset)
+            remesh = PolyData(mesh.points.copy(), mesh.faces.copy())
+            offset = mesh.center
+            remesh.translate(np.zeros_like(offset) - offset)
             tmp_mesh.append(remesh)
         self.history.append(tmp_mesh)
+        # print(self.history[-1][0].bounds)
+
 
     def align(self):
         tmp_mesh = []
@@ -47,11 +52,12 @@ class Normalizer:
             biggest_idx = np.argsort(-eigenvalues)
             biggest_vec = eigenvectors[:, biggest_idx]
             new_points = np.dot(mesh.points, biggest_vec)
-            remesh = PolyData(new_points, mesh.faces)
+            remesh = PolyData(new_points, mesh.faces.copy())
             tmp_mesh.append(remesh)
         self.history.append(tmp_mesh)
 
     def scale_to_union(self):
+        # print(self.history[-1][0].bounds)
         tmp_mesh = []
         for mesh in self.history[-1]:
             max_range = np.max(mesh.points, axis=0)
@@ -59,9 +65,10 @@ class Normalizer:
             lengths_range = max_range - min_range
             longest_range = np.max(lengths_range)
             scaled_points = (mesh.points - min_range) / longest_range
-            remesh = PolyData(scaled_points, mesh.faces)
+            remesh = PolyData(scaled_points, mesh.faces.copy())
             tmp_mesh.append(remesh)
         self.history.append(tmp_mesh)
+        # print(self.history[-1][0].bounds)
 
     def save_dataset(self):
         for index, mesh in enumerate(self.history[-1]):
@@ -70,10 +77,10 @@ class Normalizer:
 
 if __name__ == '__main__':
     norm = Normalizer()
-    norm.center()
     norm.align()
     # FLIP
     norm.scale_to_union()
-    norm.save_dataset()
+    norm.center()
+    # norm.save_dataset()
     norm.uniform_remeshing()
     print("Done")

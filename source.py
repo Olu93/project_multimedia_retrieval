@@ -1,12 +1,12 @@
 import sys
 
 import pyvista as pv
-import numpy as np
 from PyQt5 import Qt
 from PyQt5.QtWidgets import QPushButton, QFileDialog
 from pyvistaqt import BackgroundPlotter
 
 import reader
+from normalizer import Normalizer
 
 
 class MainWindow(Qt.QMainWindow):
@@ -15,16 +15,15 @@ class MainWindow(Qt.QMainWindow):
         Qt.QMainWindow.__init__(self, parent)
 
         self.meshes = []
-        self.plotter = BackgroundPlotter()
+        self.plotter = BackgroundPlotter(shape=(2, 2), border_color='white')
 
         # create the frame
         self.frame = Qt.QFrame()
         vlayout = Qt.QVBoxLayout()
-
         # add the pyvista interactor object
         # self.plotter = QtInteractor(self.frame)
         # vlayout.addWidget(self.plotter.interactor)
-
+        self.normalizer = Normalizer()
         self.frame.setLayout(vlayout)
         self.setCentralWidget(self.frame)
 
@@ -48,8 +47,8 @@ class MainWindow(Qt.QMainWindow):
         load_button = QPushButton("Load File")
         load_button.clicked.connect(lambda: self.add_mesh(self.open_file_name_dialog()))
 
-        remesh_button = QPushButton("Remesh")
-        remesh_button.clicked.connect(lambda: self.remesh())
+        remesh_button = QPushButton("Show data processing")
+        remesh_button.clicked.connect(lambda: self.show_processing())
 
         vlayout.addWidget(load_button)
         vlayout.addWidget(remesh_button)
@@ -85,18 +84,28 @@ class MainWindow(Qt.QMainWindow):
             # pdmesh = self.rescale(pdmesh)
             return pdmesh
 
-    def remesh(self):
-        globe = self.meshes[-1]
-        globe.points *= 0.5
-
-    def rescale(self, mesh):
-        max_range = np.max(mesh.points, axis=0)
-        min_range = np.min(mesh.points, axis=0)
-        lengths_range = max_range - min_range
-        longest_range = np.max(lengths_range)
-        scaled_points = (mesh.points - min_range) / longest_range
-        mesh.points = scaled_points
-        return mesh
+    def show_processing(self):
+        self.normalizer.scale_to_union()
+        self.normalizer.center()
+        self.normalizer.align()
+        self.normalizer.uniform_remeshing()
+        num_of_operations = len(self.normalizer.history)
+        plt = BackgroundPlotter(shape=(1, num_of_operations))
+        elements = [operation[0] for operation in self.normalizer.history]
+        plt.show_axes_all()
+        labels = ["Original", "Scaled", "Center", "Align", "Remesh"]
+        for idx in range(num_of_operations):
+            plt.subplot(0, idx)
+            if labels[idx] == "Scaled":
+                print("Cube")
+                plt.add_mesh(pv.Cube())
+            plt.add_mesh(elements[idx])
+            plt.reset_camera()
+            plt.view_isometric()
+            plt.add_text(labels[idx] +
+                         "\nVertices: " + str(len(elements[idx].points)) +
+                         "\nFaces: " + str(len(elements[idx].faces)))
+            plt.show_grid()
 
 
 if __name__ == '__main__':
