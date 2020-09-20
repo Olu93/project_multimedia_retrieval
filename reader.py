@@ -93,7 +93,7 @@ class DataSet:
         cell_counter = Counter(cell_point_counts)
         statistics.update({f"cell_type_{k}": v for k, v in cell_counter.items()})
 
-        statistics.update({f"bary_center_{coord}": val for val, coord in zip(triangulized_poly_data_object.center, "x,y,z".split(","))})
+        statistics.update(self._compute_center(triangulized_poly_data_object))
         cell_areas = self._get_cell_areas(triangulized_poly_data_object.points, cell_ids, cell_point_counts)
         
         statistics["cell_area_mean"] = np.mean(cell_areas)
@@ -140,6 +140,9 @@ class DataSet:
     def _extract_descr(self, file_path):
         raise NotImplementedError
 
+    def _compute_center(self, mesh):
+        return {f"center_{dim}" for dim, val in zip("x y z".split(), mesh.center)}
+    
     def show_class_histogram(self):
         pd_data = pd.DataFrame(self.data_descriptors)
         counts_list = list(Counter(pd_data["label"].astype(str).values).items())
@@ -147,6 +150,8 @@ class DataSet:
         # counts = np.array()
         plt.bar(counts["label"], counts["counts"])
         plt.show()
+
+    
 
 
 class PSBDataset(DataSet):
