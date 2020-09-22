@@ -25,20 +25,22 @@ class Normalizer:
         remesh = None
         for mesh in self.history[-1]:
             data = mesh.clean()
-            if len(mesh.points) < 3500:
+            # if len(mesh.points) < 3500:
+            if mesh.n_faces < 9000:
                 clust_mesh = pyacvd.Clustering(data)
                 clust_mesh.subdivide(1)
                 remesh = PolyData(clust_mesh.mesh.points, clust_mesh.mesh.faces)
-            elif len(mesh.points) > self.num_avg_verts:
-                remesh = data.decimate(0.7)
+            # elif len(mesh.points) > self.num_avg_verts:
+            elif mesh.n_faces > 11000:
+                remesh = data.decimate(10000/mesh.n_faces)
             tmp_mesh.append(remesh)
         self.history.append(tmp_mesh)
 
     def center(self):
         tmp_mesh = []
-        for mesh in self.history[-1]:
+        for mesh, full_mesh_stuff in zip(self.history[-1], self.full_data):
             remesh = PolyData(mesh.points.copy(), mesh.faces.copy())
-            offset = mesh.center
+            offset = full_mesh_stuff["bary_center"]
             remesh.translate(np.zeros_like(offset) - offset)
             tmp_mesh.append(remesh)
         self.history.append(tmp_mesh)
