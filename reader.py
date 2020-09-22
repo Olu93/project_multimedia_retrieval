@@ -161,7 +161,7 @@ class PSBDataset(DataSet):
         # assert type(self.search_paths) == , f"Provide a list for the search paths not a {type(self.search_paths)}"
         self.search_paths = [Path(self.search_path) / scheme for scheme in self.schemes]  #if not self.search_paths else self.search_paths
         # assert self.search_paths, "No search paths given"
-        stats_path = Path("data/psb") if not stats_path else Path(stats_path)
+        self.stats_path = Path("data/psb") if not stats_path else Path(stats_path)
         super().__init__(self.search_paths, self.stats_path)
 
     def read(self):
@@ -171,13 +171,17 @@ class PSBDataset(DataSet):
     def _extract_descr(self, file_path):
         path = Path(file_path)
         label = path.parents[1].as_posix().split("/")[-1]
+        try:
+            label = int(label)
+        except ValueError:
+            print("Label is not an integer, treating it accordingly.")
         file_name = path.stem
         file_type = path.suffix
-        return {"label": int(label), "name": file_name, "type": file_type, "path": path.resolve()}
+        return {"label": label, "name": file_name, "type": file_type, "path": path.resolve()}
 
 
 if __name__ == "__main__":
-    dataset = PSBDataset()
+    dataset = PSBDataset(stats_path="stats", search_path="D:\\Documents\\Programming\\Python\\project_multimedia_retrieval\\data")
     dataset.read()
     # dataset.show_class_histogram()
     dataset.load_files_in_memory()
