@@ -16,7 +16,7 @@ class DataSet:
     data_descriptors = []
     full_data = []
     stats_path = None
-    schemes = ["**/*.off", "**/*.ply"]
+    schemes = ["**/*.aff", "**/*.ply"]
     has_descriptors = None
     has_stats = False
     has_loaded_data = False
@@ -93,9 +93,11 @@ class DataSet:
         cell_counter = Counter(cell_point_counts)
         statistics.update({f"cell_type_{k}": v for k, v in cell_counter.items()})
 
-        statistics.update(self._compute_center(triangulized_poly_data_object))
         cell_areas = self._get_cell_areas(triangulized_poly_data_object.points, cell_ids, cell_point_counts)
-        
+        cell_centers = triangulized_poly_data_object.cell_centers().points
+        mesh["bary_center"] = np.array(self._compute_center(cell_centers, cell_areas))
+        statistics.update({f"center_{dim}": val for dim, val in zip("x y z".split(), mesh["bary_center"])})
+
         statistics["cell_area_mean"] = np.mean(cell_areas)
         statistics["cell_area_std"] = np.std(cell_areas)
         return statistics
@@ -103,9 +105,11 @@ class DataSet:
     def _get_cell_areas(self, mesh_vertices, mesh_cells, mesh_cell_point_counts):
         cell_combinations = mesh_vertices[mesh_cells, :]
         # cell_areas = [np.abs(np.linalg.norm(np.cross((matrix[0] - matrix[1]), (matrix[0] - matrix[2])))) / 2 for matrix in cell_combinations]
-        cell_areas_fast = np.abs(np.linalg.norm(np.cross((cell_combinations[:,0] - cell_combinations[:, 1]), (cell_combinations[:,0] - cell_combinations[:,2])), axis=1))/2 # https://math.stackexchange.com/a/128999
-        
+        cell_areas_fast = np.abs(np.linalg.norm(np.cross((cell_combinations[:, 0] - cell_combinations[:, 1]),
+                                                         (cell_combinations[:, 0] - cell_combinations[:, 2])), axis=1)) / 2  # https://math.stackexchange.com/a/128999
+
         return cell_areas_fast
+
 
 
     def _get_cells(self, mesh):
@@ -140,9 +144,13 @@ class DataSet:
     def _extract_descr(self, file_path):
         raise NotImplementedError
 
-    def _compute_center(self, mesh):
-        return {f"center_{dim}" for dim, val in zip("x y z".split(), mesh.center)}
-    
+    def _compute_center(self, face_normals, face_areas):
+        weighted_normals = face_areas.reshape(-1, 1) * face_normals
+        bary_center = np.sum(weighted_normals, axis=0) / np.sum(face_areas)
+        # return {f"center_{dim}" for dim, val in zip("x y z".split(), mesh.center)}
+        # return {f"center_{dim}": val for dim, val in zip("x y z".split(), bary_center)}
+        return bary_center
+
     def show_class_histogram(self):
         pd_data = pd.DataFrame(self.data_descriptors)
         counts_list = list(Counter(pd_data["label"].astype(str).values).items())
@@ -151,7 +159,15 @@ class DataSet:
         plt.bar(counts["label"], counts["counts"])
         plt.show()
 
-    
+    @staticmethod
+    def show_barycenter(mesh_item):
+        plotter = pv.Plotter()
+        some_sphere = pv.Sphere(radius = 0.001)
+        some_sphere.translate(mesh_item["bary_center"])
+        plotter.add_mesh(some_sphere)
+        plotter.add_mesh(mesh_item["poly_data"])
+        plotter.show()
+
 
 
 class PSBDataset(DataSet):
@@ -181,7 +197,7 @@ class PSBDataset(DataSet):
 
 
 if __name__ == "__main__":
-    dataset = PSBDataset(stats_path="stats", search_path="D:\\Documents\\Programming\\Python\\project_multimedia_retrieval\\data")
+    dataset = PSBDataset()
     dataset.read()
     # dataset.show_class_histogram()
     dataset.load_files_in_memory()
