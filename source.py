@@ -81,7 +81,6 @@ class MainWindow(Qt.QMainWindow):
             else:
                 raise Exception("File type not yet supported.")
             pdmesh = pv.PolyData(mesh["vertices"], mesh["faces"])
-            # pdmesh = self.rescale(pdmesh)
             return pdmesh
 
     def show_processing(self):
@@ -96,15 +95,15 @@ class MainWindow(Qt.QMainWindow):
         labels = ["Original", "Scaled", "Center", "Align", "Remesh"]
         for idx in range(num_of_operations):
             plt.subplot(0, idx)
-            if labels[idx] == "Scaled":
+            if labels[idx] == "Center":
                 print("Cube")
-                plt.add_mesh(pv.Cube())
+                plt.add_mesh(pv.Cube().extract_all_edges())
             plt.add_mesh(elements[idx])
             plt.reset_camera()
             plt.view_isometric()
             plt.add_text(labels[idx] +
                          "\nVertices: " + str(len(elements[idx].points)) +
-                         "\nFaces: " + str(len(elements[idx].faces)))
+                         "\nFaces: " + str(elements[idx].n_faces))
             plt.show_grid()
 
 
