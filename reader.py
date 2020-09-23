@@ -111,8 +111,8 @@ class DataSet:
         return cell_areas_fast
 
 
-
-    def _get_cells(self, mesh):
+    @staticmethod
+    def _get_cells(mesh):
         """Returns a list of the cells from this mesh.
         This properly unpacks the VTK cells array.
         There are many ways to do this, but this is
