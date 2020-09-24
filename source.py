@@ -72,12 +72,12 @@ class MainWindow(Qt.QMainWindow):
     def open_file_name_dialog(self):
         fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
                                                   "All Files (*);;Model Files (.obj, .off, .ply, .stl)")
-        ds = reader.DataSet("")
+        self.ds = reader.DataSet("")
         if fileName:
             if str(fileName).split(".")[1] != "off":
-                mesh = ds._load_ply(fileName)
+                mesh = self.ds._load_ply(fileName)
             elif str(fileName).split(".")[1] == "off":
-                mesh = ds._load_off(fileName)
+                mesh = self.ds._load_off(fileName)
             else:
                 raise Exception("File type not yet supported.")
             pdmesh = pv.PolyData(mesh["vertices"], mesh["faces"])
@@ -98,7 +98,7 @@ class MainWindow(Qt.QMainWindow):
             if labels[idx] == "Center":
                 print("Cube")
                 plt.add_mesh(pv.Cube().extract_all_edges())
-            plt.add_mesh(elements[idx])
+            plt.add_mesh(elements[idx], color='w', show_edges=True)
             plt.reset_camera()
             plt.view_isometric()
             plt.add_text(labels[idx] +

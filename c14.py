@@ -7,18 +7,19 @@ from reader import DataSet
 import io
 import pyacvd
 import numpy as np
-import pygalmesh
-from pyntcloud import PyntCloud
+# import pygalmesh
+# from pyntcloud import PyntCloud
 import pandas as pd
 import numpy as np
-import trimesh
+# import trimesh
 
 # %%
 # mesh = examples.download_cow().triangulate()
-# mesh = pv.read("apple.off")
-mesh = examples.download_bunny().triangulate()
+mesh = pv.read("m0.off")
+# mesh = examples.download_bunny().triangulate()
+
 mesh = pv.PolyData(mesh.points, mesh.cells)
-polygons = [list(p) for p in DataSet._get_cells(mesh)]
+# polygons = [list(p) for p in DataSet._get_cells(mesh)]
 mesh.plot(color="w", show_edges=True)
 # %%
 n_faces = mesh.n_faces

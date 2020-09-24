@@ -16,7 +16,7 @@ class DataSet:
     data_descriptors = []
     full_data = []
     stats_path = None
-    schemes = ["**/*.aff", "**/*.ply"]
+    schemes = ["**/*.off", "**/*.ply"]
     has_descriptors = None
     has_stats = False
     has_loaded_data = False
@@ -88,7 +88,7 @@ class DataSet:
         statistics["faces"] = poly_data_object.n_faces
         statistics["vertices"] = poly_data_object.n_points
         statistics.update(dict(zip(["bound_" + b for b in "xmin xmax ymin ymax zmin zmax".split()], poly_data_object.bounds)))
-        cell_ids = self._get_cells(poly_data_object)
+        cell_ids = self._get_cells(mesh["poly_data"])
         cell_point_counts = [len(cell) for cell in cell_ids]
         cell_counter = Counter(cell_point_counts)
         statistics.update({f"cell_type_{k}": v for k, v in cell_counter.items()})
@@ -117,15 +117,17 @@ class DataSet:
         This properly unpacks the VTK cells array.
         There are many ways to do this, but this is
         safe when dealing with mixed cell types."""
-        offset = 0
-        cells = []
-        for i in range(mesh.n_cells):
-            loc = i + offset
-            nc = mesh.faces[loc]
-            offset += nc
-            cell = mesh.faces[loc + 1:loc + nc + 1]
-            cells.append(cell)
-        return cells
+
+        return mesh.faces.reshape(-1, 4)[:, 1:4]
+        # offset = 0
+        # cells = []
+        # for i in range(mesh.n_cells):
+        #     loc = i + offset
+        #     nc = mesh.faces[loc]
+        #     offset += nc
+        #     cell = mesh.faces[loc + 1:loc + nc + 1]
+        #     cells.append(cell)
+        # return cells
 
     def _load_ply(self, file):
         ply_data = PlyData.read(file)
