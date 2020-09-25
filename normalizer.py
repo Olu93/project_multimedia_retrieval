@@ -79,8 +79,8 @@ class Normalizer:
         for processed_mesh, data in zip(self.history[-1], self.full_data):
             # if (index % 100 == 0) and (index != 0):
             #     c_idx += 1
-            print(f"Writing {data['meta_data']['name']}.ply to data\\{data['meta_data']['label']}\\")
-            processed_mesh.save(f"data\\{data['meta_data']['label']}\\m{data['meta_data']['name']}.ply")
+            print(f"Writing {data['meta_data']['name']}.ply to processed_data\\{data['meta_data']['label']}\\")
+            processed_mesh.save(f"processed_data\\{data['meta_data']['label']}\\m{data['meta_data']['name']}.ply")
             # print(f"Writing m{index}.ply to data")
             # mesh.save(f"data\\m{index}.ply")
 
