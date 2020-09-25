@@ -199,6 +199,7 @@ class PSBDataset(DataSet):
 
 
 if __name__ == "__main__":
+    # dataset = PSBDataset(search_path="D:\\Documents\\Programming\\Python\\project_multimedia_retrieval\\data", stats_path="stats")
     dataset = PSBDataset()
     dataset.read()
     # dataset.show_class_histogram()
