@@ -25,10 +25,11 @@ class Normalizer:
     def uniform_remeshing(self):
         tmp_mesh = []
         print("Remeshing")
-        for mesh in self.history[-1]:
+        for mesh, data in zip(self.history[-1], self.full_data):
+            print(f"Processing: {data['meta_data']['name']}")
             data = mesh.clean()
             clus = pyacvd.Clustering(data)
-            while len(clus.mesh.points) < 10000:
+            while len(clus.mesh.points) < 30000:
                 clus.subdivide(2)
             clus.cluster(10000)
             remesh = clus.create_mesh()
