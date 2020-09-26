@@ -10,13 +10,18 @@ import matplotlib.pyplot as plt
 from collections import Counter
 from itertools import chain
 import inspect
+from os import path
+
+if path.exists("./helper/config.py"):
+    print("Configuration file exists!")
+    from helper.config import DEBUG
 
 
 class DataSet:
     data_descriptors = []
     full_data = []
     stats_path = None
-    schemes = ["**/*.off", "**/*.ply"]
+    schemes = ["**/*.off", "**/*.ply"] if not DEBUG else ["**/*.ply"]
     has_descriptors = None
     has_stats = False
     has_loaded_data = False
@@ -33,7 +38,10 @@ class DataSet:
 
     def load_files_in_memory(self):
         assert self.has_descriptors, f"Dunno the file locations. Run {self.read.__name__} function first."
-        self.full_data = [{"meta_data": file, "data": self._load_ply(file["path"]) if not file["type"] == ".off" else self._load_off(file["path"])} for file in self.data_descriptors]
+        self.full_data = [{
+            "meta_data": file,
+            "data": self._load_ply(file["path"]) if not file["type"] == ".off" else self._load_off(file["path"])
+        } for file in self.data_descriptors]
         self.has_loaded_data = True
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
@@ -68,7 +76,8 @@ class DataSet:
         self.faces_mean, self.faces_std = all_faces_counts.mean(), all_faces_counts.std()
         self.vertices_mean, self.vertices_std = all_faces_counts.mean(), all_faces_counts.std()
         init_pipe = (mesh_object for mesh_object in self.full_data)
-        faces_pipe = (dict(**mesh_object, faces_outlier=True if np.abs(mesh_object["statistics"]["faces"] - self.faces_mean) > 2 * self.faces_std else False) for mesh_object in init_pipe)
+        faces_pipe = (dict(**mesh_object, faces_outlier=True if np.abs(mesh_object["statistics"]["faces"] - self.faces_mean) > 2 * self.faces_std else False)
+                      for mesh_object in init_pipe)
         vertices_pipe = (dict(**mesh_object, vertices_outlier=True if np.abs(mesh_object["statistics"]["vertices"] - self.vertices_mean) > 2 * self.vertices_std else False)
                          for mesh_object in faces_pipe)
         add_to_stats_pipe = (add_to_stats(mesh_object) for mesh_object in vertices_pipe)
@@ -109,7 +118,6 @@ class DataSet:
                                                          (cell_combinations[:, 0] - cell_combinations[:, 2])), axis=1)) / 2  # https://math.stackexchange.com/a/128999
 
         return cell_areas_fast
-
 
     @staticmethod
     def _get_cells(mesh):
@@ -164,12 +172,11 @@ class DataSet:
     @staticmethod
     def show_barycenter(mesh_item):
         plotter = pv.Plotter()
-        some_sphere = pv.Sphere(radius = 0.001)
+        some_sphere = pv.Sphere(radius=0.001)
         some_sphere.translate(mesh_item["bary_center"])
         plotter.add_mesh(some_sphere)
         plotter.add_mesh(mesh_item["poly_data"])
         plotter.show()
-
 
 
 class PSBDataset(DataSet):
