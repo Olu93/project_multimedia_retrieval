@@ -81,7 +81,7 @@ class Normalizer:
             print(f"Writing {data['meta_data']['name']}.ply to {target_directory}")
             if not path.exists(target_directory):
                 os.mkdir(target_directory)
-            processed_mesh.save(f"{target_directory}\\m{data['meta_data']['name']}.ply")
+            processed_mesh.save(f"{target_directory}\\{data['meta_data']['name']}.ply")
             # print(f"Writing m{index}.ply to data")
             # mesh.save(f"data\\m{index}.ply")
 
