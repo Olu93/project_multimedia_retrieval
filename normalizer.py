@@ -5,17 +5,14 @@ from os import path
 import os
 from reader import PSBDataset
 
-if path.exists("./helper/config.py"):
-    print(f"Configuration file exists!")
-    from helper.config import DATA_PATH
+from helper.config import DEBUG, DATA_PATH, CLASS_FILE
+
 
 
 class Normalizer:
     def __init__(self):
         self.num_avg_verts = 35000
-        # self.reader = PSBDataset(search_path="D:\\Documents\\Programming\\Python\\project_multimedia_retrieval\\test_mesh")
-        self.reader = PSBDataset(search_path=DATA_PATH if DATA_PATH else "D:\\Downloads\\psb_v1\\benchmark\\db")
-        # self.reader = PSBDataset(search_path="C:\\Users\\chris\\OneDrive\\Dokumente\\Utrecht Uni Docs\\5.Period\\MS\\psb_v1\\benchmark\\db")
+        self.reader = PSBDataset(DATA_PATH, class_file_path=CLASS_FILE)
         self.reader.read()
         self.reader.load_files_in_memory()
         self.reader.convert_all_to_polydata()

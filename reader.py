@@ -10,11 +10,8 @@ import matplotlib.pyplot as plt
 from collections import Counter
 from itertools import chain
 import inspect
-from os import path
-
-if path.exists("./helper/config.py"):
-    print("Configuration file exists!")
-    from helper.config import DEBUG
+import io
+from helper.config import DEBUG, DATA_PATH, CLASS_FILE
 
 
 class DataSet:
@@ -27,6 +24,7 @@ class DataSet:
     has_loaded_data = False
     has_poly_data = False
     has_outliers = False
+    class_member_ships = {}
 
     def __init__(self, search_paths, stats_path=None):
         data_folder = [Path(path) for path in search_paths]
@@ -180,14 +178,36 @@ class DataSet:
 
 
 class PSBDataset(DataSet):
-    def __init__(self, search_path=None, stats_path=None):
+    def __init__(self, search_path=None, stats_path=None, class_file_path=None):
 
         self.search_path = "data/psb" if not search_path else search_path
         # assert type(self.search_paths) == , f"Provide a list for the search paths not a {type(self.search_paths)}"
         self.search_paths = [Path(self.search_path) / scheme for scheme in self.schemes]  #if not self.search_paths else self.search_paths
         # assert self.search_paths, "No search paths given"
         self.stats_path = Path("data/psb") if not stats_path else Path(stats_path)
+        self.class_file_path = class_file_path
+        self.class_member_ships = self.load_classes()
         super().__init__(self.search_paths, self.stats_path)
+
+    def load_classes(self):
+        path_to_classes = Path(self.class_file_path)
+        search_pattern = path_to_classes / "*.cla"
+        class_files = list(glob.glob(str(search_pattern), recursive=True))
+        class_file_handlers = [io.open(cfile, mode="r") for cfile in class_files]
+        class_file_content = [cf.read().split("\n") for cf in class_file_handlers]
+        curr_class = None
+        class_memberships = {}
+        for cfile in class_file_content:
+            for line in cfile:
+                line_content = line.split()
+                line_nr_of_items = len(line_content)
+                if line_nr_of_items == 2:
+                    continue
+                if line_nr_of_items == 3:
+                    curr_class = line_content[0]
+                if line_nr_of_items == 1:
+                    class_memberships[f"m{line_content[0]}"] = curr_class
+        return class_memberships
 
     def read(self):
         self.data_descriptors = [self._extract_descr(file_path) for file_path in self.data_file_paths]
@@ -195,19 +215,15 @@ class PSBDataset(DataSet):
 
     def _extract_descr(self, file_path):
         path = Path(file_path)
-        label = path.parents[1].as_posix().split("/")[-1]
-        try:
-            label = int(label)
-        except ValueError:
-            print("Label is not an integer, treating it accordingly.")
         file_name = path.stem
         file_type = path.suffix
+        label = self.class_member_ships[file_name] if file_name in self.class_member_ships.keys() else "no_class"
         return {"label": label, "name": file_name, "type": file_type, "path": path.resolve()}
 
 
 if __name__ == "__main__":
     # dataset = PSBDataset(search_path="D:\\Documents\\Programming\\Python\\project_multimedia_retrieval\\data", stats_path="stats")
-    dataset = PSBDataset()
+    dataset = PSBDataset(DATA_PATH, class_file_path=CLASS_FILE)
     dataset.read()
     # dataset.show_class_histogram()
     dataset.load_files_in_memory()
