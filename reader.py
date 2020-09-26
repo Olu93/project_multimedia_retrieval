@@ -12,6 +12,7 @@ from itertools import chain
 import inspect
 import io
 from helper.config import DEBUG, DATA_PATH, CLASS_FILE
+from tqdm import tqdm
 
 
 class DataSet:
@@ -36,10 +37,13 @@ class DataSet:
 
     def load_files_in_memory(self):
         assert self.has_descriptors, f"Dunno the file locations. Run {self.read.__name__} function first."
-        self.full_data = [{
+        len_of_ds = len(self.data_descriptors)
+        print(f"Loading {len_of_ds} models into memory!")
+        full_data_generator = ({
             "meta_data": file,
             "data": self._load_ply(file["path"]) if not file["type"] == ".off" else self._load_off(file["path"])
-        } for file in self.data_descriptors]
+        } for file in tqdm(self.data_descriptors, total=len_of_ds))
+        self.full_data = list(full_data_generator)
         self.has_loaded_data = True
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
@@ -190,6 +194,8 @@ class PSBDataset(DataSet):
         super().__init__(self.search_paths, self.stats_path)
 
     def load_classes(self):
+        if not self.class_file_path:
+            return {} 
         path_to_classes = Path(self.class_file_path)
         search_pattern = path_to_classes / "*.cla"
         class_files = list(glob.glob(str(search_pattern), recursive=True))
