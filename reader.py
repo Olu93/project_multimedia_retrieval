@@ -43,7 +43,7 @@ class DataSet:
             "meta_data": file,
             "data": self._load_ply(file["path"]) if not file["type"] == ".off" else self._load_off(file["path"])
         } for file in tqdm(self.data_descriptors, total=len_of_ds))
-        self.full_data = list(full_data_generator)
+        self.full_data = [item for item in list(full_data_generator) if item["data"]]
         self.has_loaded_data = True
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
@@ -140,18 +140,26 @@ class DataSet:
         # return cells
 
     def _load_ply(self, file):
-        ply_data = PlyData.read(file)
-        vertices = np.array(ply_data["vertex"].data.tolist())
-        faces = ply_data["face"]["vertex_indices"].tolist()
-        faces_with_number_of_faces = [np.hstack([face.shape[0], face]) for face in faces]
-        flattened_faces = np.hstack(faces_with_number_of_faces).flatten()
-        return {"vertices": vertices, "faces": flattened_faces}
+        try:
+            ply_data = PlyData.read(file)
+            vertices = np.array(ply_data["vertex"].data.tolist())
+            faces = ply_data["face"]["vertex_indices"].tolist()
+            faces_with_number_of_faces = [np.hstack([face.shape[0], face]) for face in faces]
+            flattened_faces = np.hstack(faces_with_number_of_faces).flatten()
+            return {"vertices": vertices, "faces": flattened_faces}
+        except Exception as e:
+            print(f"ERROR: Couldn't load {file}")
+            return None
 
     def _load_off(self, file):
-        off_data = pv.read(file)
-        faces = off_data.cells
-        vertices = np.array(off_data.points)
-        return {"vertices": vertices, "faces": faces}
+        try:
+            off_data = pv.read(file)
+            faces = off_data.cells
+            vertices = np.array(off_data.points)
+            return {"vertices": vertices, "faces": faces}
+        except Exception as e:
+            print(f"ERROR: Couldn't load {file}")
+            return None
 
     def _extract_descr(self, file_path):
         raise NotImplementedError
@@ -182,20 +190,20 @@ class DataSet:
 
 
 class PSBDataset(DataSet):
-    def __init__(self, search_path=None, stats_path=None, class_file_path=None):
+    def __init__(self, search_path=None, stats_path=None, **kwargs):
 
         self.search_path = "data/psb" if not search_path else search_path
         # assert type(self.search_paths) == , f"Provide a list for the search paths not a {type(self.search_paths)}"
         self.search_paths = [Path(self.search_path) / scheme for scheme in self.schemes]  #if not self.search_paths else self.search_paths
         # assert self.search_paths, "No search paths given"
         self.stats_path = Path("data/psb") if not stats_path else Path(stats_path)
-        self.class_file_path = class_file_path
+        self.class_file_path = kwargs["class_file_path"] if "class_file_path" in kwargs else None
         self.class_member_ships = self.load_classes()
         super().__init__(self.search_paths, self.stats_path)
 
     def load_classes(self):
         if not self.class_file_path:
-            return {} 
+            return {}
         path_to_classes = Path(self.class_file_path)
         search_pattern = path_to_classes / "*.cla"
         class_files = list(glob.glob(str(search_pattern), recursive=True))
@@ -224,17 +232,62 @@ class PSBDataset(DataSet):
         file_name = path.stem
         file_type = path.suffix
         label = self.class_member_ships[file_name] if file_name in self.class_member_ships.keys() else "no_class"
-        return {"label": label, "name": file_name, "type": file_type, "path": path.resolve()}
+        return {"label": label, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
+
+
+class ModelNet40Dataset(DataSet):
+    def __init__(self, search_path=None, stats_path=None, class_file_path=None):
+
+        self.search_path = "data/ModelNet40" if not search_path else search_path
+        # assert type(self.search_paths) == , f"Provide a list for the search paths not a {type(self.search_paths)}"
+        self.search_paths = [Path(self.search_path) / scheme for scheme in self.schemes]  #if not self.search_paths else self.search_paths
+        # assert self.search_paths, "No search paths given"
+        self.stats_path = Path("data/ModelNet40") if not stats_path else Path(stats_path)
+        self.class_file_path = class_file_path
+        super().__init__(self.search_paths, self.stats_path)
+
+    # def load_classes(self):
+    #     if not self.class_file_path:
+    #         return {}
+    #     path_to_classes = Path(self.class_file_path)
+    #     search_pattern = path_to_classes / "*.cla"
+    #     class_files = list(glob.glob(str(search_pattern), recursive=True))
+    #     class_file_handlers = [io.open(cfile, mode="r") for cfile in class_files]
+    #     class_file_content = [cf.read().split("\n") for cf in class_file_handlers]
+    #     curr_class = None
+    #     class_memberships = {}
+    #     for cfile in class_file_content:
+    #         for line in cfile:
+    #             line_content = line.split()
+    #             line_nr_of_items = len(line_content)
+    #             if line_nr_of_items == 2:
+    #                 continue
+    #             if line_nr_of_items == 3:
+    #                 curr_class = line_content[0]
+    #             if line_nr_of_items == 1:
+    #                 class_memberships[f"m{line_content[0]}"] = curr_class
+    #     return class_memberships
+
+    def read(self):
+        self.data_descriptors = [self._extract_descr(file_path) for file_path in self.data_file_paths]
+        self.has_descriptors = True
+
+    def _extract_descr(self, file_path):
+        path = Path(file_path)
+        label = path.parents[1].as_posix().split("/")[-1]
+        file_name = path.stem
+        file_type = path.suffix
+        return {"label": label, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
 
 
 if __name__ == "__main__":
     # dataset = PSBDataset(search_path="D:\\Documents\\Programming\\Python\\project_multimedia_retrieval\\data", stats_path="stats")
-    dataset = PSBDataset(DATA_PATH, class_file_path=CLASS_FILE)
+    dataset = PSBDataset()
     dataset.read()
     # dataset.show_class_histogram()
     dataset.load_files_in_memory()
     dataset.convert_all_to_polydata()
     dataset.compute_shape_statistics()
-    dataset.detect_outliers()
-    dataset.save_statistics()
-    pprint(dataset.full_data[0])
+    # dataset.detect_outliers()
+    # dataset.save_statistics()
+    # pprint(dataset.full_data[0])

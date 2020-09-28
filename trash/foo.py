@@ -25,7 +25,7 @@ import numpy as np
 # remesh = clus.create_mesh()
 # remesh.plot(color='w', show_edges=True)
 
-# # %% 
+# # %%
 # dec = remesh.decimate_pro(0.7)
 # dec.plot(color='w', show_edges=True)
 # # %%
@@ -59,7 +59,6 @@ import numpy as np
 # vol[ii * ii + jj * jj + kk * kk < n ** 2] = 1
 # vol[ii * ii + jj * jj + kk * kk < (0.5 * n) ** 2] = 2
 
-
 # %%
 # points = mesh.points
 # faces = mesh.cells[0].data
@@ -85,16 +84,14 @@ vol = np.array(voxelgrid.get_feature_vector(mode="binary"), dtype=np.uint16)
 n_ = 0.01
 shape = (n_, n_, n_)
 h = shape
-mesh = pygalmesh.generate_from_array(
-    vol, [1,1,1], cell_size=h[0], facet_distance=h[0], verbose=False
-)
+mesh = pygalmesh.generate_from_array(vol, [1, 1, 1], cell_size=h[0], facet_distance=h[0], verbose=False)
 mesh
 # %%
 from itertools import chain
 points = mesh.points
 # faces = [mesh.cells[0].data, mesh.cells[1].data]
 faces = list(mesh.cells[0].data) + list(mesh.cells[1].data)
-num_face_vertices = np.array([len(face) for face in faces]).reshape(-1,1)
+num_face_vertices = np.array([len(face) for face in faces]).reshape(-1, 1)
 # pyvista_faces = np.hstack([num_face_vertices, faces]).flatten()
 pyvista_faces = list(list(fn) + list(f) for fn, f in zip(num_face_vertices, faces))
 # pyvista_faces1 = np.hstack([np.ones([faces1.shape[0], 1])*4, faces1]).flatten()

@@ -10,9 +10,10 @@ from helper.config import DEBUG, DATA_PATH, CLASS_FILE
 
 
 class Normalizer:
-    def __init__(self):
+    def __init__(self, reader=None):
+        assert reader, "No reader instance was provided!"
         self.num_avg_verts = 35000
-        self.reader = PSBDataset(DATA_PATH, class_file_path=CLASS_FILE)
+        self.reader = reader
         self.reader.read()
         self.reader.load_files_in_memory()
         self.reader.convert_all_to_polydata()
@@ -87,7 +88,7 @@ class Normalizer:
 
 
 if __name__ == '__main__':
-    norm = Normalizer()
+    norm = Normalizer(PSBDataset(DATA_PATH, class_file_path=CLASS_FILE))
     norm.scale_to_union()
     norm.center()
     norm.align()
