@@ -5,11 +5,8 @@ from os import path
 import os
 from reader import ModelNet40Dataset
 from normalizer import Normalizer
+from helper.config import DEBUG, DATA_PATH_MN40, DATA_PATH_DEBUG, CLASS_FILE
 
-norm = Normalizer(ModelNet40Dataset())
-norm.scale_to_union()
-norm.center()
-norm.align()
-norm.uniform_remeshing()
-norm.save_dataset()
+norm = Normalizer(ModelNet40Dataset(DATA_PATH_MN40))
+norm.run_full_pipeline(10)
 print("Done")

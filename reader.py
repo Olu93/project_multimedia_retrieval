@@ -11,7 +11,7 @@ from collections import Counter
 from itertools import chain
 import inspect
 import io
-from helper.config import DEBUG, DATA_PATH, CLASS_FILE
+from helper.config import DEBUG, DATA_PATH_PSB, CLASS_FILE
 from tqdm import tqdm
 
 
@@ -19,7 +19,7 @@ class DataSet:
     data_descriptors = []
     full_data = []
     stats_path = None
-    schemes = ["**/*.off", "**/*.ply"] if not DEBUG else ["**/*.ply"]
+    schemes = ["**/*.off", "**/*.ply"]
     has_descriptors = None
     has_stats = False
     has_loaded_data = False
@@ -238,11 +238,11 @@ class PSBDataset(DataSet):
 class ModelNet40Dataset(DataSet):
     def __init__(self, search_path=None, stats_path=None, class_file_path=None):
 
-        self.search_path = "data/ModelNet40" if not search_path else search_path
+        self.search_path = "data/mn40" if not search_path else search_path
         # assert type(self.search_paths) == , f"Provide a list for the search paths not a {type(self.search_paths)}"
         self.search_paths = [Path(self.search_path) / scheme for scheme in self.schemes]  #if not self.search_paths else self.search_paths
         # assert self.search_paths, "No search paths given"
-        self.stats_path = Path("data/ModelNet40") if not stats_path else Path(stats_path)
+        self.stats_path = Path("data/mn40") if not stats_path else Path(stats_path)
         self.class_file_path = class_file_path
         super().__init__(self.search_paths, self.stats_path)
 
