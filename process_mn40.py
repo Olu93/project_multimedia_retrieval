@@ -8,5 +8,5 @@ from normalizer import Normalizer
 from helper.config import DEBUG, DATA_PATH_MN40, DATA_PATH_DEBUG, CLASS_FILE
 
 norm = Normalizer(ModelNet40Dataset(DATA_PATH_MN40))
-norm.run_full_pipeline(10)
+norm.run_full_pipeline()
 print("Done")

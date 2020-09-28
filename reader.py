@@ -27,13 +27,25 @@ class DataSet:
     has_outliers = False
     class_member_ships = {}
 
-    def __init__(self, search_paths, stats_path=None):
+    def __init__(self, search_paths=[], stats_path=None):
         data_folder = [Path(path) for path in search_paths]
         self.stats_path = stats_path
         self.data_file_paths = list(chain(*[glob.glob(str(path), recursive=True) for path in data_folder]))
 
-    def read(self):
-        raise NotImplementedError
+    @staticmethod
+    def _read(file_path):
+        path = Path(file_path)
+        file_name = path.stem
+        file_type = path.suffix
+        label = "no_class"
+        meta_data = {"label": label, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
+        data = DataSet._load_mesh(meta_data["path"])
+        poly_data = pv.PolyData(data["vertices"], data["faces"])
+        curr_data = dict(meta_data=meta_data, data=data, poly_data=poly_data)
+        statistics = DataSet._compute_statistics(curr_data)
+        final_data = dict(curr_data, statistics=statistics)
+        return final_data
+
 
     def load_files_in_memory(self):
         assert self.has_descriptors, f"Dunno the file locations. Run {self.read.__name__} function first."
@@ -89,7 +101,6 @@ class DataSet:
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
     def _compute_statistics(self, mesh):
-        mesh_data = mesh["data"]
         poly_data_object = mesh["poly_data"]
         triangulized_poly_data_object = poly_data_object.triangulate()
         mesh["poly_data"] = triangulized_poly_data_object
@@ -99,7 +110,7 @@ class DataSet:
         statistics["faces"] = poly_data_object.n_faces
         statistics["vertices"] = poly_data_object.n_points
         statistics.update(dict(zip(["bound_" + b for b in "xmin xmax ymin ymax zmin zmax".split()], poly_data_object.bounds)))
-        cell_ids = self._get_cells(mesh["poly_data"])
+        cell_ids = DataSet._get_cells(mesh["poly_data"])
         cell_point_counts = [len(cell) for cell in cell_ids]
         cell_counter = Counter(cell_point_counts)
         statistics.update({f"cell_type_{k}": v for k, v in cell_counter.items()})
@@ -129,17 +140,26 @@ class DataSet:
         safe when dealing with mixed cell types."""
 
         return mesh.faces.reshape(-1, 4)[:, 1:4]
-        # offset = 0
-        # cells = []
-        # for i in range(mesh.n_cells):
-        #     loc = i + offset
-        #     nc = mesh.faces[loc]
-        #     offset += nc
-        #     cell = mesh.faces[loc + 1:loc + nc + 1]
-        #     cells.append(cell)
-        # return cells
 
-    def _load_ply(self, file):
+
+    @staticmethod
+    def _load_mesh(file_name):
+        """
+        Loads meshes from different file types and computes basic operations
+        """
+        mesh = None
+        if not file_name:
+            return mesh
+        if str(file_name).split(".")[1] != "off":
+            mesh = DataSet._load_ply(file_name)
+        elif str(file_name).split(".")[1] == "off":
+            mesh = DataSet._load_off(file_name)
+        else:
+            raise Exception("File type not yet supported.")
+        return mesh
+
+    @staticmethod
+    def _load_ply(file):
         try:
             ply_data = PlyData.read(file)
             vertices = np.array(ply_data["vertex"].data.tolist())
@@ -151,7 +171,8 @@ class DataSet:
             print(f"ERROR: Couldn't load {file}")
             return None
 
-    def _load_off(self, file):
+    @staticmethod
+    def _load_off(file):
         try:
             off_data = pv.read(file)
             faces = off_data.cells
