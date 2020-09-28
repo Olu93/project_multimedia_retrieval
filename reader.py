@@ -100,7 +100,8 @@ class DataSet:
         self.all_statistics = pd.DataFrame([mesh_object["statistics"] for mesh_object in self.full_data])
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
-    def _compute_statistics(self, mesh):
+    @staticmethod
+    def _compute_statistics(mesh):
         poly_data_object = mesh["poly_data"]
         triangulized_poly_data_object = poly_data_object.triangulate()
         mesh["poly_data"] = triangulized_poly_data_object
@@ -115,16 +116,17 @@ class DataSet:
         cell_counter = Counter(cell_point_counts)
         statistics.update({f"cell_type_{k}": v for k, v in cell_counter.items()})
 
-        cell_areas = self._get_cell_areas(triangulized_poly_data_object.points, cell_ids, cell_point_counts)
+        cell_areas = DataSet._get_cell_areas(triangulized_poly_data_object.points, cell_ids, cell_point_counts)
         cell_centers = triangulized_poly_data_object.cell_centers().points
-        mesh["bary_center"] = np.array(self._compute_center(cell_centers, cell_areas))
+        mesh["bary_center"] = np.array(DataSet._compute_center(cell_centers, cell_areas))
         statistics.update({f"center_{dim}": val for dim, val in zip("x y z".split(), mesh["bary_center"])})
 
         statistics["cell_area_mean"] = np.mean(cell_areas)
         statistics["cell_area_std"] = np.std(cell_areas)
         return statistics
 
-    def _get_cell_areas(self, mesh_vertices, mesh_cells, mesh_cell_point_counts):
+    @staticmethod
+    def _get_cell_areas(mesh_vertices, mesh_cells, mesh_cell_point_counts):
         cell_combinations = mesh_vertices[mesh_cells, :]
         # cell_areas = [np.abs(np.linalg.norm(np.cross((matrix[0] - matrix[1]), (matrix[0] - matrix[2])))) / 2 for matrix in cell_combinations]
         cell_areas_fast = np.abs(np.linalg.norm(np.cross((cell_combinations[:, 0] - cell_combinations[:, 1]),
@@ -185,7 +187,8 @@ class DataSet:
     def _extract_descr(self, file_path):
         raise NotImplementedError
 
-    def _compute_center(self, face_normals, face_areas):
+    @staticmethod
+    def _compute_center(face_normals, face_areas):
         weighted_normals = face_areas.reshape(-1, 1) * face_normals
         bary_center = np.sum(weighted_normals, axis=0) / np.sum(face_areas)
         # return {f"center_{dim}" for dim, val in zip("x y z".split(), mesh.center)}
