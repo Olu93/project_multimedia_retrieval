@@ -13,16 +13,16 @@ from helper.config import DEBUG, DATA_PATH_PSB, DATA_PATH_DEBUG, CLASS_FILE
 
 class Normalizer:
     def __init__(self, reader=None):
-        assert reader, "No reader instance was provided!"
         self.num_avg_verts = 35000
-        self.reader = reader
-        self.reader.read()
-        self.reader.load_files_in_memory()
-        self.reader.convert_all_to_polydata()
-        self.reader.compute_shape_statistics()
-        self.full_data = self.reader.full_data
-        self.history = []
-        self.history.append([item["poly_data"] for item in self.full_data])
+        if reader:
+            self.reader = reader
+            self.reader.read()
+            self.reader.load_files_in_memory()
+            self.reader.convert_all_to_polydata()
+            self.reader.compute_shape_statistics()
+            self.full_data = self.reader.full_data
+            self.history = []
+            self.history.append([item["poly_data"] for item in self.full_data])
         # print(self.history[-1][0].bounds)
 
     # https://www.grasshopper3d.com/forum/topics/best-uniform-remesher-for-patterning-organic-suraces
@@ -133,17 +133,17 @@ class Normalizer:
         mesh = data["poly_data"]
         target_directory = f"processed_data\\{data['meta_data']['label']}"
         final_directory = f"{target_directory}\\{data['meta_data']['name']}.ply"
-        
+
         print(f"Writing {data['meta_data']['name']}.ply to {target_directory}")
         if not path.exists(target_directory):
             print(f"Creating path {target_directory} for saving {data['meta_data']['name']}")
             os.mkdir(target_directory)
-        
+
         mesh.save(final_directory)
         print(f"{data['meta_data']['name']} was {'succesfully saved' if path.exists(final_directory) else 'NOT saved!'}")
         return mesh
 
-    def mono_run_pipeline(self, data):
+    def mono_run_pipeline(self, data, save=False):
         history = []
         history.append(data["poly_data"])
         new_mesh = self.mono_scaling(data)
@@ -154,25 +154,27 @@ class Normalizer:
         history.append(new_mesh)
         new_mesh = self.mono_uniform_remeshing(dict(data, poly_data=new_mesh))
         history.append(new_mesh)
+        if not save:
+            print(f"Pipeline complete for {data['meta_data']['name']} - Without saving!")
+            return dict(data, poly_data=new_mesh, history=history)
+        
         new_mesh = self.mono_saving(dict(data, poly_data=new_mesh))
         print(f"Pipeline complete for {data['meta_data']['name']}")
         final_mesh = dict(data, poly_data=new_mesh, history=history)
         return final_mesh
-    
-    def run_full_pipeline(self, max_num_items = None):
+
+    def run_full_pipeline(self, max_num_items=None):
         num_full_data = len(self.reader.full_data)
         tmp_condition = max_num_items or max_num_items > num_full_data
         relevant_subset_of_data = self.reader.full_data[:max_num_items] if tmp_condition else self.reader.full_data
         num_data_being_processed = len(relevant_subset_of_data)
-        items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed) 
+        items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed)
         # cores = math.ceil(mp.cpu_count() * .75)
         # with mp.Pool(cores) as pool:
         #     print(f"Process {num_data_being_processed} items with {cores} cores!")
         #     new_full_data = pool.imap_unordered(self.mono_run_pipeline, )
-        self.reader.full_data = list((self.mono_run_pipeline(item) for item in items_generator))
+        self.reader.full_data = list((self.mono_run_pipeline(item, save=True) for item in items_generator))
         print("Done!")
-
-
 
 
 if __name__ == '__main__':
