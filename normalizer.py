@@ -157,7 +157,7 @@ class Normalizer:
         if not save:
             print(f"Pipeline complete for {data['meta_data']['name']} - Without saving!")
             return dict(data, poly_data=new_mesh, history=history)
-        
+
         new_mesh = self.mono_saving(dict(data, poly_data=new_mesh))
         print(f"Pipeline complete for {data['meta_data']['name']}")
         final_mesh = dict(data, poly_data=new_mesh, history=history)
@@ -165,8 +165,7 @@ class Normalizer:
 
     def run_full_pipeline(self, max_num_items=None):
         num_full_data = len(self.reader.full_data)
-        tmp_condition = max_num_items or max_num_items > num_full_data
-        relevant_subset_of_data = self.reader.full_data[:max_num_items] if tmp_condition else self.reader.full_data
+        relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
         num_data_being_processed = len(relevant_subset_of_data)
         items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed)
         # cores = math.ceil(mp.cpu_count() * .75)
