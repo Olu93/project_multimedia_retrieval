@@ -6,7 +6,7 @@ import pyacvd
 from pyvista import PolyData
 from tqdm import tqdm
 
-from helper.config import DEBUG, DATA_PATH_PSB, DATA_PATH_DEBUG, CLASS_FILE
+from helper.config import DEBUG, DATA_PATH_PSB, DATA_PATH_DEBUG, CLASS_FILE, DATA_PATH_NORMED
 from reader import PSBDataset
 
 
@@ -151,7 +151,7 @@ class Normalizer:
     def mono_saving(self, data):
         print(f"Saving: {data['meta_data']['name']}")
         mesh = data["poly_data"]
-        target_directory = Path(f"processed_data/{data['meta_data']['label']}")
+        target_directory = Path(f"{DATA_PATH_NORMED}/{data['meta_data']['label']}")
         final_directory = target_directory / f"{data['meta_data']['name']}.ply"
 
         print(f"Writing {data['meta_data']['name']}.ply to {target_directory}")        
