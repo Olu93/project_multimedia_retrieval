@@ -10,38 +10,52 @@ import matplotlib.pyplot as plt
 from collections import Counter
 from itertools import chain
 import inspect
-from os import path
-
-if path.exists("./helper/config.py"):
-    print("Configuration file exists!")
-    from helper.config import DEBUG
+import io
+from helper.config import DEBUG, DATA_PATH_PSB, CLASS_FILE
+from tqdm import tqdm
 
 
 class DataSet:
     data_descriptors = []
     full_data = []
     stats_path = None
-    schemes = ["**/*.off", "**/*.ply"] if not DEBUG else ["**/*.ply"]
+    schemes = ["**/*.off", "**/*.ply"]
     has_descriptors = None
     has_stats = False
     has_loaded_data = False
     has_poly_data = False
     has_outliers = False
+    class_member_ships = {}
 
-    def __init__(self, search_paths, stats_path=None):
+    def __init__(self, search_paths=[], stats_path=None):
         data_folder = [Path(path) for path in search_paths]
         self.stats_path = stats_path
         self.data_file_paths = list(chain(*[glob.glob(str(path), recursive=True) for path in data_folder]))
 
-    def read(self):
-        raise NotImplementedError
+    @staticmethod
+    def _read(file_path):
+        path = Path(file_path)
+        file_name = path.stem
+        file_type = path.suffix
+        label = "no_class"
+        meta_data = {"label": label, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
+        data = DataSet._load_mesh(meta_data["path"])
+        poly_data = pv.PolyData(data["vertices"], data["faces"])
+        curr_data = dict(meta_data=meta_data, data=data, poly_data=poly_data)
+        statistics = DataSet._compute_statistics(curr_data)
+        final_data = dict(curr_data, statistics=statistics)
+        return final_data
+
 
     def load_files_in_memory(self):
         assert self.has_descriptors, f"Dunno the file locations. Run {self.read.__name__} function first."
-        self.full_data = [{
+        len_of_ds = len(self.data_descriptors)
+        print(f"Loading {len_of_ds} models into memory!")
+        full_data_generator = ({
             "meta_data": file,
             "data": self._load_ply(file["path"]) if not file["type"] == ".off" else self._load_off(file["path"])
-        } for file in self.data_descriptors]
+        } for file in tqdm(self.data_descriptors, total=len_of_ds))
+        self.full_data = [item for item in list(full_data_generator) if item["data"]]
         self.has_loaded_data = True
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
@@ -86,8 +100,8 @@ class DataSet:
         self.all_statistics = pd.DataFrame([mesh_object["statistics"] for mesh_object in self.full_data])
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
-    def _compute_statistics(self, mesh):
-        mesh_data = mesh["data"]
+    @staticmethod
+    def _compute_statistics(mesh):
         poly_data_object = mesh["poly_data"]
         triangulized_poly_data_object = poly_data_object.triangulate()
         mesh["poly_data"] = triangulized_poly_data_object
@@ -97,21 +111,22 @@ class DataSet:
         statistics["faces"] = poly_data_object.n_faces
         statistics["vertices"] = poly_data_object.n_points
         statistics.update(dict(zip(["bound_" + b for b in "xmin xmax ymin ymax zmin zmax".split()], poly_data_object.bounds)))
-        cell_ids = self._get_cells(mesh["poly_data"])
+        cell_ids = DataSet._get_cells(mesh["poly_data"])
         cell_point_counts = [len(cell) for cell in cell_ids]
         cell_counter = Counter(cell_point_counts)
         statistics.update({f"cell_type_{k}": v for k, v in cell_counter.items()})
 
-        cell_areas = self._get_cell_areas(triangulized_poly_data_object.points, cell_ids, cell_point_counts)
+        cell_areas = DataSet._get_cell_areas(triangulized_poly_data_object.points, cell_ids, cell_point_counts)
         cell_centers = triangulized_poly_data_object.cell_centers().points
-        mesh["bary_center"] = np.array(self._compute_center(cell_centers, cell_areas))
+        mesh["bary_center"] = np.array(DataSet._compute_center(cell_centers, cell_areas))
         statistics.update({f"center_{dim}": val for dim, val in zip("x y z".split(), mesh["bary_center"])})
 
         statistics["cell_area_mean"] = np.mean(cell_areas)
         statistics["cell_area_std"] = np.std(cell_areas)
         return statistics
 
-    def _get_cell_areas(self, mesh_vertices, mesh_cells, mesh_cell_point_counts):
+    @staticmethod
+    def _get_cell_areas(mesh_vertices, mesh_cells, mesh_cell_point_counts):
         cell_combinations = mesh_vertices[mesh_cells, :]
         # cell_areas = [np.abs(np.linalg.norm(np.cross((matrix[0] - matrix[1]), (matrix[0] - matrix[2])))) / 2 for matrix in cell_combinations]
         cell_areas_fast = np.abs(np.linalg.norm(np.cross((cell_combinations[:, 0] - cell_combinations[:, 1]),
@@ -127,34 +142,53 @@ class DataSet:
         safe when dealing with mixed cell types."""
 
         return mesh.faces.reshape(-1, 4)[:, 1:4]
-        # offset = 0
-        # cells = []
-        # for i in range(mesh.n_cells):
-        #     loc = i + offset
-        #     nc = mesh.faces[loc]
-        #     offset += nc
-        #     cell = mesh.faces[loc + 1:loc + nc + 1]
-        #     cells.append(cell)
-        # return cells
 
-    def _load_ply(self, file):
-        ply_data = PlyData.read(file)
-        vertices = np.array(ply_data["vertex"].data.tolist())
-        faces = ply_data["face"]["vertex_indices"].tolist()
-        faces_with_number_of_faces = [np.hstack([face.shape[0], face]) for face in faces]
-        flattened_faces = np.hstack(faces_with_number_of_faces).flatten()
-        return {"vertices": vertices, "faces": flattened_faces}
 
-    def _load_off(self, file):
-        off_data = pv.read(file)
-        faces = off_data.cells
-        vertices = np.array(off_data.points)
-        return {"vertices": vertices, "faces": faces}
+    @staticmethod
+    def _load_mesh(file_name):
+        """
+        Loads meshes from different file types and computes basic operations
+        """
+        mesh = None
+        if not file_name:
+            return mesh
+        if str(file_name).split(".")[1] != "off":
+            mesh = DataSet._load_ply(file_name)
+        elif str(file_name).split(".")[1] == "off":
+            mesh = DataSet._load_off(file_name)
+        else:
+            raise Exception("File type not yet supported.")
+        return mesh
+
+    @staticmethod
+    def _load_ply(file):
+        try:
+            ply_data = PlyData.read(file)
+            vertices = np.array(ply_data["vertex"].data.tolist())
+            faces = ply_data["face"]["vertex_indices"].tolist()
+            faces_with_number_of_faces = [np.hstack([face.shape[0], face]) for face in faces]
+            flattened_faces = np.hstack(faces_with_number_of_faces).flatten()
+            return {"vertices": vertices, "faces": flattened_faces}
+        except Exception as e:
+            print(f"ERROR: Couldn't load {file}")
+            return None
+
+    @staticmethod
+    def _load_off(file):
+        try:
+            off_data = pv.read(file)
+            faces = off_data.cells
+            vertices = np.array(off_data.points)
+            return {"vertices": vertices, "faces": faces}
+        except Exception as e:
+            print(f"ERROR: Couldn't load {file}")
+            return None
 
     def _extract_descr(self, file_path):
         raise NotImplementedError
 
-    def _compute_center(self, face_normals, face_areas):
+    @staticmethod
+    def _compute_center(face_normals, face_areas):
         weighted_normals = face_areas.reshape(-1, 1) * face_normals
         bary_center = np.sum(weighted_normals, axis=0) / np.sum(face_areas)
         # return {f"center_{dim}" for dim, val in zip("x y z".split(), mesh.center)}
@@ -180,14 +214,83 @@ class DataSet:
 
 
 class PSBDataset(DataSet):
-    def __init__(self, search_path=None, stats_path=None):
+    def __init__(self, search_path=None, stats_path=None, **kwargs):
 
         self.search_path = "data/psb" if not search_path else search_path
         # assert type(self.search_paths) == , f"Provide a list for the search paths not a {type(self.search_paths)}"
         self.search_paths = [Path(self.search_path) / scheme for scheme in self.schemes]  #if not self.search_paths else self.search_paths
         # assert self.search_paths, "No search paths given"
         self.stats_path = Path("data/psb") if not stats_path else Path(stats_path)
+        self.class_file_path = kwargs["class_file_path"] if "class_file_path" in kwargs else None
+        self.class_member_ships = self.load_classes()
         super().__init__(self.search_paths, self.stats_path)
+
+    def load_classes(self):
+        if not self.class_file_path:
+            return {}
+        path_to_classes = Path(self.class_file_path)
+        search_pattern = path_to_classes / "*.cla"
+        class_files = list(glob.glob(str(search_pattern), recursive=True))
+        class_file_handlers = [io.open(cfile, mode="r") for cfile in class_files]
+        class_file_content = [cf.read().split("\n") for cf in class_file_handlers]
+        curr_class = None
+        class_memberships = {}
+        for cfile in class_file_content:
+            for line in cfile:
+                line_content = line.split()
+                line_nr_of_items = len(line_content)
+                if line_nr_of_items == 2:
+                    continue
+                if line_nr_of_items == 3:
+                    curr_class = line_content[0]
+                if line_nr_of_items == 1:
+                    class_memberships[f"m{line_content[0]}"] = curr_class
+        return class_memberships
+
+    def read(self):
+        self.data_descriptors = [self._extract_descr(file_path) for file_path in self.data_file_paths]
+        self.has_descriptors = True
+
+    def _extract_descr(self, file_path):
+        path = Path(file_path)
+        file_name = path.stem
+        file_type = path.suffix
+        label = self.class_member_ships[file_name] if file_name in self.class_member_ships.keys() else "no_class"
+        return {"label": label, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
+
+
+class ModelNet40Dataset(DataSet):
+    def __init__(self, search_path=None, stats_path=None, class_file_path=None):
+
+        self.search_path = "data/mn40" if not search_path else search_path
+        # assert type(self.search_paths) == , f"Provide a list for the search paths not a {type(self.search_paths)}"
+        self.search_paths = [Path(self.search_path) / scheme for scheme in self.schemes]  #if not self.search_paths else self.search_paths
+        # assert self.search_paths, "No search paths given"
+        self.stats_path = Path("data/mn40") if not stats_path else Path(stats_path)
+        self.class_file_path = class_file_path
+        super().__init__(self.search_paths, self.stats_path)
+
+    # def load_classes(self):
+    #     if not self.class_file_path:
+    #         return {}
+    #     path_to_classes = Path(self.class_file_path)
+    #     search_pattern = path_to_classes / "*.cla"
+    #     class_files = list(glob.glob(str(search_pattern), recursive=True))
+    #     class_file_handlers = [io.open(cfile, mode="r") for cfile in class_files]
+    #     class_file_content = [cf.read().split("\n") for cf in class_file_handlers]
+    #     curr_class = None
+    #     class_memberships = {}
+    #     for cfile in class_file_content:
+    #         for line in cfile:
+    #             line_content = line.split()
+    #             line_nr_of_items = len(line_content)
+    #             if line_nr_of_items == 2:
+    #                 continue
+    #             if line_nr_of_items == 3:
+    #                 curr_class = line_content[0]
+    #             if line_nr_of_items == 1:
+    #                 class_memberships[f"m{line_content[0]}"] = curr_class
+    #     return class_memberships
 
     def read(self):
         self.data_descriptors = [self._extract_descr(file_path) for file_path in self.data_file_paths]
@@ -196,13 +299,9 @@ class PSBDataset(DataSet):
     def _extract_descr(self, file_path):
         path = Path(file_path)
         label = path.parents[1].as_posix().split("/")[-1]
-        try:
-            label = int(label)
-        except ValueError:
-            print("Label is not an integer, treating it accordingly.")
         file_name = path.stem
         file_type = path.suffix
-        return {"label": label, "name": file_name, "type": file_type, "path": path.resolve()}
+        return {"label": label, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
 
 
 if __name__ == "__main__":
@@ -213,6 +312,6 @@ if __name__ == "__main__":
     dataset.load_files_in_memory()
     dataset.convert_all_to_polydata()
     dataset.compute_shape_statistics()
-    dataset.detect_outliers()
-    dataset.save_statistics()
-    pprint(dataset.full_data[0])
+    # dataset.detect_outliers()
+    # dataset.save_statistics()
+    # pprint(dataset.full_data[0])
