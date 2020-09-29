@@ -6,8 +6,8 @@ from PyQt5.QtWidgets import QPushButton, QFileDialog
 from pyvistaqt import BackgroundPlotter
 
 import reader
-from reader import DataSet
 from normalizer import Normalizer
+from reader import DataSet
 
 
 class MainWindow(Qt.QMainWindow):
@@ -70,7 +70,8 @@ class MainWindow(Qt.QMainWindow):
         self.plotter.reset_camera()
 
     def open_file_name_dialog(self):
-        fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "", "All Files (*);;Model Files (.obj, .off, .ply, .stl)")
+        fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
+                                                  "All Files (*);;Model Files (.obj, .off, .ply, .stl)")
         self.ds = reader.DataSet("")
         if fileName:
             mesh = DataSet._read(fileName)
@@ -80,19 +81,20 @@ class MainWindow(Qt.QMainWindow):
         new_data = self.normalizer.mono_run_pipeline(mesh)
         history = new_data["history"]
         num_of_operations = len(history)
-        plt = BackgroundPlotter(shape=(1, num_of_operations))
+        plt = BackgroundPlotter(shape=(2, num_of_operations // 2))
         elements = history
         plt.show_axes_all()
-        labels = ["Original", "Scaled", "Center", "Align", "Remesh"]
         for idx in range(num_of_operations):
-            plt.subplot(0, idx)
-            if labels[idx] == "Center":
-                print("Cube")
+            # plt.subplot(0 if idx // 3 == 0 else 1, idx % 3)
+            plt.subplot(int(idx / 3), idx % 3)
+            if elements[idx]["op"] == "Center":
                 plt.add_mesh(pv.Cube().extract_all_edges())
-            plt.add_mesh(elements[idx], color='w', show_edges=True)
+            plt.add_mesh(elements[idx]["data"], color='w', show_edges=True)
             plt.reset_camera()
             plt.view_isometric()
-            plt.add_text(labels[idx] + "\nVertices: " + str(len(elements[idx].points)) + "\nFaces: " + str(elements[idx].n_faces))
+            plt.add_text(
+                elements[idx]["op"] + "\nVertices: " + str(len(elements[idx]["data"].points)) + "\nFaces: " + str(
+                    elements[idx]["data"].n_faces))
             plt.show_grid()
 
 

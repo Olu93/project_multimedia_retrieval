@@ -1,17 +1,15 @@
-from pathlib import Path
-import pandas as pd
-import numpy as np
 import glob
-from pprint import pprint
-from plyfile import PlyData
-import pyvista as pv
-import os
-import matplotlib.pyplot as plt
-from collections import Counter
-from itertools import chain
 import inspect
 import io
-from helper.config import DEBUG, DATA_PATH_PSB, CLASS_FILE
+from collections import Counter
+from itertools import chain
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pyvista as pv
+from plyfile import PlyData
 from tqdm import tqdm
 
 
@@ -46,7 +44,6 @@ class DataSet:
         final_data = dict(curr_data, statistics=statistics)
         return final_data
 
-
     def load_files_in_memory(self):
         assert self.has_descriptors, f"Dunno the file locations. Run {self.read.__name__} function first."
         len_of_ds = len(self.data_descriptors)
@@ -61,7 +58,8 @@ class DataSet:
 
     def compute_shape_statistics(self):
         assert self.has_poly_data, f"No pyvista objects available. Run {self.convert_all_to_polydata.__name__} first"
-        self.full_data = [dict(object_descriptor, statistics=self._compute_statistics(object_descriptor)) for object_descriptor in self.full_data]
+        self.full_data = [dict(object_descriptor, statistics=self._compute_statistics(object_descriptor)) for
+                          object_descriptor in self.full_data]
         self.all_statistics = pd.DataFrame([mesh_object["statistics"] for mesh_object in self.full_data])
         self.has_stats = True
         print(f"Finished {inspect.currentframe().f_code.co_name}")
@@ -74,7 +72,9 @@ class DataSet:
 
     def convert_all_to_polydata(self):
         assert self.has_loaded_data, f"No data was loaded. Run {self.load_files_in_memory.__name__} first!"
-        self.full_data = [dict(**mesh_data, poly_data=pv.PolyData(mesh_data["data"]["vertices"], mesh_data["data"]["faces"])) for mesh_data in self.full_data]
+        self.full_data = [
+            dict(**mesh_data, poly_data=pv.PolyData(mesh_data["data"]["vertices"], mesh_data["data"]["faces"])) for
+            mesh_data in self.full_data]
         self.has_poly_data = True
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
@@ -90,9 +90,11 @@ class DataSet:
         self.faces_mean, self.faces_std = all_faces_counts.mean(), all_faces_counts.std()
         self.vertices_mean, self.vertices_std = all_faces_counts.mean(), all_faces_counts.std()
         init_pipe = (mesh_object for mesh_object in self.full_data)
-        faces_pipe = (dict(**mesh_object, faces_outlier=True if np.abs(mesh_object["statistics"]["faces"] - self.faces_mean) > 2 * self.faces_std else False)
+        faces_pipe = (dict(**mesh_object, faces_outlier=True if np.abs(
+            mesh_object["statistics"]["faces"] - self.faces_mean) > 2 * self.faces_std else False)
                       for mesh_object in init_pipe)
-        vertices_pipe = (dict(**mesh_object, vertices_outlier=True if np.abs(mesh_object["statistics"]["vertices"] - self.vertices_mean) > 2 * self.vertices_std else False)
+        vertices_pipe = (dict(**mesh_object, vertices_outlier=True if np.abs(
+            mesh_object["statistics"]["vertices"] - self.vertices_mean) > 2 * self.vertices_std else False)
                          for mesh_object in faces_pipe)
         add_to_stats_pipe = (add_to_stats(mesh_object) for mesh_object in vertices_pipe)
 
@@ -110,7 +112,8 @@ class DataSet:
         statistics["label"] = mesh["meta_data"]["label"]
         statistics["faces"] = poly_data_object.n_faces
         statistics["vertices"] = poly_data_object.n_points
-        statistics.update(dict(zip(["bound_" + b for b in "xmin xmax ymin ymax zmin zmax".split()], poly_data_object.bounds)))
+        statistics.update(
+            dict(zip(["bound_" + b for b in "xmin xmax ymin ymax zmin zmax".split()], poly_data_object.bounds)))
         cell_ids = DataSet._get_cells(mesh["poly_data"])
         cell_point_counts = [len(cell) for cell in cell_ids]
         cell_counter = Counter(cell_point_counts)
@@ -130,7 +133,8 @@ class DataSet:
         cell_combinations = mesh_vertices[mesh_cells, :]
         # cell_areas = [np.abs(np.linalg.norm(np.cross((matrix[0] - matrix[1]), (matrix[0] - matrix[2])))) / 2 for matrix in cell_combinations]
         cell_areas_fast = np.abs(np.linalg.norm(np.cross((cell_combinations[:, 0] - cell_combinations[:, 1]),
-                                                         (cell_combinations[:, 0] - cell_combinations[:, 2])), axis=1)) / 2  # https://math.stackexchange.com/a/128999
+                                                         (cell_combinations[:, 0] - cell_combinations[:, 2])),
+                                                axis=1)) / 2  # https://math.stackexchange.com/a/128999
 
         return cell_areas_fast
 
@@ -142,7 +146,6 @@ class DataSet:
         safe when dealing with mixed cell types."""
 
         return mesh.faces.reshape(-1, 4)[:, 1:4]
-
 
     @staticmethod
     def _load_mesh(file_name):
@@ -218,7 +221,8 @@ class PSBDataset(DataSet):
 
         self.search_path = "data/psb" if not search_path else search_path
         # assert type(self.search_paths) == , f"Provide a list for the search paths not a {type(self.search_paths)}"
-        self.search_paths = [Path(self.search_path) / scheme for scheme in self.schemes]  #if not self.search_paths else self.search_paths
+        self.search_paths = [Path(self.search_path) / scheme for scheme in
+                             self.schemes]  # if not self.search_paths else self.search_paths
         # assert self.search_paths, "No search paths given"
         self.stats_path = Path("data/psb") if not stats_path else Path(stats_path)
         self.class_file_path = kwargs["class_file_path"] if "class_file_path" in kwargs else None
@@ -261,10 +265,10 @@ class PSBDataset(DataSet):
 
 class ModelNet40Dataset(DataSet):
     def __init__(self, search_path=None, stats_path=None, class_file_path=None):
-
         self.search_path = "data/mn40" if not search_path else search_path
         # assert type(self.search_paths) == , f"Provide a list for the search paths not a {type(self.search_paths)}"
-        self.search_paths = [Path(self.search_path) / scheme for scheme in self.schemes]  #if not self.search_paths else self.search_paths
+        self.search_paths = [Path(self.search_path) / scheme for scheme in
+                             self.schemes]  # if not self.search_paths else self.search_paths
         # assert self.search_paths, "No search paths given"
         self.stats_path = Path("data/mn40") if not stats_path else Path(stats_path)
         self.class_file_path = class_file_path
