@@ -1,14 +1,13 @@
+import os
+from os import path
+
 import numpy as np
 import pyacvd
 from pyvista import PolyData
-from os import path
-import os
-from reader import PSBDataset
 from tqdm import tqdm
-import multiprocessing as mp
-import math
 
 from helper.config import DEBUG, DATA_PATH_PSB, DATA_PATH_DEBUG, CLASS_FILE
+from reader import PSBDataset
 
 
 class Normalizer:
@@ -109,7 +108,7 @@ class Normalizer:
         self.history.append(tmp_mesh)
 
     def mono_scaling(self, data):
-        print(f"Aligning: {data['meta_data']['name']}")
+        print(f"Scaling: {data['meta_data']['name']}")
         mesh = data["poly_data"]
         max_range = np.max(mesh.points, axis=0)
         min_range = np.min(mesh.points, axis=0)
@@ -117,6 +116,24 @@ class Normalizer:
         longest_range = np.max(lengths_range)
         scaled_points = (mesh.points - min_range) / longest_range
         remesh = PolyData(scaled_points, mesh.faces.copy())
+        return remesh
+
+    def flipping(self):
+        tmp_mesh = []
+        for mesh in self.history[-1]:
+            face_centers = mesh.cell_centers().points
+            overall_signs = np.sum(np.sign(face_centers) * np.square(face_centers), axis=0)
+
+            final_sign = np.sign(overall_signs) * face_centers
+        self.history.append(tmp_mesh)
+
+    def mono_flipping(self, data):
+        print(f"Flipping: {data['meta_data']['name']}")
+        mesh = data["poly_data"]
+        face_centers = mesh.cell_centers().points
+        overall_signs = np.sum(np.sign(face_centers) * np.square(face_centers), axis=0)
+        flipped_points = np.sign(overall_signs) * mesh.points
+        remesh = PolyData(flipped_points, mesh.faces.copy())
         return remesh
 
     def save_dataset(self):
@@ -143,24 +160,26 @@ class Normalizer:
             os.mkdir(target_directory)
 
         mesh.save(final_directory)
-        print(f"{data['meta_data']['name']} was {'succesfully saved' if path.exists(final_directory) else 'NOT saved!'}")
+        print(
+            f"{data['meta_data']['name']} was {'succesfully saved' if path.exists(final_directory) else 'NOT saved!'}")
         return mesh
 
     def mono_run_pipeline(self, data, save=False):
-        history = []
-        history.append(data["poly_data"])
+        history = [{"op": "(a) Original", "data": data["poly_data"]}]
         new_mesh = self.mono_scaling(data)
-        history.append(new_mesh)
+        history.append({"op": "(b) Scale", "data": new_mesh})
         new_mesh = self.mono_centering(dict(data, poly_data=new_mesh))
-        history.append(new_mesh)
+        history.append({"op": "(c) Center", "data": new_mesh})
         new_mesh = self.mono_alignment(dict(data, poly_data=new_mesh))
-        history.append(new_mesh)
+        history.append({"op": "(d) Align", "data": new_mesh})
+        new_mesh = self.mono_flipping(dict(data, poly_data=new_mesh))
+        history.append({"op": "(e) Flip", "data": new_mesh})
         new_mesh = self.mono_uniform_remeshing(dict(data, poly_data=new_mesh))
-        history.append(new_mesh)
+        history.append({"op": "(f) Remesh", "data": new_mesh})
+
         if not save:
             print(f"Pipeline complete for {data['meta_data']['name']} - Without saving!")
             return dict(data, poly_data=new_mesh, history=history)
-
         new_mesh = self.mono_saving(dict(data, poly_data=new_mesh))
         print(f"Pipeline complete for {data['meta_data']['name']}")
         final_mesh = dict(data, poly_data=new_mesh, history=history)
@@ -168,7 +187,8 @@ class Normalizer:
 
     def run_full_pipeline(self, max_num_items=None):
         num_full_data = len(self.reader.full_data)
-        relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
+        relevant_subset_of_data = self.reader.full_data[
+                                  :min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
         num_data_being_processed = len(relevant_subset_of_data)
         items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed)
         # cores = math.ceil(mp.cpu_count() * .75)
@@ -182,9 +202,4 @@ class Normalizer:
 if __name__ == '__main__':
     norm = Normalizer(PSBDataset(DATA_PATH_DEBUG if DEBUG else DATA_PATH_PSB, class_file_path=CLASS_FILE))
     norm.run_full_pipeline(10)
-    # norm.scale_to_union()
-    # norm.center()
-    # norm.align()
-    # norm.uniform_remeshing()
-    # norm.save_dataset()
     print("Done")
