@@ -27,6 +27,7 @@ class DataSet:
 
     def __init__(self, search_paths=[], stats_path=None):
         data_folder = [Path(path) for path in search_paths]
+        self.all_statistics = None
         self.stats_path = stats_path
         self.data_file_paths = list(chain(*[glob.glob(str(path), recursive=True) for path in data_folder]))
 
@@ -66,7 +67,8 @@ class DataSet:
 
     def save_statistics(self, stats_path=None):
         path_for_statistics = stats_path if stats_path else self.stats_path
-        assert path_for_statistics, f"No path for statistics given. Either set it for specific class or provide it as param!"
+        assert path_for_statistics, f"No path for statistics given. " \
+                                    f"Either set it for specific class or provide it as param!"
         self.all_statistics.to_csv(str(path_for_statistics) + "/statistics.csv", index=False)
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
@@ -107,11 +109,8 @@ class DataSet:
         poly_data_object = mesh["poly_data"]
         triangulized_poly_data_object = poly_data_object.triangulate()
         mesh["poly_data"] = triangulized_poly_data_object
-        statistics = {}
-        statistics["id"] = mesh["meta_data"]["name"]
-        statistics["label"] = mesh["meta_data"]["label"]
-        statistics["faces"] = poly_data_object.n_faces
-        statistics["vertices"] = poly_data_object.n_points
+        statistics = {"id": mesh["meta_data"]["name"], "label": mesh["meta_data"]["label"],
+                      "faces": poly_data_object.n_faces, "vertices": poly_data_object.n_points}
         statistics.update(
             dict(zip(["bound_" + b for b in "xmin xmax ymin ymax zmin zmax".split()], poly_data_object.bounds)))
         cell_ids = DataSet._get_cells(mesh["poly_data"])
@@ -119,7 +118,7 @@ class DataSet:
         cell_counter = Counter(cell_point_counts)
         statistics.update({f"cell_type_{k}": v for k, v in cell_counter.items()})
 
-        cell_areas = DataSet._get_cell_areas(triangulized_poly_data_object.points, cell_ids, cell_point_counts)
+        cell_areas = DataSet._get_cell_areas(triangulized_poly_data_object.points, cell_ids)
         cell_centers = triangulized_poly_data_object.cell_centers().points
         mesh["bary_center"] = np.array(DataSet._compute_center(cell_centers, cell_areas))
         statistics.update({f"center_{dim}": val for dim, val in zip("x y z".split(), mesh["bary_center"])})
@@ -129,9 +128,8 @@ class DataSet:
         return statistics
 
     @staticmethod
-    def _get_cell_areas(mesh_vertices, mesh_cells, mesh_cell_point_counts):
+    def _get_cell_areas(mesh_vertices, mesh_cells):
         cell_combinations = mesh_vertices[mesh_cells, :]
-        # cell_areas = [np.abs(np.linalg.norm(np.cross((matrix[0] - matrix[1]), (matrix[0] - matrix[2])))) / 2 for matrix in cell_combinations]
         cell_areas_fast = np.abs(np.linalg.norm(np.cross((cell_combinations[:, 0] - cell_combinations[:, 1]),
                                                          (cell_combinations[:, 0] - cell_combinations[:, 2])),
                                                 axis=1)) / 2  # https://math.stackexchange.com/a/128999
@@ -194,15 +192,12 @@ class DataSet:
     def _compute_center(face_normals, face_areas):
         weighted_normals = face_areas.reshape(-1, 1) * face_normals
         bary_center = np.sum(weighted_normals, axis=0) / np.sum(face_areas)
-        # return {f"center_{dim}" for dim, val in zip("x y z".split(), mesh.center)}
-        # return {f"center_{dim}": val for dim, val in zip("x y z".split(), bary_center)}
         return bary_center
 
     def show_class_histogram(self):
         pd_data = pd.DataFrame(self.data_descriptors)
         counts_list = list(Counter(pd_data["label"].astype(str).values).items())
         counts = pd.DataFrame([{"label": label, "counts": int(count)} for label, count in counts_list])
-        # counts = np.array()
         plt.bar(counts["label"], counts["counts"])
         plt.show()
 
@@ -218,12 +213,9 @@ class DataSet:
 
 class PSBDataset(DataSet):
     def __init__(self, search_path=None, stats_path=None, **kwargs):
-
         self.search_path = "data/psb" if not search_path else search_path
-        # assert type(self.search_paths) == , f"Provide a list for the search paths not a {type(self.search_paths)}"
         self.search_paths = [Path(self.search_path) / scheme for scheme in
-                             self.schemes]  # if not self.search_paths else self.search_paths
-        # assert self.search_paths, "No search paths given"
+                             self.schemes]
         self.stats_path = Path("data/psb") if not stats_path else Path(stats_path)
         self.class_file_path = kwargs["class_file_path"] if "class_file_path" in kwargs else None
         self.class_member_ships = self.load_classes()
@@ -266,10 +258,8 @@ class PSBDataset(DataSet):
 class ModelNet40Dataset(DataSet):
     def __init__(self, search_path=None, stats_path=None, class_file_path=None):
         self.search_path = "data/mn40" if not search_path else search_path
-        # assert type(self.search_paths) == , f"Provide a list for the search paths not a {type(self.search_paths)}"
         self.search_paths = [Path(self.search_path) / scheme for scheme in
-                             self.schemes]  # if not self.search_paths else self.search_paths
-        # assert self.search_paths, "No search paths given"
+                             self.schemes]
         self.stats_path = Path("data/mn40") if not stats_path else Path(stats_path)
         self.class_file_path = class_file_path
         super().__init__(self.search_paths, self.stats_path)
@@ -309,7 +299,6 @@ class ModelNet40Dataset(DataSet):
 
 
 if __name__ == "__main__":
-    # dataset = PSBDataset(search_path="D:\\Documents\\Programming\\Python\\project_multimedia_retrieval\\data", stats_path="stats")
     dataset = PSBDataset()
     dataset.read()
     # dataset.show_class_histogram()

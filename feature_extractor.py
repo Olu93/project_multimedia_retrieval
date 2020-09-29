@@ -1,7 +1,20 @@
+import numpy as np
 from tqdm import tqdm
 
 from helper.config import DATA_PATH_NORMED
 from reader import PSBDataset
+
+
+# TODO: [x] surface area
+# TODO: [x] compactness (with respect to a sphere)
+# TODO: [x] axis-aligned bounding-box volume
+# TODO: [] diameter
+# TODO: [x] eccentricity
+# TODO: [] A3: angle between 3 random vertices
+# TODO: [] D1: distance between barycenter and random vertex
+# TODO: [] D2: distance between 2 random vertices
+# TODO: [] D3: square root of area of triangle given by 3 random vertices
+# TODO: [] D4: cube root of volume of tetrahedron formed by 4 random vertices
 
 
 class FeatureExtractor:
@@ -23,3 +36,20 @@ class FeatureExtractor:
         num_data_being_processed = len(relevant_subset_of_data)
         items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed)
         self.reader.full_data = list((self.mono_run_pipeline(item) for item in items_generator))
+
+    def aabb_volume(self, data):
+        mesh = data["poly_data"]
+        length_x, length_y, length_z = np.abs(np.diff(np.reshape(mesh.bounds, (3, 2))))
+        return {"aabb_volume": (length_x * length_y * length_z)}
+
+    def surface_area(self, data):
+        mesh = data["poly_data"]
+        cell_ids = self.reader._get_cells(mesh)
+        cell_areas = self.reader._get_cell_areas(mesh.points, cell_ids)
+        return {"surface_area": sum(cell_areas)}
+
+    def eccentricity(self, data):
+        mesh = data["poly_data"]
+        A_cov = np.cov(mesh.points.T)
+        eigenvalues, _ = np.linalg.eig(A_cov)
+        return {"eccentricity": np.max(eigenvalues) / np.min(eigenvalues)}
