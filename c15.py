@@ -1,5 +1,4 @@
 # %%
-import pygmsh
 import pyvista as pv
 from pyvista import examples
 import meshio
