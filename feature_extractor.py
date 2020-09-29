@@ -14,7 +14,8 @@ class FeatureExtractor:
         self.full_data = self.reader.full_data
 
     def mono_run_pipeline(self, data):
-        pass
+        result = self.diameter(data)
+        print(result)
 
     def run_full_pipeline(self, max_num_items=None):
         num_full_data = len(self.reader.full_data)
@@ -23,3 +24,11 @@ class FeatureExtractor:
         num_data_being_processed = len(relevant_subset_of_data)
         items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed)
         self.reader.full_data = list((self.mono_run_pipeline(item) for item in items_generator))
+
+    def diameter(self, data):
+
+        return dict(diameter=None)
+
+if __name__ == "__main__":
+    FE = FeatureExtractor()
+    FE.run_full_pipeline(10)
