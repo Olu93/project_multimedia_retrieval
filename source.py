@@ -6,11 +6,11 @@ from PyQt5.QtWidgets import QPushButton, QFileDialog
 from pyvistaqt import BackgroundPlotter
 
 import reader
+from reader import DataSet
 from normalizer import Normalizer
 
 
 class MainWindow(Qt.QMainWindow):
-
     def __init__(self, parent=None, show=True):
         Qt.QMainWindow.__init__(self, parent)
 
@@ -45,10 +45,10 @@ class MainWindow(Qt.QMainWindow):
         meshMenu.addAction(self.add_mesh_action)
 
         load_button = QPushButton("Load File")
-        load_button.clicked.connect(lambda: self.add_mesh(self.open_file_name_dialog()))
+        load_button.clicked.connect(lambda: self.add_mesh(self.open_file_name_dialog()["poly_data"]))
 
         remesh_button = QPushButton("Show data processing")
-        remesh_button.clicked.connect(lambda: self.show_processing())
+        remesh_button.clicked.connect(lambda: self.show_processing(self.open_file_name_dialog()))
 
         vlayout.addWidget(load_button)
         vlayout.addWidget(remesh_button)
@@ -70,27 +70,18 @@ class MainWindow(Qt.QMainWindow):
         self.plotter.reset_camera()
 
     def open_file_name_dialog(self):
-        fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
-                                                  "All Files (*);;Model Files (.obj, .off, .ply, .stl)")
+        fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "", "All Files (*);;Model Files (.obj, .off, .ply, .stl)")
         self.ds = reader.DataSet("")
         if fileName:
-            if str(fileName).split(".")[1] != "off":
-                mesh = self.ds._load_ply(fileName)
-            elif str(fileName).split(".")[1] == "off":
-                mesh = self.ds._load_off(fileName)
-            else:
-                raise Exception("File type not yet supported.")
-            pdmesh = pv.PolyData(mesh["vertices"], mesh["faces"])
-            return pdmesh
+            mesh = DataSet._read(fileName)
+            return mesh
 
-    def show_processing(self):
-        self.normalizer.scale_to_union()
-        self.normalizer.center()
-        self.normalizer.align()
-        self.normalizer.uniform_remeshing()
-        num_of_operations = len(self.normalizer.history)
+    def show_processing(self, mesh):
+        new_data = self.normalizer.mono_run_pipeline(mesh)
+        history = new_data["history"]
+        num_of_operations = len(history)
         plt = BackgroundPlotter(shape=(1, num_of_operations))
-        elements = [operation[0] for operation in self.normalizer.history]
+        elements = history
         plt.show_axes_all()
         labels = ["Original", "Scaled", "Center", "Align", "Remesh"]
         for idx in range(num_of_operations):
@@ -101,9 +92,7 @@ class MainWindow(Qt.QMainWindow):
             plt.add_mesh(elements[idx], color='w', show_edges=True)
             plt.reset_camera()
             plt.view_isometric()
-            plt.add_text(labels[idx] +
-                         "\nVertices: " + str(len(elements[idx].points)) +
-                         "\nFaces: " + str(elements[idx].n_faces))
+            plt.add_text(labels[idx] + "\nVertices: " + str(len(elements[idx].points)) + "\nFaces: " + str(elements[idx].n_faces))
             plt.show_grid()
 
 
