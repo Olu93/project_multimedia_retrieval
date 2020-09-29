@@ -43,8 +43,11 @@ class Normalizer:
         print(f"Remeshing: {data['meta_data']['name']}")
         data = data["poly_data"].clean()
         clus = pyacvd.Clustering(data)
-        while len(clus.mesh.points) < 30000:
-            clus.subdivide(2)
+        try:
+            while len(clus.mesh.points) < 30000:
+                clus.subdivide(2)
+        except MemoryError as e:
+            print(f"Ups that a little too much memory! {e}")
         clus.cluster(10000)
         remesh = clus.create_mesh()
         return remesh
