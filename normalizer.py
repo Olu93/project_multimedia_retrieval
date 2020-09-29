@@ -201,5 +201,5 @@ class Normalizer:
 
 if __name__ == '__main__':
     norm = Normalizer(PSBDataset(DATA_PATH_DEBUG if DEBUG else DATA_PATH_PSB, class_file_path=CLASS_FILE))
-    norm.run_full_pipeline(10)
+    norm.run_full_pipeline()
     print("Done")

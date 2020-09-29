@@ -2,6 +2,8 @@ from tqdm import tqdm
 
 from helper.config import DATA_PATH_NORMED
 from reader import PSBDataset
+import pyvista as pv
+import numpy as np
 
 
 class FeatureExtractor:
@@ -13,6 +15,18 @@ class FeatureExtractor:
         self.reader.compute_shape_statistics()
         self.full_data = self.reader.full_data
 
+    def compactness(self, data):
+        mesh = data["poly_data"]
+        volume = mesh.volume
+        cell_ids = self.reader._get_cells(mesh)
+        cell_areas = self.reader._get_cell_areas(mesh.points, cell_ids, "")
+        surface_area = sum(cell_areas)
+        pi = np.pi
+        compactness = np.power(surface_area, 3)/(36*pi*np.square(volume))
+        return {"compactness": compactness}
+
+
+
     def mono_run_pipeline(self, data):
         pass
 
@@ -23,3 +37,8 @@ class FeatureExtractor:
         num_data_being_processed = len(relevant_subset_of_data)
         items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed)
         self.reader.full_data = list((self.mono_run_pipeline(item) for item in items_generator))
+
+if __name__ == '__main__':
+    FExtractor = FeatureExtractor()
+    FExtractor.compactness(pv.Cube().triangulate())
+    print("Done")
