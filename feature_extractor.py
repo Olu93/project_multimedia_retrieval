@@ -10,9 +10,9 @@ from reader import PSBDataset
 # TODO: [x] axis-aligned bounding-box volume
 # TODO: [] diameter
 # TODO: [x] eccentricity
-# TODO: [] A3: angle between 3 random vertices
-# TODO: [] D1: distance between barycenter and random vertex
-# TODO: [] D2: distance between 2 random vertices
+# TODO: [x] A3: angle between 3 random vertices
+# TODO: [x] D1: distance between barycenter and random vertex
+# TODO: [x] D2: distance between 2 random vertices
 # TODO: [] D3: square root of area of triangle given by 3 random vertices
 # TODO: [] D4: cube root of volume of tetrahedron formed by 4 random vertices
 
@@ -53,3 +53,41 @@ class FeatureExtractor:
         A_cov = np.cov(mesh.points.T)
         eigenvalues, _ = np.linalg.eig(A_cov)
         return {"eccentricity": np.max(eigenvalues) / np.min(eigenvalues)}
+
+    def angle_three_rand_verts(self, dataset):
+        # This question quite fitted the case (https://bit.ly/3in7MjH)
+        data_out = dict()
+        for mesh in dataset:
+            random_indices = np.random.randint(0, len(dataset) - 1, (3,))
+            name = mesh["meta_data"]["name"]
+            p_1, p_2, p_3 = mesh["poly_data"].points[random_indices]
+            p2_1 = p_1 - p_2
+            p2_3 = p_3 - p_2
+            cosine_angle = np.dot(p2_1, p2_3) / (np.linalg.norm(p2_1) * np.linalg.norm(p2_3))
+            angle_radians = np.arccos(cosine_angle)
+            angle_degrees = np.degrees(angle_radians)
+            data_out.update({name: {"rand_angle_three_verts": angle_degrees}})
+        return data_out
+
+    def dist_two_rand_verts(self, dataset):
+        # NOT TESTED
+        data_out = dict()
+        for mesh in dataset:
+            random_indices = np.random.randint(0, len(dataset) - 1, (2,))
+            name = mesh["meta_data"]["name"]
+            two_rand_points = mesh["poly_data"].points[random_indices]
+            distance = np.abs(np.diff(two_rand_points, axis=0))
+            data_out.update({name: {"rand_dist_two_verts": distance}})
+        return data_out
+
+    def dist_bar_vert(self, dataset):
+        # NOT TESTED
+        data_out = dict()
+        for mesh in dataset:
+            name = mesh["meta_data"]["name"]
+            bary_center = mesh["poly_data"]["bary_center"]
+            rnd_idx = np.random.randint(0, len(mesh["poly_data"].points))
+            rnd_vert = mesh["poly_data"].points[rnd_idx]
+            distance = np.abs(np.diff(np.reshape(np.concatenate((bary_center, rnd_vert)), (2, 3)), axis=0))
+            data_out.update({name: {"dist_bar_vert": distance}})
+        return data_out
