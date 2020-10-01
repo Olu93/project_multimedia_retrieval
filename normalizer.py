@@ -1,12 +1,12 @@
 import os
 from os import path
-
+from pathlib import Path
 import numpy as np
 import pyacvd
 from pyvista import PolyData
 from tqdm import tqdm
 
-from helper.config import DEBUG, DATA_PATH_PSB, DATA_PATH_DEBUG, CLASS_FILE
+from helper.config import DEBUG, DATA_PATH_PSB, DATA_PATH_DEBUG, CLASS_FILE, DATA_PATH_NORMED
 from reader import PSBDataset
 
 
@@ -147,13 +147,13 @@ class Normalizer:
     def mono_saving(self, data):
         print(f"Saving: {data['meta_data']['name']}")
         mesh = data["poly_data"]
-        target_directory = f"processed_data\\{data['meta_data']['label']}"
-        final_directory = f"{target_directory}\\{data['meta_data']['name']}.ply"
+        target_directory = Path(f"{DATA_PATH_NORMED}/{data['meta_data']['label']}")
+        final_directory = target_directory / f"{data['meta_data']['name']}.ply"
 
-        print(f"Writing {data['meta_data']['name']}.ply to {target_directory}")
+        print(f"Writing {data['meta_data']['name']}.ply to {target_directory}")        
         if not path.exists(target_directory):
             print(f"Creating path {target_directory} for saving {data['meta_data']['name']}")
-            os.mkdir(target_directory)
+            os.makedirs(target_directory)
 
         mesh.save(final_directory)
         print(
@@ -193,5 +193,5 @@ class Normalizer:
 
 if __name__ == '__main__':
     norm = Normalizer(PSBDataset(DATA_PATH_DEBUG if DEBUG else DATA_PATH_PSB, class_file_path=CLASS_FILE))
-    norm.run_full_pipeline()
+    norm.run_full_pipeline(10 if DEBUG else None)
     print("Done")

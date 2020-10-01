@@ -3,6 +3,7 @@ processed_data*/**
 !data/.gitkeep
 !processed_data/.gitkeep
 config.py
+settings.json
 
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,pycharm+all,python,jupyternotebooks
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,pycharm+all,python,jupyternotebooks
