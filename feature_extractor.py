@@ -40,7 +40,11 @@ class FeatureExtractor:
         self.reader.full_data = list((self.mono_run_pipeline(item) for item in items_generator))
 
     def diameter(self, data):
+        mesh = data["poly_data"]
+        all_vertices = np.array(mesh.points)
+        return {"diameter": compute_distance(all_vertices)}
 
+    def diameter2(self, data):
         mesh = data["poly_data"]
         all_vertices = np.array(mesh.points)
         vertices1, vertices2 = list(zip(*product(all_vertices, all_vertices)))
