@@ -9,20 +9,21 @@ import reader
 from normalizer import Normalizer
 from reader import DataSet
 
+# TODO: [] Fix bug, when "cancel" pressed on file choosing window
+
 
 class MainWindow(Qt.QMainWindow):
     def __init__(self, parent=None, show=True):
         Qt.QMainWindow.__init__(self, parent)
-
         self.meshes = []
-        self.plotter = BackgroundPlotter(shape=(2, 2), border_color='white')
-
+        self.plotter = BackgroundPlotter(shape=(2, 2), border_color='white', title="MMR Visualization")
+        self.setWindowTitle('MMR UI')
         self.frame = Qt.QFrame()
         vlayout = Qt.QVBoxLayout()
         self.normalizer = Normalizer()
         self.frame.setLayout(vlayout)
         self.setCentralWidget(self.frame)
-
+        self.frame.setWindowTitle(self.title)
         mainMenu = self.menuBar()
         fileMenu = mainMenu.addMenu('File')
         exitButton = Qt.QAction('Exit', self)
@@ -64,8 +65,8 @@ class MainWindow(Qt.QMainWindow):
         self.plotter.reset_camera()
 
     def open_file_name_dialog(self):
-        fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
-                                                  "All Files (*);;Model Files (.obj, .off, .ply, .stl)")
+        fileName, _ = QFileDialog.getOpenFileName(self, "Choose shape to view.", "",
+                                                  "All Files (*);; Model Files (.obj, .off, .ply, .stl)")
         self.ds = reader.DataSet("")
         if fileName:
             mesh = DataSet._read(fileName)
