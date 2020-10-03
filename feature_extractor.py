@@ -1,13 +1,12 @@
 from collections import Counter
+from itertools import product
 
 import numpy as np
 from tqdm import tqdm
-from itertools import product
+
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET
-from helper.mp_functions import compute_distance
 from reader import PSBDataset
-import multiprocessing as mp
-import math
+
 
 # TODO: [x] surface area
 # TODO: [x] compactness (with respect to a sphere)
@@ -36,10 +35,21 @@ class FeatureExtractor:
 
     def run_full_pipeline(self, max_num_items=None):
         num_full_data = len(self.reader.full_data)
-        relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
+        relevant_subset_of_data = self.reader.full_data[
+                                  :min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
         num_data_being_processed = len(relevant_subset_of_data)
         items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed)
         self.reader.full_data = list((self.mono_run_pipeline(item) for item in items_generator))
+
+    def compactness(self, data):
+        mesh = data["poly_data"]
+        volume = mesh.volume
+        cell_ids = self.reader._get_cells(mesh)
+        cell_areas = self.reader._get_cell_areas(mesh.points, cell_ids, "")
+        surface_area = sum(cell_areas)
+        pi = np.pi
+        compactness = np.power(surface_area, 3) / (36 * pi * np.square(volume))
+        return {"compactness": compactness}
 
     def diameter(self, data):
 
@@ -84,8 +94,12 @@ class FeatureExtractor:
     def angle_three_rand_verts(self, dataset):
         # This question quite fitted the case (https://bit.ly/3in7MjH)
         data_out = dict()
-        for mesh in dataset:
-            random_indices = np.random.randint(0, len(dataset) - 1, (3,))
+        mesh = data["poly_data"]
+        name = data["meta_data"]["name"]
+        indices_triplets = np.random.randint(0, len(mesh.points) - 1, (100, 3))
+        vertices_triplets = [mesh.points[triplet] for idx, triplet in indices_triplets]
+        for _ in range(1, 100):
+            random_indices = np.random.randint(0, len(mesh.points) - 1, (3,))  # Sampling
             name = mesh["meta_data"]["name"]
             p_1, p_2, p_3 = mesh["poly_data"].points[random_indices]
             p2_1 = p_1 - p_2
