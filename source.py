@@ -9,25 +9,21 @@ import reader
 from normalizer import Normalizer
 from reader import DataSet
 
+# TODO: [] Fix bug, when "cancel" pressed on file choosing window
+
 
 class MainWindow(Qt.QMainWindow):
     def __init__(self, parent=None, show=True):
         Qt.QMainWindow.__init__(self, parent)
-
         self.meshes = []
-        self.plotter = BackgroundPlotter(shape=(2, 2), border_color='white')
-
-        # create the frame
+        self.plotter = BackgroundPlotter(shape=(2, 2), border_color='white', title="MMR Visualization")
+        self.setWindowTitle('MMR UI')
         self.frame = Qt.QFrame()
         vlayout = Qt.QVBoxLayout()
-        # add the pyvista interactor object
-        # self.plotter = QtInteractor(self.frame)
-        # vlayout.addWidget(self.plotter.interactor)
         self.normalizer = Normalizer()
         self.frame.setLayout(vlayout)
         self.setCentralWidget(self.frame)
-
-        # simple menu to demo functions
+        self.frame.setWindowTitle(self.title)
         mainMenu = self.menuBar()
         fileMenu = mainMenu.addMenu('File')
         exitButton = Qt.QAction('Exit', self)
@@ -35,7 +31,6 @@ class MainWindow(Qt.QMainWindow):
         exitButton.triggered.connect(self.close)
         fileMenu.addAction(exitButton)
 
-        # allow adding a sphere
         meshMenu = mainMenu.addMenu('Mesh')
         self.add_sphere_action = Qt.QAction('Add Sphere', self)
         self.add_sphere_action.triggered.connect(self.add_sphere)
@@ -70,8 +65,8 @@ class MainWindow(Qt.QMainWindow):
         self.plotter.reset_camera()
 
     def open_file_name_dialog(self):
-        fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
-                                                  "All Files (*);;Model Files (.obj, .off, .ply, .stl)")
+        fileName, _ = QFileDialog.getOpenFileName(self, "Choose shape to view.", "",
+                                                  "All Files (*);; Model Files (.obj, .off, .ply, .stl)")
         self.ds = reader.DataSet("")
         if fileName:
             mesh = DataSet._read(fileName)
@@ -85,7 +80,6 @@ class MainWindow(Qt.QMainWindow):
         elements = history
         plt.show_axes_all()
         for idx in range(num_of_operations):
-            # plt.subplot(0 if idx // 3 == 0 else 1, idx % 3)
             plt.subplot(int(idx / 3), idx % 3)
             if elements[idx]["op"] == "Center":
                 plt.add_mesh(pv.Cube().extract_all_edges())
@@ -93,8 +87,9 @@ class MainWindow(Qt.QMainWindow):
             plt.reset_camera()
             plt.view_isometric()
             plt.add_text(
-                elements[idx]["op"] + "\nVertices: " + str(len(elements[idx]["data"].points)) + "\nFaces: " + str(
-                    elements[idx]["data"].n_faces))
+                elements[idx]["op"] +
+                "\nVertices: " + str(len(elements[idx]["data"].points)) +
+                "\nFaces: " + str(elements[idx]["data"].n_faces))
             plt.show_grid()
 
 
