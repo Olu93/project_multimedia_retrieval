@@ -41,6 +41,16 @@ class FeatureExtractor:
         items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed)
         self.reader.full_data = list((self.mono_run_pipeline(item) for item in items_generator))
 
+    def compactness(self, data):
+        mesh = data["poly_data"]
+        volume = mesh.volume
+        cell_ids = self.reader._get_cells(mesh)
+        cell_areas = self.reader._get_cell_areas(mesh.points, cell_ids, "")
+        surface_area = sum(cell_areas)
+        pi = np.pi
+        compactness = np.power(surface_area, 3) / (36 * pi * np.square(volume))
+        return {"compactness": compactness}
+
     def diameter(self, data):
 
         mesh = data["poly_data"]
