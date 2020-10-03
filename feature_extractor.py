@@ -12,9 +12,9 @@ from reader import PSBDataset
 # TODO: [x] axis-aligned bounding-box volume
 # TODO: [] diameter
 # TODO: [x] eccentricity
-# TODO: [x] A3: angle between 3 random vertices
-# TODO: [x] D1: distance between barycenter and random vertex
-# TODO: [x] D2: distance between 2 random vertices
+# TODO: [] A3: angle between 3 random vertices
+# TODO: [] D1: distance between barycenter and random vertex
+# TODO: [] D2: distance between 2 random vertices
 # TODO: [] D3: square root of area of triangle given by 3 random vertices
 # TODO: [] D4: cube root of volume of tetrahedron formed by 4 random vertices
 
@@ -32,7 +32,9 @@ class FeatureExtractor:
         self.full_data = self.reader.full_data
 
     def mono_run_pipeline(self, data):
-        result = self.diameter(data)
+        # result = self.diameter(data)
+        # x = self.compactness(data)
+        result = self.dist_sqrt_area_rand_triangle(data)
         print(result)
 
     def run_full_pipeline(self, max_num_items=None):
@@ -46,7 +48,7 @@ class FeatureExtractor:
         mesh = data["poly_data"]
         volume = mesh.volume
         cell_ids = self.reader._get_cells(mesh)
-        cell_areas = self.reader._get_cell_areas(mesh.points, cell_ids, "")
+        cell_areas = self.reader._get_cell_areas(mesh.points, cell_ids)
         surface_area = sum(cell_areas)
         pi = np.pi
         compactness = np.power(surface_area, 3) / (36 * pi * np.square(volume))
@@ -146,6 +148,16 @@ class FeatureExtractor:
             distance = np.abs(np.diff(np.vstack((bary_center, vert)), axis=0))
             distances.append(np.linalg.norm(distance))
         data_out.update({name: {"dist_bar_vert": self.make_bins(distances, self.number_bins)}})
+        return data_out
+
+    def dist_sqrt_area_rand_triangle(self, data):
+        data_out = dict()
+        mesh = data["poly_data"]
+        name = data["meta_data"]["name"]
+        verts_list = self.generate_random_ints(0, len(mesh.points) - 1, [100, 3])
+        triangle_areas = self.reader._get_cell_areas(mesh.points, verts_list)
+        sqrt_areas = np.sqrt(triangle_areas)
+        data_out.update({name: {"sqrt_area_rand_three_verts": self.make_bins(sqrt_areas, self.number_bins)}})
         return data_out
 
     @staticmethod
