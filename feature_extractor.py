@@ -7,7 +7,6 @@ from tqdm import tqdm
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET
 from reader import PSBDataset
 
-
 # TODO: [x] surface area
 # TODO: [x] compactness (with respect to a sphere)
 # TODO: [x] axis-aligned bounding-box volume
@@ -35,8 +34,7 @@ class FeatureExtractor:
 
     def run_full_pipeline(self, max_num_items=None):
         num_full_data = len(self.reader.full_data)
-        relevant_subset_of_data = self.reader.full_data[
-                                  :min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
+        relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
         num_data_being_processed = len(relevant_subset_of_data)
         items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed)
         self.reader.full_data = list((self.mono_run_pipeline(item) for item in items_generator))
@@ -81,15 +79,22 @@ class FeatureExtractor:
         return {"eccentricity": np.max(eigenvalues) / np.min(eigenvalues)}
 
     def cube_root_volume_four_rand_verts(self, data):
-        # def treaeder_volume():
+        # https://stackoverflow.com/a/9866530
+        def treaeder_volume(points):
+            a, b, c, d = points
+            return np.abs(np.dot(a - d, np.cross(b - d, c - d))) / 6
 
         mesh = data["poly_data"]
-        random_indices = np.random.randint(0, len(dataset) - 1, (4, 100))
+        random_indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (100, 4))
         quad_points = mesh.points[random_indices, :]
-        
+        # volumes = np.array([treaeder_volume(points) for points in quad_points])
+        A = quad_points[:, 0] - quad_points[:, 3]
+        B = np.cross(quad_points[:, 1] - quad_points[:, 3], quad_points[:, 2] - quad_points[:, 3])
+        f_volumes = np.abs(np.einsum("ij,ij -> i", A, B)) / 6
+        cube_root = f_volumes**(1 / 3)
+        histogram = FeatureExtractor.make_bins(cube_root, 10)
 
-        cell_areas = self.reader._get_cell_areas(mesh.points, cell_ids)
-        return {"surface_area": sum(cell_areas)}    
+        return {"cube_root_volume_four_rand_verts": histogram}
 
     def angle_three_rand_verts(self, dataset):
         # This question quite fitted the case (https://bit.ly/3in7MjH)
@@ -99,7 +104,7 @@ class FeatureExtractor:
         indices_triplets = np.random.randint(0, len(mesh.points) - 1, (100, 3))
         vertices_triplets = [mesh.points[triplet] for idx, triplet in indices_triplets]
         for _ in range(1, 100):
-            random_indices = np.random.randint(0, len(mesh.points) - 1, (3,))  # Sampling
+            random_indices = np.random.randint(0, len(mesh.points) - 1, (3, ))  # Sampling
             name = mesh["meta_data"]["name"]
             p_1, p_2, p_3 = mesh["poly_data"].points[random_indices]
             p2_1 = p_1 - p_2
@@ -114,7 +119,7 @@ class FeatureExtractor:
         # NOT TESTED
         data_out = dict()
         for mesh in dataset:
-            random_indices = np.random.randint(0, len(dataset) - 1, (2,))
+            random_indices = np.random.randint(0, len(dataset) - 1, (2, ))
             name = mesh["meta_data"]["name"]
             two_rand_points = mesh["poly_data"].points[random_indices]
             distance = np.abs(np.diff(two_rand_points, axis=0))
@@ -135,15 +140,14 @@ class FeatureExtractor:
 
     @staticmethod
     def make_bins(data, n_bins):
-        np.reshape((1, -1))
         bins = np.linspace(np.min(data), np.max(data), n_bins)
         indices = np.digitize(data, bins)
         count_dict = Counter(indices)
-        return count_dict
+        return dict(sorted(count_dict.items()))
 
     @staticmethod
     def generate_random_ints(min_val, max_val, shape):
-        return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val,-1).T])
+        return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
 
 
 if __name__ == "__main__":
