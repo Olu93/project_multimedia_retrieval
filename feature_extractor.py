@@ -13,14 +13,17 @@ from reader import PSBDataset
 # TODO: [x] axis-aligned bounding-box volume
 # TODO: [] diameter
 # TODO: [x] eccentricity
-# TODO: [] A3: angle between 3 random vertices
-# TODO: [] D1: distance between barycenter and random vertex
-# TODO: [] D2: distance between 2 random vertices
+# TODO: [x] A3: angle between 3 random vertices
+# TODO: [x] D1: distance between barycenter and random vertex
+# TODO: [x] D2: distance between 2 random vertices
 # TODO: [] D3: square root of area of triangle given by 3 random vertices
 # TODO: [] D4: cube root of volume of tetrahedron formed by 4 random vertices
 
 
 class FeatureExtractor:
+    number_vertices_sampled = 100
+    number_bins = 10
+
     def __init__(self):
         self.reader = PSBDataset(search_path=DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED)
         self.reader.read()
@@ -86,51 +89,57 @@ class FeatureExtractor:
         mesh = data["poly_data"]
         random_indices = np.random.randint(0, len(dataset) - 1, (4, 100))
         quad_points = mesh.points[random_indices, :]
-        
 
         cell_areas = self.reader._get_cell_areas(mesh.points, cell_ids)
-        return {"surface_area": sum(cell_areas)}    
+        return {"surface_area": sum(cell_areas)}
 
-    def angle_three_rand_verts(self, dataset):
+    def angle_three_rand_verts(self, data):
         # This question quite fitted the case (https://bit.ly/3in7MjH)
         data_out = dict()
+        angles_degrees = []
         mesh = data["poly_data"]
         name = data["meta_data"]["name"]
-        indices_triplets = np.random.randint(0, len(mesh.points) - 1, (100, 3))
-        vertices_triplets = [mesh.points[triplet] for idx, triplet in indices_triplets]
-        for _ in range(1, 100):
-            random_indices = np.random.randint(0, len(mesh.points) - 1, (3,))  # Sampling
-            name = mesh["meta_data"]["name"]
-            p_1, p_2, p_3 = mesh["poly_data"].points[random_indices]
+        indices_triplets = self.generate_random_ints(0, len(mesh.points) - 1, (self.number_vertices_sampled, 3))
+        verts_triplets = [mesh.points[triplet] for triplet in indices_triplets]
+
+        for verts_triplet in verts_triplets:
+            p_1, p_2, p_3 = verts_triplet
             p2_1 = p_1 - p_2
             p2_3 = p_3 - p_2
             cosine_angle = np.dot(p2_1, p2_3) / (np.linalg.norm(p2_1) * np.linalg.norm(p2_3))
             angle_radians = np.arccos(cosine_angle)
-            angle_degrees = np.degrees(angle_radians)
-            data_out.update({name: {"rand_angle_three_verts": angle_degrees}})
+            angles_degrees.append(np.degrees(angle_radians))
+
+        data_out.update({name: {"rand_angle_three_verts": self.make_bins(angles_degrees, self.number_bins)}})
         return data_out
 
-    def dist_two_rand_verts(self, dataset):
-        # NOT TESTED
+    def dist_two_rand_verts(self, data):
         data_out = dict()
-        for mesh in dataset:
-            random_indices = np.random.randint(0, len(dataset) - 1, (2,))
-            name = mesh["meta_data"]["name"]
-            two_rand_points = mesh["poly_data"].points[random_indices]
-            distance = np.abs(np.diff(two_rand_points, axis=0))
-            data_out.update({name: {"rand_dist_two_verts": distance}})
+        distances = []
+        mesh = data["poly_data"]
+        name = data["meta_data"]["name"]
+        indices_tuples = self.generate_random_ints(0, len(mesh.points) - 1, (self.number_vertices_sampled, 2))
+        verts_tuples = [mesh.points[tup] for tup in indices_tuples]
+
+        for verts_tuple in verts_tuples:
+            distance = np.abs(np.diff(verts_tuple, axis=0))
+            distances.append(np.linalg.norm(distance))
+
+        data_out.update({name: {"rand_dist_two_verts": self.make_bins(distances, self.number_bins)}})
         return data_out
 
-    def dist_bar_vert(self, dataset):
-        # NOT TESTED
+    def dist_bar_vert(self, data):
         data_out = dict()
-        for mesh in dataset:
-            name = mesh["meta_data"]["name"]
-            bary_center = mesh["poly_data"]["bary_center"]
-            rnd_idx = np.random.randint(0, len(mesh["poly_data"].points))
-            rnd_vert = mesh["poly_data"].points[rnd_idx]
-            distance = np.abs(np.diff(np.reshape(np.concatenate((bary_center, rnd_vert)), (2, 3)), axis=0))
-            data_out.update({name: {"dist_bar_vert": distance}})
+        distances = []
+        mesh = data["poly_data"]
+        bary_center = data["bary_center"]
+        name = data["meta_data"]["name"]
+        indices = self.generate_random_ints(0, len(mesh.points) - 1, (self.number_vertices_sampled, 1))
+        rand_verts = mesh.points[indices]
+        for vert in rand_verts:
+            distance = np.abs(np.diff(np.vstack((bary_center, vert)), axis=0))
+            distances.append(np.linalg.norm(distance))
+        data_out.update({name: {"dist_bar_vert": self.make_bins(distances, self.number_bins)}})
         return data_out
 
     @staticmethod
@@ -143,7 +152,8 @@ class FeatureExtractor:
 
     @staticmethod
     def generate_random_ints(min_val, max_val, shape):
-        return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val,-1).T])
+        return np.array([np.random.choice(line, shape[1], replace=False) for line in
+                         np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
 
 
 if __name__ == "__main__":
