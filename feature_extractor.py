@@ -1,3 +1,5 @@
+from collections import Counter
+
 import numpy as np
 from tqdm import tqdm
 from itertools import product
@@ -12,9 +14,9 @@ import math
 # TODO: [x] axis-aligned bounding-box volume
 # TODO: [] diameter
 # TODO: [x] eccentricity
-# TODO: [x] A3: angle between 3 random vertices
-# TODO: [x] D1: distance between barycenter and random vertex
-# TODO: [x] D2: distance between 2 random vertices
+# TODO: [] A3: angle between 3 random vertices
+# TODO: [] D1: distance between barycenter and random vertex
+# TODO: [] D2: distance between 2 random vertices
 # TODO: [] D3: square root of area of triangle given by 3 random vertices
 # TODO: [] D4: cube root of volume of tetrahedron formed by 4 random vertices
 
@@ -116,6 +118,14 @@ class FeatureExtractor:
             distance = np.abs(np.diff(np.reshape(np.concatenate((bary_center, rnd_vert)), (2, 3)), axis=0))
             data_out.update({name: {"dist_bar_vert": distance}})
         return data_out
+
+    def make_bins(self, data, n_bins):
+        np.reshape((1, -1))
+        bins = np.linspace(np.min(data), np.max(data), n_bins)
+        indices = np.digitize(data, bins)
+        count_dict = Counter(indices)
+        return count_dict
+
 
 if __name__ == "__main__":
     FE = FeatureExtractor()
