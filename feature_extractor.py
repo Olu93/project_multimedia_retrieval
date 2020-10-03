@@ -67,7 +67,17 @@ class FeatureExtractor:
         A_cov = np.cov(mesh.points.T)
         eigenvalues, _ = np.linalg.eig(A_cov)
         return {"eccentricity": np.max(eigenvalues) / np.min(eigenvalues)}
+
+    def cube_root_volume_four_rand_verts(self, data):
+        # def treaeder_volume():
+
+        mesh = data["poly_data"]
+        random_indices = np.random.randint(0, len(dataset) - 1, (4, 100))
+        quad_points = mesh.points[random_indices, :]
         
+
+        cell_areas = self.reader._get_cell_areas(mesh.points, cell_ids)
+        return {"surface_area": sum(cell_areas)}    
 
     def angle_three_rand_verts(self, dataset):
         # This question quite fitted the case (https://bit.ly/3in7MjH)
