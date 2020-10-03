@@ -119,12 +119,17 @@ class FeatureExtractor:
             data_out.update({name: {"dist_bar_vert": distance}})
         return data_out
 
-    def make_bins(self, data, n_bins):
+    @staticmethod
+    def make_bins(data, n_bins):
         np.reshape((1, -1))
         bins = np.linspace(np.min(data), np.max(data), n_bins)
         indices = np.digitize(data, bins)
         count_dict = Counter(indices)
         return count_dict
+
+    @staticmethod
+    def generate_random_ints(min_val, max_val, shape):
+        return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val,-1).T])
 
 
 if __name__ == "__main__":
