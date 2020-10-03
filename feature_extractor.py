@@ -7,16 +7,17 @@ from tqdm import tqdm
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET
 from reader import PSBDataset
 
+
 # TODO: [x] surface area
 # TODO: [x] compactness (with respect to a sphere)
 # TODO: [x] axis-aligned bounding-box volume
-# TODO: [] diameter
+# TODO: [x] diameter
 # TODO: [x] eccentricity
 # TODO: [x] A3: angle between 3 random vertices
 # TODO: [x] D1: distance between barycenter and random vertex
 # TODO: [x] D2: distance between 2 random vertices
-# TODO: [] D3: square root of area of triangle given by 3 random vertices
-# TODO: [] D4: cube root of volume of tetrahedron formed by 4 random vertices
+# TODO: [x] D3: square root of area of triangle given by 3 random vertices
+# TODO: [x] D4: cube root of volume of tetrahedron formed by 4 random vertices
 
 
 class FeatureExtractor:
@@ -152,8 +153,9 @@ class FeatureExtractor:
     def make_bins(data, n_bins):
         bins = np.linspace(np.min(data), np.max(data), n_bins)
         indices = np.digitize(data, bins)
-        count_dict = Counter(indices)
-        return dict(sorted(count_dict.items()))
+        count_dict = dict(sorted(Counter(indices).items()))
+        result = np.array(list(count_dict.values()))
+        return result/result.sum()
 
     @staticmethod
     def generate_random_ints(min_val, max_val, shape):
