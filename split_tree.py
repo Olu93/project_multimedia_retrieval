@@ -5,6 +5,7 @@ from pyvista import examples
 from itertools import product
 import treelib
 import heapq
+import random
 
 # %% Load mesh
 mesh = pv.PolyData(examples.download_cow().triangulate().points[:50])
@@ -21,7 +22,9 @@ class Node(object):
         poly_data = pv.PolyData(points)
         self.bounds = poly_data.bounds
         self.center = np.array(poly_data.center)
-        self.diameter = np.sqrt(np.sum(np.diff(np.array(self.bounds).reshape((-1, 2)), axis=1)))
+        self.bbox_lengths = np.diff(np.array(self.bounds).reshape((-1, 2)), axis=1)
+        self.bbox_diameter = np.sqrt(np.sum(self.bbox_lengths))
+        self.bsphere_radius = self.bbox_lengths.max()/2
         self.node_l = None
         self.node_r = None
 
@@ -109,14 +112,16 @@ class Tree(object):
     def find_pairs(self):
         self.pairs = self._find_pairs(self.root, self.root)
 
-    def find_diam(self, eps=.5):
+    def find_diam(self, eps=.01):
         p_curr = []
-        delta_curr = self.root.diameter
+        delta_curr = self.root.bbox_diameter
         starting_point = (self.root, self.root)
         m_val = Tree.M(*starting_point)
-        heapq.heappush(p_curr, (m_val, starting_point))
+        heapq.heapify(p_curr)
+        heapq.heappush(p_curr, (-m_val, starting_point))
         while p_curr:
             m, (u, v) = heapq.heappop(p_curr)
+            m = -m
             curr_limit = (1 + eps) * delta_curr
             u_num_points = len(u.points)
             v_num_points = len(v.points)
@@ -128,28 +133,28 @@ class Tree(object):
             if v_num_points == 1:
                 p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_r, v)
                 p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_l, v)
-            if u_num_points > 1 & v_num_points > 1:
+            if u_num_points > 1 and v_num_points > 1:
                 p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_l, v.node_l)
                 p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_r, v.node_r)
+                p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_l, v.node_r)
                 if u == v:
-                    p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_l, v.node_r)
-                else:
-                    p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_l, v.node_r)
-                    p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_r, v.node_l)
+                    continue
+                p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_r, v.node_l)
         return delta_curr
 
     @staticmethod
     def add_to_heap(heap, limit, delta_curr, u, v):
         m = Tree.M(u, v)
         pair = (u, v)
+        delta_curr = Tree.update_delta_curr(delta_curr, u, v)
         if m <= limit:
-            heapq.heappush(heap, (-m, pair))
-            delta_curr = Tree.update_delta_curr(delta_curr, u, v)
+            return heap, delta_curr
+        heapq.heappush(heap, (-m, pair))
         return heap, delta_curr
 
     @staticmethod
     def update_delta_curr(delta_curr, u, v):
-        difference = u.points[0] - u.points[1]
+        difference = random.choice(u.points) - random.choice(v.points)
         L2_distance = np.linalg.norm(difference)
         if L2_distance > delta_curr:
             return L2_distance
@@ -157,29 +162,29 @@ class Tree(object):
 
     @staticmethod
     def M(u, v):
-        return np.linalg.norm(u.center - v.center) + u.diameter + v.diameter
+        return np.linalg.norm(u.center - v.center) + u.bsphere_radius + v.bsphere_radius
 
     @staticmethod
     def _find_diam(u, v, eps=.5):
         if u == v and u.diameter == 0:
             return None
-        if u.diameter < v.diameter:
+        if u.bbox_diameter < v.bbox_diameter:
             tmp = u
             u = v
             v = tmp
-        if u.diameter <= eps * Tree._distance(u, v):
+        if u.bbox_diameter <= eps * Tree._distance(u, v):
             return (u, v)
         return (Tree._find_pairs(u.node_l, v), Tree._find_pairs(u.node_r, v))
 
     @staticmethod
     def _find_pairs(u, v, eps=.5):
-        if u == v and u.diameter == 0:
+        if u == v and u.bbox_diameter == 0:
             return None
-        if u.diameter < v.diameter:
+        if u.bbox_diameter < v.bbox_diameter:
             tmp = u
             u = v
             v = tmp
-        if u.diameter <= eps * Tree._distance(u, v):
+        if u.bbox_diameter <= eps * Tree._distance(u, v):
             return (u, v)
         return (Tree._find_pairs(u.node_l, v), Tree._find_pairs(u.node_r, v))
 
