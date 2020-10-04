@@ -118,12 +118,13 @@ class Pair(object):
 
 class AprxDiameter(object):
     def __init__(self, root_node):
-        self.root = root_node.split_fair()
+        self.root = root_node
         self.exact_diameter = None
         self.exact_time = None
 
     def compute_approx_diameter(self, eps=.01):
         start_time = time.time()
+        self.root = self.root.split_fair()
         p_curr = []
         starting_pair = Pair(self.root, self.root)
         u_root_repr, v_root_repr = starting_pair.get_pair_reprensetantives()
@@ -216,7 +217,7 @@ class AprxDiameter(object):
 data = examples.download_bunny().triangulate().decimate(.7)
 mesh = pv.PolyData(data.points[:1000])
 root = Node(mesh.points, parent=None)
-diameter_computer = AprxDiameter(root.split_fair())
+diameter_computer = AprxDiameter(root)
 print(diameter_computer.compute_approx_diameter())
 print(diameter_computer.compute_exact_diameter())
 diameter_computer.show()
