@@ -8,7 +8,7 @@ import heapq
 import random
 
 # %% Load mesh
-mesh = pv.PolyData(examples.download_cow().triangulate().points[:50])
+mesh = pv.PolyData(examples.download_cow().triangulate().points[:500])
 
 # %%
 
@@ -24,7 +24,7 @@ class Node(object):
         self.center = np.array(poly_data.center)
         self.bbox_lengths = np.diff(np.array(self.bounds).reshape((-1, 2)), axis=1)
         self.bbox_diameter = np.sqrt(np.sum(self.bbox_lengths))
-        self.bsphere_radius = self.bbox_lengths.max()/2
+        self.bsphere_radius = self.bbox_lengths.max() / 2
         self.node_l = None
         self.node_r = None
 
@@ -101,6 +101,30 @@ class Node(object):
         return self
 
 
+class Pair(object):
+    """
+    Comparable pair of nodes in the tree. 
+    """
+    def __init__(self, u, v):
+        self.u = u
+        self.v = v
+        self.M = Pair.M(u, v)
+
+    @staticmethod
+    def M(u, v):
+        return np.linalg.norm(u.center - v.center) + u.bsphere_radius + v.bsphere_radius
+
+    def get_pair(self):
+        return self.u, self.v
+
+    # Shout out to: https://stackoverflow.com/a/1227152/4162265
+    def __eq__(self, other):
+        return self.M == other.M
+
+    def __lt__(self, other):
+        return self.M < other.M
+
+
 class Tree(object):
     def __init__(self, root_node):
         self.root = root_node
@@ -115,16 +139,17 @@ class Tree(object):
     def find_diam(self, eps=.01):
         p_curr = []
         delta_curr = self.root.bbox_diameter
-        starting_point = (self.root, self.root)
-        m_val = Tree.M(*starting_point)
+        starting_point = Pair(self.root, self.root)
+        m_val = starting_point.M
         heapq.heapify(p_curr)
         heapq.heappush(p_curr, (-m_val, starting_point))
         while p_curr:
-            m, (u, v) = heapq.heappop(p_curr)
+            m, pair = heapq.heappop(p_curr)
             m = -m
+            u, v = pair.get_pair()
             curr_limit = (1 + eps) * delta_curr
-            u_num_points = len(u.points)
-            v_num_points = len(v.points)
+            u_num_points = len(pair.u.points)
+            v_num_points = len(pair.v.points)
             if u_num_points < 1 or v_num_points < 1 or m <= curr_limit:
                 continue
             if u_num_points == 1:
@@ -144,11 +169,11 @@ class Tree(object):
 
     @staticmethod
     def add_to_heap(heap, limit, delta_curr, u, v):
-        m = Tree.M(u, v)
-        pair = (u, v)
-        delta_curr = Tree.update_delta_curr(delta_curr, u, v)
+        pair = Pair(u, v)
+        m = pair.M
         if m <= limit:
             return heap, delta_curr
+        delta_curr = Tree.update_delta_curr(delta_curr, u, v)
         heapq.heappush(heap, (-m, pair))
         return heap, delta_curr
 
@@ -159,10 +184,6 @@ class Tree(object):
         if L2_distance > delta_curr:
             return L2_distance
         return delta_curr
-
-    @staticmethod
-    def M(u, v):
-        return np.linalg.norm(u.center - v.center) + u.bsphere_radius + v.bsphere_radius
 
     @staticmethod
     def _find_diam(u, v, eps=.5):
@@ -213,7 +234,7 @@ class Leaf(object):
 tree = Tree(Node(None, mesh.points))
 tree.split_tree()
 tree.find_pairs()
-print(tree.root.display())
+# print(tree.root.display())
 
 # %%
 from pprint import pprint
