@@ -1,25 +1,29 @@
+from collections import Counter
+from itertools import product
+
 import numpy as np
 from tqdm import tqdm
-from itertools import product
+
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET
-from helper.mp_functions import compute_distance
 from reader import PSBDataset
-import multiprocessing as mp
-import math
+
 
 # TODO: [x] surface area
 # TODO: [x] compactness (with respect to a sphere)
 # TODO: [x] axis-aligned bounding-box volume
-# TODO: [] diameter
+# TODO: [x] diameter
 # TODO: [x] eccentricity
 # TODO: [x] A3: angle between 3 random vertices
 # TODO: [x] D1: distance between barycenter and random vertex
 # TODO: [x] D2: distance between 2 random vertices
-# TODO: [] D3: square root of area of triangle given by 3 random vertices
-# TODO: [] D4: cube root of volume of tetrahedron formed by 4 random vertices
+# TODO: [x] D3: square root of area of triangle given by 3 random vertices
+# TODO: [x] D4: cube root of volume of tetrahedron formed by 4 random vertices
 
 
 class FeatureExtractor:
+    number_vertices_sampled = 100
+    number_bins = 10
+
     def __init__(self):
         self.reader = PSBDataset(search_path=DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED)
         self.reader.read()
@@ -38,6 +42,16 @@ class FeatureExtractor:
         num_data_being_processed = len(relevant_subset_of_data)
         items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed)
         self.reader.full_data = list((self.mono_run_pipeline(item) for item in items_generator))
+
+    def compactness(self, data):
+        mesh = data["poly_data"]
+        volume = mesh.volume
+        cell_ids = self.reader._get_cells(mesh)
+        cell_areas = self.reader._get_cell_areas(mesh.points, cell_ids, "")
+        surface_area = sum(cell_areas)
+        pi = np.pi
+        compactness = np.power(surface_area, 3) / (36 * pi * np.square(volume))
+        return {"compactness": compactness}
 
     def diameter(self, data):
         mesh = data["poly_data"]
@@ -71,45 +85,87 @@ class FeatureExtractor:
         A_cov = np.cov(mesh.points.T)
         eigenvalues, _ = np.linalg.eig(A_cov)
         return {"eccentricity": np.max(eigenvalues) / np.min(eigenvalues)}
-        
 
-    def angle_three_rand_verts(self, dataset):
+    def cube_root_volume_four_rand_verts(self, data):
+        # https://stackoverflow.com/a/9866530
+        def treaeder_volume(points):
+            a, b, c, d = points
+            return np.abs(np.dot(a - d, np.cross(b - d, c - d))) / 6
+
+        mesh = data["poly_data"]
+        random_indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (self.number_vertices_sampled, 4))
+        quad_points = mesh.points[random_indices, :]
+        # volumes = np.array([treaeder_volume(points) for points in quad_points])
+        A = quad_points[:, 0] - quad_points[:, 3]
+        B = np.cross(quad_points[:, 1] - quad_points[:, 3], quad_points[:, 2] - quad_points[:, 3])
+        f_volumes = np.abs(np.einsum("ij,ij -> i", A, B)) / 6
+        cube_root = f_volumes**(1 / 3)
+        histogram = FeatureExtractor.make_bins(cube_root, self.number_bins)
+
+        return {"cube_root_volume_four_rand_verts": histogram}
+
+    def angle_three_rand_verts(self, data):
         # This question quite fitted the case (https://bit.ly/3in7MjH)
         data_out = dict()
-        for mesh in dataset:
-            random_indices = np.random.randint(0, len(dataset) - 1, (3,))
-            name = mesh["meta_data"]["name"]
-            p_1, p_2, p_3 = mesh["poly_data"].points[random_indices]
+        angles_degrees = []
+        mesh = data["poly_data"]
+        name = data["meta_data"]["name"]
+        indices_triplets = self.generate_random_ints(0, len(mesh.points) - 1, (self.number_vertices_sampled, 3))
+        verts_triplets = [mesh.points[triplet] for triplet in indices_triplets]
+
+        for verts_triplet in verts_triplets:
+            p_1, p_2, p_3 = verts_triplet
             p2_1 = p_1 - p_2
             p2_3 = p_3 - p_2
             cosine_angle = np.dot(p2_1, p2_3) / (np.linalg.norm(p2_1) * np.linalg.norm(p2_3))
             angle_radians = np.arccos(cosine_angle)
-            angle_degrees = np.degrees(angle_radians)
-            data_out.update({name: {"rand_angle_three_verts": angle_degrees}})
+            angles_degrees.append(np.degrees(angle_radians))
+
+        data_out.update({name: {"rand_angle_three_verts": self.make_bins(angles_degrees, self.number_bins)}})
         return data_out
 
-    def dist_two_rand_verts(self, dataset):
-        # NOT TESTED
+    def dist_two_rand_verts(self, data):
         data_out = dict()
-        for mesh in dataset:
-            random_indices = np.random.randint(0, len(dataset) - 1, (2,))
-            name = mesh["meta_data"]["name"]
-            two_rand_points = mesh["poly_data"].points[random_indices]
-            distance = np.abs(np.diff(two_rand_points, axis=0))
-            data_out.update({name: {"rand_dist_two_verts": distance}})
+        distances = []
+        mesh = data["poly_data"]
+        name = data["meta_data"]["name"]
+        indices_tuples = self.generate_random_ints(0, len(mesh.points) - 1, (self.number_vertices_sampled, 2))
+        verts_tuples = [mesh.points[tup] for tup in indices_tuples]
+
+        for verts_tuple in verts_tuples:
+            distance = np.abs(np.diff(verts_tuple, axis=0))
+            distances.append(np.linalg.norm(distance))
+
+        data_out.update({name: {"rand_dist_two_verts": self.make_bins(distances, self.number_bins)}})
         return data_out
 
-    def dist_bar_vert(self, dataset):
-        # NOT TESTED
+    def dist_bar_vert(self, data):
         data_out = dict()
-        for mesh in dataset:
-            name = mesh["meta_data"]["name"]
-            bary_center = mesh["poly_data"]["bary_center"]
-            rnd_idx = np.random.randint(0, len(mesh["poly_data"].points))
-            rnd_vert = mesh["poly_data"].points[rnd_idx]
-            distance = np.abs(np.diff(np.reshape(np.concatenate((bary_center, rnd_vert)), (2, 3)), axis=0))
-            data_out.update({name: {"dist_bar_vert": distance}})
+        distances = []
+        mesh = data["poly_data"]
+        bary_center = data["bary_center"]
+        name = data["meta_data"]["name"]
+        indices = self.generate_random_ints(0, len(mesh.points) - 1, (self.number_vertices_sampled, 1))
+        rand_verts = mesh.points[indices]
+        for vert in rand_verts:
+            distance = np.abs(np.diff(np.vstack((bary_center, vert)), axis=0))
+            distances.append(np.linalg.norm(distance))
+        data_out.update({name: {"dist_bar_vert": self.make_bins(distances, self.number_bins)}})
         return data_out
+
+    @staticmethod
+    def make_bins(data, n_bins):
+        bins = np.linspace(np.min(data), np.max(data), n_bins)
+        indices = np.digitize(data, bins)
+        count_dict = dict(sorted(Counter(indices).items()))
+        result = np.array(list(count_dict.values()))
+        return result/result.sum()
+
+    @staticmethod
+    def generate_random_ints(min_val, max_val, shape):
+        return np.array([np.random.choice(line, shape[1], replace=False) for line in
+                         np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
+
 
 if __name__ == "__main__":
     FE = FeatureExtractor()
