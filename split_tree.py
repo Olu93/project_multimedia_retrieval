@@ -124,7 +124,8 @@ class Pair(object):
         return self.M == other.M
 
     def __lt__(self, other):
-        return self.M < other.M
+        # Switched sign in order to make it work with min-heap assumption of the heapq package
+        return self.M > other.M 
 
     def __repr__(self):
         return f"(u:{self.u_num_points}, v:{self.v_num_points}, {self.M})"
@@ -135,8 +136,7 @@ class Tree(object):
         self.root = root_node
 
     def split_tree(self):
-        split_points = self.root._split()
-        # print(split_points)
+        self.root._split()
 
     def find_pairs(self):
         self.pairs = self._find_pairs(self.root, self.root)
