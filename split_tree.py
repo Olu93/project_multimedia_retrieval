@@ -109,6 +109,8 @@ class Pair(object):
         self.u = u
         self.v = v
         self.M = Pair.M(u, v)
+        self.u_num_points = len(u.points)
+        self.v_num_points = len(v.points)
 
     @staticmethod
     def M(u, v):
@@ -123,6 +125,9 @@ class Pair(object):
 
     def __lt__(self, other):
         return self.M < other.M
+
+    def __repr__(self):
+        return f"(u:{self.u_num_points}, v:{self.v_num_points}, {self.M})"
 
 
 class Tree(object):
@@ -140,25 +145,22 @@ class Tree(object):
         p_curr = []
         delta_curr = self.root.bbox_diameter
         starting_point = Pair(self.root, self.root)
-        m_val = starting_point.M
         heapq.heapify(p_curr)
-        heapq.heappush(p_curr, (-m_val, starting_point))
+        heapq.heappush(p_curr, starting_point)
         while p_curr:
-            m, pair = heapq.heappop(p_curr)
-            m = -m
+            pair = heapq.heappop(p_curr)
+            m = pair.M
             u, v = pair.get_pair()
             curr_limit = (1 + eps) * delta_curr
-            u_num_points = len(pair.u.points)
-            v_num_points = len(pair.v.points)
-            if u_num_points < 1 or v_num_points < 1 or m <= curr_limit:
+            if pair.u_num_points < 1 or pair.v_num_points < 1 or m <= curr_limit:
                 continue
-            if u_num_points == 1:
+            if pair.u_num_points == 1:
                 p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u, v.node_r)
                 p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u, v.node_l)
-            if v_num_points == 1:
+            if pair.v_num_points == 1:
                 p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_r, v)
                 p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_l, v)
-            if u_num_points > 1 and v_num_points > 1:
+            if pair.u_num_points > 1 and pair.v_num_points > 1:
                 p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_l, v.node_l)
                 p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_r, v.node_r)
                 p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_l, v.node_r)
@@ -173,17 +175,10 @@ class Tree(object):
         m = pair.M
         if m <= limit:
             return heap, delta_curr
-        delta_curr = Tree.update_delta_curr(delta_curr, u, v)
-        heapq.heappush(heap, (-m, pair))
+        L2_distance = np.linalg.norm(random.choice(u.points) - random.choice(v.points))
+        delta_curr = L2_distance if L2_distance > delta_curr else delta_curr
+        heapq.heappush(heap, pair)
         return heap, delta_curr
-
-    @staticmethod
-    def update_delta_curr(delta_curr, u, v):
-        difference = random.choice(u.points) - random.choice(v.points)
-        L2_distance = np.linalg.norm(difference)
-        if L2_distance > delta_curr:
-            return L2_distance
-        return delta_curr
 
     @staticmethod
     def _find_diam(u, v, eps=.5):
