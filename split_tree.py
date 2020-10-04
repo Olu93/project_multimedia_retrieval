@@ -138,9 +138,6 @@ class Tree(object):
     def split_tree(self):
         self.root._split()
 
-    def find_pairs(self):
-        self.pairs = self._find_pairs(self.root, self.root)
-
     def find_diam(self, eps=.01):
         p_curr = []
         delta_curr = self.root.bbox_diameter
@@ -179,30 +176,6 @@ class Tree(object):
         delta_curr = L2_distance if L2_distance > delta_curr else delta_curr
         heapq.heappush(heap, pair)
         return heap, delta_curr
-
-    @staticmethod
-    def _find_diam(u, v, eps=.5):
-        if u == v and u.diameter == 0:
-            return None
-        if u.bbox_diameter < v.bbox_diameter:
-            tmp = u
-            u = v
-            v = tmp
-        if u.bbox_diameter <= eps * Tree._distance(u, v):
-            return (u, v)
-        return (Tree._find_pairs(u.node_l, v), Tree._find_pairs(u.node_r, v))
-
-    @staticmethod
-    def _find_pairs(u, v, eps=.5):
-        if u == v and u.bbox_diameter == 0:
-            return None
-        if u.bbox_diameter < v.bbox_diameter:
-            tmp = u
-            u = v
-            v = tmp
-        if u.bbox_diameter <= eps * Tree._distance(u, v):
-            return (u, v)
-        return (Tree._find_pairs(u.node_l, v), Tree._find_pairs(u.node_r, v))
 
     @staticmethod
     def _distance(u, v):
