@@ -5,8 +5,9 @@ import numpy as np
 from tqdm import tqdm
 
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET
+from helper.diameter_computer import compute_diameter
+from helper.mp_functions import compute_distance
 from reader import PSBDataset
-
 
 # TODO: [x] surface area
 # TODO: [x] compactness (with respect to a sphere)
@@ -34,7 +35,8 @@ class FeatureExtractor:
 
     def mono_run_pipeline(self, data):
         result = self.diameter(data)
-        print(result)
+        exact_result = self.diameter2(data)
+        print(result, exact_result)
 
     def run_full_pipeline(self, max_num_items=None):
         num_full_data = len(self.reader.full_data)
@@ -54,6 +56,10 @@ class FeatureExtractor:
         return {"compactness": compactness}
 
     def diameter(self, data):
+        mesh = data["poly_data"]
+        return {"diameter": compute_diameter(mesh)}
+
+    def diameter3(self, data):
         mesh = data["poly_data"]
         all_vertices = np.array(mesh.points)
         return {"diameter": compute_distance(all_vertices)}
@@ -159,12 +165,11 @@ class FeatureExtractor:
         indices = np.digitize(data, bins)
         count_dict = dict(sorted(Counter(indices).items()))
         result = np.array(list(count_dict.values()))
-        return result/result.sum()
+        return result / result.sum()
 
     @staticmethod
     def generate_random_ints(min_val, max_val, shape):
-        return np.array([np.random.choice(line, shape[1], replace=False) for line in
-                         np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
+        return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
 
 
 if __name__ == "__main__":

@@ -1,4 +1,3 @@
-# %%
 import numpy as np
 import pyvista as pv
 from pyvista import examples
@@ -11,12 +10,6 @@ import time
 import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-
-# %% Load mesh
-data = examples.download_cow().triangulate()
-
-# %%
-
 
 class Node(NodeMixin):
     def __init__(self, points, parent=None, children=None):
@@ -70,13 +63,6 @@ class Leaf(Node):
         return None, None
 
 
-mesh = pv.PolyData(data.points[:50])
-fair_split_tree = Node(mesh.points).split_fair()
-for pre, fill, node in RenderTree(fair_split_tree):
-    print("%s%s" % (pre, node.name))
-
-
-# %%
 class Pair(object):
     """
     Comparable pair of nodes in the tree. 
@@ -115,8 +101,6 @@ class Pair(object):
 class AprxDiameter(object):
     def __init__(self, root_node):
         self.root = root_node.split_fair()
-        self.exact_diameter = None
-        self.exact_time = None
 
     def compute_approx_diameter(self, eps=.01):
         start_time = time.time()
@@ -208,51 +192,7 @@ class AprxDiameter(object):
     def __repr__(self):
         return AprxDiameter.traverse(self.pairs)
 
-data = examples.download_bunny().triangulate().decimate(.7)
-mesh = pv.PolyData(data.points)
-root = Node(mesh.points, parent=None)
-diameter_computer = AprxDiameter(root.split_fair())
-print(diameter_computer.compute_approx_diameter(0.001))
-print(diameter_computer.compute_exact_diameter())
-diameter_computer.show()
-# %%
-
-
-# %%
-def compute_comparison(data, num_points):
-
-    mesh = pv.PolyData(data.points[:num_points])
+def compute_diameter(mesh, eps=0.1):
     root = Node(mesh.points, parent=None)
     diameter_computer = AprxDiameter(root.split_fair())
-    diameter_computer.compute_approx_diameter(0.1)
-    # diameter_computer.compute_exact_diameter()
-    return {
-        "Number of points": num_points,
-        "Approximated diameter": diameter_computer.approx_diameter,
-        "Exact diameter": diameter_computer.exact_diameter,
-        "Approx. diameter computation time (in sec)": diameter_computer.approx_time,
-        "Exact. diameter computation time (in sec)": diameter_computer.exact_time,
-    }
-
-
-# data = examples.download_bunny().triangulate().decimate(.7)
-num_experiments = 10
-experiment_results = pd.DataFrame([compute_comparison(data, int(num_points)) for num_points in tqdm(np.linspace(50, len(data.points), num_experiments), total=num_experiments)])
-experiment_results
-
-# %%
-fig, axes = plt.subplots(1, 2, figsize=(10, 5), sharex=True)
-x_axis = experiment_results.iloc[:, 0]
-diameter_plot = axes[0]
-diameter_plot.plot(x_axis, experiment_results.iloc[:, 1], label="approx")
-diameter_plot.plot(x_axis, experiment_results.iloc[:, 2], label="exact")
-diameter_plot.set_title("Diameter")
-diameter_plot.legend()
-computation_time_plot = axes[1]
-computation_time_plot.plot(x_axis, experiment_results.iloc[:, 3], label="approx")
-computation_time_plot.plot(x_axis, experiment_results.iloc[:, 4], label="exact")
-computation_time_plot.set_title("Computation time (in sec)")
-computation_time_plot.legend()
-plt.tight_layout()
-plt.show()
-# %%
+    return diameter_computer.compute_approx_diameter(eps=eps)
