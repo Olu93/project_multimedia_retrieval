@@ -6,17 +6,18 @@ from itertools import product
 import treelib
 import heapq
 import random
-
+from anytree import NodeMixin, RenderTree
 # %% Load mesh
-mesh = pv.PolyData(examples.download_cow().triangulate().points[:500])
+mesh = pv.PolyData(examples.download_cow().triangulate().points[:50])
 
 # %%
 
 
-class Node(object):
+class Node(NodeMixin):
     # children = []
 
-    def __init__(self, parent, points):
+    def __init__(self, points, parent=None, children=None):
+        super(Node, self).__init__()
         self.parent = parent
         self.points = points
         poly_data = pv.PolyData(points)
@@ -25,65 +26,17 @@ class Node(object):
         self.bbox_lengths = np.diff(np.array(self.bounds).reshape((-1, 2)), axis=1)
         self.bbox_diameter = np.sqrt(np.sum(self.bbox_lengths))
         self.bsphere_radius = self.bbox_lengths.max() / 2
-        self.node_l = None
-        self.node_r = None
+        self.name = f"Node ({len(points)} points, radius:{self.bsphere_radius:.2f})"
+        # self.node_l = None
+        # self.node_r = None
 
-    def append_child(self, node):
-        self.children.append(node)
+    def get_children(self):
+        return self.children[0], self.children[1]
 
     def __repr__(self):
-        return f"Node: p:{len(self.points)} - d:{self.diameter})"
+        return self.name
 
-    def display(self):
-        lines, *_ = self._display_aux()
-        return "\n".join(lines)
-
-    def _display_aux(self):
-        """Returns list of strings, width, height, and horizontal coordinate of the root."""
-        # No child.
-        if self.node_r is None and self.node_l is None:
-            line = '%s' % len(self.points)
-            width = len(line)
-            height = 1
-            middle = width // 2
-            return [line], width, height, middle
-
-        # Only left child.
-        if self.node_r is None:
-            lines, n, p, x = self.node_l._display_aux()
-            s = '%s' % len(self.points)
-            u = len(s)
-            first_line = (x + 1) * ' ' + (n - x - 1) * '_' + s
-            second_line = x * ' ' + '/' + (n - x - 1 + u) * ' '
-            shifted_lines = [line + u * ' ' for line in lines]
-            return [first_line, second_line] + shifted_lines, n + u, p + 2, n + u // 2
-
-        # Only right child.
-        if self.node_l is None:
-            lines, n, p, x = self.node_r._display_aux()
-            s = '%s' % len(self.points)
-            u = len(s)
-            first_line = s + x * '_' + (n - x) * ' '
-            second_line = (u + x) * ' ' + '\\' + (n - x - 1) * ' '
-            shifted_lines = [u * ' ' + line for line in lines]
-            return [first_line, second_line] + shifted_lines, n + u, p + 2, u // 2
-
-        # Two children.
-        left, n, p, x = self.node_l._display_aux()
-        right, m, q, y = self.node_r._display_aux()
-        s = '%s' % len(self.points)
-        u = len(s)
-        first_line = (x + 1) * ' ' + (n - x - 1) * '_' + s + y * '_' + (m - y) * ' '
-        second_line = x * ' ' + '/' + (n - x - 1 + u + y) * ' ' + '\\' + (m - y - 1) * ' '
-        if p < q:
-            left += [n * ' '] * (q - p)
-        elif q < p:
-            right += [m * ' '] * (p - q)
-        zipped_lines = zip(left, right)
-        lines = [first_line, second_line] + [a + u * ' ' + b for a, b in zipped_lines]
-        return lines, n + m + u, max(p, q) + 2, n + u // 2
-
-    def _split(self):
+    def split_fair(self):
         if len(self.points) <= 1:
             return self
         differences = np.abs(np.diff(np.array(self.bounds).reshape((-1, 2)), axis=1))
@@ -94,11 +47,14 @@ class Node(object):
         dataset = pv.PolyData(self.points)
         u = dataset.clip(splitting_plane_normal)
         v = dataset.clip(-1 * splitting_plane_normal)
-
-        self.node_l = Node(self, u.points)._split()
-        self.node_r = Node(self, v.points)._split()
-
+        self.children = (Node(u.points, parent=self).split_fair(), Node(v.points, parent=self).split_fair())
         return self
+
+
+fair_split_tree = Node(mesh.points, parent=None).split_fair()
+for pre, fill, node in RenderTree(fair_split_tree):
+    print("%s%s" % (pre, node.name))
+# %%
 
 
 class Pair(object):
@@ -125,13 +81,13 @@ class Pair(object):
 
     def __lt__(self, other):
         # Switched sign in order to make it work with min-heap assumption of the heapq package
-        return self.M > other.M 
+        return self.M > other.M
 
     def __repr__(self):
         return f"(u:{self.u_num_points}, v:{self.v_num_points}, {self.M})"
 
 
-class Tree(object):
+class FairSplitTree(object):
     def __init__(self, root_node):
         self.root = root_node
 
@@ -152,18 +108,18 @@ class Tree(object):
             if pair.u_num_points < 1 or pair.v_num_points < 1 or m <= curr_limit:
                 continue
             if pair.u_num_points == 1:
-                p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u, v.node_r)
-                p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u, v.node_l)
+                p_curr, delta_curr = FairSplitTree.add_to_heap(p_curr, curr_limit, delta_curr, u, v.node_r)
+                p_curr, delta_curr = FairSplitTree.add_to_heap(p_curr, curr_limit, delta_curr, u, v.node_l)
             if pair.v_num_points == 1:
-                p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_r, v)
-                p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_l, v)
+                p_curr, delta_curr = FairSplitTree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_r, v)
+                p_curr, delta_curr = FairSplitTree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_l, v)
             if pair.u_num_points > 1 and pair.v_num_points > 1:
-                p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_l, v.node_l)
-                p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_r, v.node_r)
-                p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_l, v.node_r)
+                p_curr, delta_curr = FairSplitTree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_l, v.node_l)
+                p_curr, delta_curr = FairSplitTree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_r, v.node_r)
+                p_curr, delta_curr = FairSplitTree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_l, v.node_r)
                 if u == v:
                     continue
-                p_curr, delta_curr = Tree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_r, v.node_l)
+                p_curr, delta_curr = FairSplitTree.add_to_heap(p_curr, curr_limit, delta_curr, u.node_r, v.node_l)
         return delta_curr
 
     @staticmethod
@@ -188,7 +144,7 @@ class Tree(object):
         return max_distance
 
     def __repr__(self):
-        return Tree.traverse(self.pairs)
+        return FairSplitTree.traverse(self.pairs)
 
 
 class Leaf(object):
@@ -199,7 +155,7 @@ class Leaf(object):
         return f"Leaf: {len(self.points)} points"
 
 
-tree = Tree(Node(None, mesh.points))
+tree = FairSplitTree(Node(None, mesh.points))
 tree.split_tree()
 tree.find_pairs()
 # print(tree.root.display())
@@ -208,7 +164,7 @@ tree.find_pairs()
 from pprint import pprint
 # pprint(tree.pairs, indent=4)
 print(tree.find_diam())
-print(Tree._distance(tree.root, tree.root))
+print(FairSplitTree._distance(tree.root, tree.root))
 # %%
 # dataset = examples.download_bunny_coarse()
 # clipped = dataset.clip((-1, 0, 0))
