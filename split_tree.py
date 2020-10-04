@@ -214,14 +214,12 @@ class AprxDiameter(object):
         return AprxDiameter.traverse(self.pairs)
 
 data = examples.download_bunny().triangulate().decimate(.7)
-mesh = pv.PolyData(data.points[:500])
+mesh = pv.PolyData(data.points[:1000])
 root = Node(mesh.points, parent=None)
 diameter_computer = AprxDiameter(root.split_fair())
-print(diameter_computer.compute_approx_diameter(0.1))
+print(diameter_computer.compute_approx_diameter())
 print(diameter_computer.compute_exact_diameter())
 diameter_computer.show()
-# %%
-
 
 # %%
 def compute_comparison(data, num_points):
