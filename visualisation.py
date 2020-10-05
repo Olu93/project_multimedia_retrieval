@@ -8,13 +8,6 @@ from reader import DataSet
 
 #%%
 FE = FeatureExtractor()
-# %%
-example1 = FE.full_data[0]
-# example2 = FE.full_data[1]
-result1 = list(FE.cube_root_volume_four_rand_verts(example1).values())[0]
-# plt.hist(result1, bins=np.linspace(0, 1, 10))
-plt.bar(np.linspace(0, 1, FE.number_bins), result1, .1, align='center')
-result1
 
 
 # %%
@@ -46,66 +39,3 @@ plot_names = "Ant Human Guitar1 Guitar2".split()
 visualize_histogram(FE, "cube_root_volume_four_rand_verts", list(range(4)), plot_names)
 # %%
 visualize_histogram(FE, "angle_three_rand_verts", list(range(4)), plot_names)
-
-# %%
-# result2 = list(FE.cube_root_volume_four_rand_verts(example2).values())[0]
-# axes = fig.add_subplot(221), fig.add_subplot(222), fig.add_subplot(223, projection='3d'), fig.add_subplot(224, projection='3d')
-# fig, axes = plt.subplots(2, 2, subplot_kw=dict(projection='3d'))
-# axes[0].plot(result1)
-# axes[1].plot(result2)
-# plot_mesh(example1["poly_data"], axes[2])
-# plot_mesh(example2["poly_data"], axes[3])
-# %%
-# fig, axes = plt.subplots(1, 2, subplot_kw=dict(projection='3d'))
-fig = plt.figure()
-fig.add_subplot(2, 2, 1)
-fig.add_subplot(2, 2, 3)
-plt.tight_layout()
-
-# %%
-
-subsample_factor = 10
-X, Y, Z = np.meshgrid(ex_points1[::subsample_factor, 0], ex_points1[::subsample_factor, 1], ex_points1[::subsample_factor, 2])
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(X, Y, Z)
-
-# %%
-X, Y, Z = np.meshgrid(ex_points1[::subsample_factor, 0], ex_points1[::subsample_factor, 1], ex_points1[::subsample_factor, 2])
-points = np.c_[X.reshape(-1), Y.reshape(-1), Z.reshape(-1)]
-foo = pv.PolyData(points)
-
-# %%
-
-# %%
-
-# %%
-import pyvista as pv
-X, Y, Z = ex_points1[::subsample_factor, 0], ex_points1[::subsample_factor, 1], ex_points1[::subsample_factor, 2]
-grid = pv.StructuredGrid(X, Y, Z).me
-grid.plot()
-# %%
-X, Y = np.meshgrid(ex_points1[::subsample_factor, 0], ex_points1[::subsample_factor, 1])
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.plot_surface(X, Y, ex_points1[::subsample_factor, 2])
-ax = fig.add_subplot(111, projection='3d')
-
-# %%
-subsample_factor = 10
-X, Y, Z = ex_points1[::subsample_factor, 0], ex_points1[::subsample_factor, 1], ex_points1[::subsample_factor, 2]
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(X, Y, Z)
-# %%
-import numpy as np
-
-x_ = np.linspace(0., 1., 10000)[::100]
-y_ = np.linspace(1., 2., 10000)[::100]
-z_ = np.linspace(3., 4., 10000)[::100]
-
-x, y, z = np.meshgrid(x_, y_, z_, indexing='ij')
-
-assert np.all(x[:, 0, 0] == x_)
-assert np.all(y[0, :, 0] == y_)
-assert np.all(z[0, 0, :] == z_)
