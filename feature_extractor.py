@@ -33,8 +33,8 @@ class FeatureExtractor:
 
     def mono_run_pipeline(self, data):
         # result = self.diameter(data)
-        # x = self.compactness(data)
-        result = self.dist_sqrt_area_rand_triangle(data)
+        result = self.sphericity(data)
+        # result = self.dist_sqrt_area_rand_triangle(data)
         print(result)
 
     def run_full_pipeline(self, max_num_items=None):
@@ -46,13 +46,27 @@ class FeatureExtractor:
 
     def compactness(self, data):
         mesh = data["poly_data"]
+        edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
+        if edges.n_faces > 0:
+                mesh.fill_holes(1000, inplace=True)
         volume = mesh.volume
         cell_ids = self.reader._get_cells(mesh)
         cell_areas = self.reader._get_cell_areas(mesh.points, cell_ids)
         surface_area = sum(cell_areas)
-        pi = np.pi
-        compactness = np.power(surface_area, 3) / (36 * pi * np.square(volume))
+        compactness = np.power(surface_area, 3) / np.square(volume)
         return {"compactness": compactness}
+
+    def sphericity(self, data):
+        mesh = data["poly_data"]
+        edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
+        if edges.n_faces > 0:
+            mesh.fill_holes(1000, inplace=True)
+        volume = mesh.volume
+        cell_ids = self.reader._get_cells(mesh)
+        cell_areas = self.reader._get_cell_areas(mesh.points, cell_ids)
+        surface_area = sum(cell_areas)
+        sphericity = (np.power(np.pi, 1/3) * np.power(6*volume, 2/3)) / surface_area
+        return {"sphericity": sphericity}
 
     def diameter(self, data):
         mesh = data["poly_data"]
@@ -179,6 +193,8 @@ class FeatureExtractor:
     @staticmethod
     def generate_random_ints(min_val, max_val, shape):
         return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
+
+    # def visualize_features(self):
 
 
 if __name__ == "__main__":
