@@ -6,11 +6,6 @@ import numpy as np
 import matplotlib.tri as mtri
 from reader import DataSet
 
-#%%
-FE = FeatureExtractor()
-
-
-# %%
 def plot_mesh(mesh, ax):
     points = mesh.points
     X, Y, Z = points[:, 0], points[:, 1], points[:, 2]
@@ -32,10 +27,9 @@ def visualize_histogram(extractor, function_name, item_ids=[0, 1], names=None):
         plot_mesh(data["poly_data"], mesh_ax)
     fig.tight_layout()
     return fig.show()
-
-
-# %%
+#%%
+FE = FeatureExtractor()
 plot_names = "Ant Human Guitar1 Guitar2".split()
-visualize_histogram(FE, "cube_root_volume_four_rand_verts", list(range(4)), plot_names)
 # %%
+visualize_histogram(FE, "cube_root_volume_four_rand_verts", list(range(4)), plot_names)
 visualize_histogram(FE, "angle_three_rand_verts", list(range(4)), plot_names)
