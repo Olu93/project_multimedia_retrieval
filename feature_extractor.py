@@ -28,8 +28,9 @@ class FeatureExtractor:
     number_vertices_sampled = 1000
     number_bins = 20
 
-    def __init__(self, target_file="./computed_features.jsonl", append_mode=False):
-        self.reader = PSBDataset(search_path=DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED)
+    def __init__(self, data_path=None, target_file="./computed_features.jsonl", append_mode=False):
+        assert data_path, "Plzzz provide a data path. Wherez all the data???"
+        self.reader = PSBDataset(search_path=data_path)
         self.reader.read()
         self.reader.load_files_in_memory()
         self.reader.convert_all_to_polydata()
@@ -90,7 +91,7 @@ class FeatureExtractor:
         mesh = data["poly_data"]
         edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
         if edges.n_faces > 0:
-            mesh = mesh.fill_holes(1000)
+            mesh = mesh.fill_holes(1000) # TODO: Maybe try pip install pymeshfix
         volume = mesh.volume
         cell_ids = PSBDataset._get_cells(mesh)
         cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
@@ -104,13 +105,13 @@ class FeatureExtractor:
         mesh = data["poly_data"]
         edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
         if edges.n_faces > 0:
-            mesh = mesh.fill_holes(1000)
+            mesh = mesh.fill_holes(1000) # TODO: Maybe try pip install pymeshfix
         volume = mesh.volume
         cell_ids = PSBDataset._get_cells(mesh)
         cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
         surface_area = sum(cell_areas)
-        sphericity = (np.power(np.pi, 1 / 3) * np.power(6 * volume, 2 / 3)) / surface_area
-        return {"sphericity": sphericity}
+        sphericity_result = (np.power(np.pi, 1 / 3) * np.power(6 * volume, 2 / 3)) / surface_area
+        return {"sphericity": sphericity_result}
 
     @staticmethod
     @exception_catcher
@@ -231,5 +232,5 @@ class FeatureExtractor:
 
 
 if __name__ == "__main__":
-    FE = FeatureExtractor()
+    FE = FeatureExtractor(DATA_PATH_NORMED_SUBSET)
     pprint(FE.mono_run_pipeline(FE.full_data[0]))
