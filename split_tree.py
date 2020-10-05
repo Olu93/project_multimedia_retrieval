@@ -24,10 +24,14 @@ class Node(NodeMixin):
         self.parent = parent
         self.points = points
         poly_data = pv.PolyData(points)
-        self.bounds = poly_data.bounds
+        # self.bounds = poly_data.bounds
         self.center = np.array(poly_data.center)
-        self.bbox_lengths = np.diff(np.array(self.bounds).reshape((-1, 2)), axis=1)
-        self.bbox_diameter = np.linalg.norm(np.diff(np.array(self.root.bounds).reshape((-1, 2)), axis=1))
+        # min_max_point = np.array(self.bounds).reshape((-1, 2))
+        min_point = np.min(points, axis=0)
+        max_point = np.max(points, axis=0)
+        self.min_max_points = (min_point, max_point)
+        self.bbox_lengths = np.abs(max_point - min_point)
+        # self.bbox_diameter = np.linalg.norm(max_point - min_point)
         self.bsphere_radius = self.bbox_lengths.max() / 2
         self.name = f"Node ({len(points)} points, radius:{self.bsphere_radius:.2f})"
 
@@ -41,7 +45,7 @@ class Node(NodeMixin):
     def split_fair(self):
         if len(self.points) <= 1:
             return Leaf(self.points)
-        differences = np.abs(np.diff(np.array(self.bounds).reshape((-1, 2)), axis=1))
+        differences = np.abs(self.min_max_points[0] - self.min_max_points[1])
         longest_axis = np.argmax(differences)
         splitting_plane_normal = np.zeros_like(differences)
         splitting_plane_normal[longest_axis] = 1
@@ -114,16 +118,18 @@ class Pair(object):
 
 class AprxDiameter(object):
     def __init__(self, root_node):
-        self.root = root_node.split_fair()
+        self.root = root_node
         self.exact_diameter = None
         self.exact_time = None
 
     def compute_approx_diameter(self, eps=.01):
         start_time = time.time()
+        self.root = self.root.split_fair()
         p_curr = []
-        delta_curr = self.root.bbox_diameter
         starting_pair = Pair(self.root, self.root)
-        points_curr = starting_pair.get_pair_reprensetantives()
+        u_root_repr, v_root_repr = starting_pair.get_pair_reprensetantives()
+        delta_curr = np.linalg.norm(u_root_repr - v_root_repr)
+        points_curr = self.root.min_max_points
         heapq.heapify(p_curr)
         heapq.heappush(p_curr, starting_pair)
         while p_curr:
@@ -160,12 +166,12 @@ class AprxDiameter(object):
         points_curr = pair.get_pair_reprensetantives()
         u_representative, v_representative = points_curr
         m = pair.M
+        L2_distance = np.linalg.norm(u_representative - v_representative)
+        delta_curr = L2_distance if L2_distance > delta_curr else delta_curr
         if m <= limit:
             return heap, delta_curr, points_curr
 
-        L2_distance = np.linalg.norm(u_representative - v_representative)
         points_curr = pair.get_pair_reprensetantives()
-        delta_curr = L2_distance if L2_distance > delta_curr else delta_curr
         heapq.heappush(heap, pair)
         return heap, delta_curr, points_curr
 
@@ -209,14 +215,12 @@ class AprxDiameter(object):
         return AprxDiameter.traverse(self.pairs)
 
 data = examples.download_bunny().triangulate().decimate(.7)
-mesh = pv.PolyData(data.points)
+mesh = pv.PolyData(data.points[:1000])
 root = Node(mesh.points, parent=None)
-diameter_computer = AprxDiameter(root.split_fair())
-print(diameter_computer.compute_approx_diameter(0.001))
+diameter_computer = AprxDiameter(root)
+print(diameter_computer.compute_approx_diameter())
 print(diameter_computer.compute_exact_diameter())
 diameter_computer.show()
-# %%
-
 
 # %%
 def compute_comparison(data, num_points):
