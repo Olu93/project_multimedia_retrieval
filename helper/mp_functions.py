@@ -5,6 +5,12 @@ import itertools
 from tqdm import tqdm
 
 
+def compute_feature_extraction(extractor, data):
+    pool = mp.Pool(math.ceil(mp.cpu_count() * .75))
+    extractions = pool.imap_unordered(extractor.mono_run_pipeline, data, chunksize=10)
+    return extractions
+
+
 def compute_distance(points):
     all_combinations = itertools.product(points, points)
     pool = mp.Pool(math.ceil(mp.cpu_count() * .75))

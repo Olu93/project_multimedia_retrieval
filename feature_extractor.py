@@ -6,11 +6,13 @@ from tqdm import tqdm
 from helper.misc import exception_catcher
 from helper.diameter_computer import compute_diameter
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET
+from helper.mp_functions import compute_feature_extraction
 from reader import PSBDataset
 import jsonlines
 import io
 from os import path
 from datetime import datetime
+import pyvista as pv
 # TODO: [x] surface area
 # TODO: [x] compactness (with respect to a sphere)
 # TODO: [x] axis-aligned bounding-box volume
@@ -21,7 +23,6 @@ from datetime import datetime
 # TODO: [x] D2: distance between 2 random vertices
 # TODO: [x] D3: square root of area of triangle given by 3 random vertices
 # TODO: [x] D4: cube root of volume of tetrahedron formed by 4 random vertices
-
 
 
 class FeatureExtractor:
@@ -41,11 +42,10 @@ class FeatureExtractor:
         self.append_mode = append_mode
 
     @staticmethod
-    def mono_run_pipeline(data, timestamp=None):
+    def mono_run_pipeline(data):
         final_dict = {}
         final_dict["name"] = data["meta_data"]["name"]
-        if timestamp:
-            final_dict["time_stamp"] = timestamp
+        data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
         singleton_pipeline = [
             FeatureExtractor.compactness,
             FeatureExtractor.sphericity,
@@ -70,13 +70,17 @@ class FeatureExtractor:
         return final_dict
 
     def run_full_pipeline(self, max_num_items=None):
+
         target_file = self.feature_stats_file
         with jsonlines.open(target_file, mode="a" if self.append_mode else "w") as writer:
             num_full_data = len(self.reader.full_data)
             relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
             num_data_being_processed = len(relevant_subset_of_data)
-            feature_data_generator = (FeatureExtractor.mono_run_pipeline(item, self.timestamp) for item in relevant_subset_of_data)
+            for item in relevant_subset_of_data:
+                del item["poly_data"]
+            feature_data_generator = compute_feature_extraction(self, relevant_subset_of_data)
             prepared_data = (FeatureExtractor.jsonify(item) for item in feature_data_generator)
+            prepared_data = (dict(timestamp=self.timestamp, **item) for item in prepared_data)
             for next_feature_set in tqdm(prepared_data, total=num_data_being_processed):
                 writer.write(next_feature_set)
 
@@ -91,7 +95,7 @@ class FeatureExtractor:
         mesh = data["poly_data"]
         edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
         if edges.n_faces > 0:
-            mesh = mesh.fill_holes(1000) # TODO: Maybe try pip install pymeshfix
+            mesh = mesh.fill_holes(1000)  # TODO: Maybe try pip install pymeshfix
         volume = mesh.volume
         cell_ids = PSBDataset._get_cells(mesh)
         cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
@@ -105,7 +109,7 @@ class FeatureExtractor:
         mesh = data["poly_data"]
         edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
         if edges.n_faces > 0:
-            mesh = mesh.fill_holes(1000) # TODO: Maybe try pip install pymeshfix
+            mesh = mesh.fill_holes(1000)  # TODO: Maybe try pip install pymeshfix
         volume = mesh.volume
         cell_ids = PSBDataset._get_cells(mesh)
         cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
