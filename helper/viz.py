@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.tri as mtri
 from reader import DataSet
 
+
 def plot_mesh(mesh, ax):
     points = mesh.points
     X, Y, Z = points[:, 0], points[:, 1], points[:, 2]
@@ -25,4 +26,4 @@ def visualize_histogram(extractor, function_name, plot_title="", item_ids=[0, 1]
         plot_mesh(data["poly_data"], mesh_ax)
     fig.suptitle(plot_title, fontsize=20)
     fig.tight_layout()
-    return fig.show()
+    return fig
