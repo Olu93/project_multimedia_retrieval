@@ -22,8 +22,8 @@ from reader import PSBDataset
 
 
 class FeatureExtractor:
-    number_vertices_sampled = 100
-    number_bins = 10
+    number_vertices_sampled = 1000
+    number_bins = 20
 
     def __init__(self):
         self.reader = PSBDataset(search_path=DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED)
@@ -127,8 +127,7 @@ class FeatureExtractor:
             angle_radians = np.arccos(cosine_angle)
             angles_degrees.append(np.degrees(angle_radians))
 
-        data_out.update({name: {"rand_angle_three_verts": self.make_bins(angles_degrees, self.number_bins)}})
-        return data_out
+        return {"rand_angle_three_verts": self.make_bins(angles_degrees, self.number_bins)}
 
     def dist_two_rand_verts(self, data):
         data_out = dict()
