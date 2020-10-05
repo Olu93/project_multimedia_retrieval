@@ -27,3 +27,5 @@ plyfile~=0.7.2
 pyacvd~=0.2.5
 pygalmesh~=0.7.2
 tqdm~=4.49.0
+anytree~=2.8.0
+jsonlines~=1.2.0

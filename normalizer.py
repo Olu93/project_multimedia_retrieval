@@ -1,6 +1,7 @@
 import os
 from os import path
 from pathlib import Path
+
 import numpy as np
 import pyacvd
 from pyvista import PolyData
@@ -150,7 +151,7 @@ class Normalizer:
         target_directory = Path(f"{DATA_PATH_NORMED}/{data['meta_data']['label']}")
         final_directory = target_directory / f"{data['meta_data']['name']}.ply"
 
-        print(f"Writing {data['meta_data']['name']}.ply to {target_directory}")        
+        print(f"Writing {data['meta_data']['name']}.ply to {target_directory}")
         if not path.exists(target_directory):
             print(f"Creating path {target_directory} for saving {data['meta_data']['name']}")
             os.makedirs(target_directory)

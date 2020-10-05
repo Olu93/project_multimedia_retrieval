@@ -1,15 +1,11 @@
-import numpy as np
-import pyvista as pv
-from pyvista import examples
-from itertools import product
-import treelib
 import heapq
 import random
-from anytree import NodeMixin, RenderTree
 import time
-import pandas as pd
-from tqdm import tqdm
-import matplotlib.pyplot as plt
+from itertools import product
+
+import numpy as np
+import pyvista as pv
+from anytree import NodeMixin, RenderTree
 
 
 class Node(NodeMixin):
@@ -72,6 +68,7 @@ class Pair(object):
     """
     Comparable pair of nodes in the tree. 
     """
+
     def __init__(self, u, v):
         self.u = u
         self.v = v
@@ -137,12 +134,16 @@ class AprxDiameter(object):
                 p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_right, v)
                 p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_left, v)
             if pair.u_num_points > 1 and pair.v_num_points > 1:
-                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_left, v_left)
-                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_right, v_right)
-                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_left, v_right)
+                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_left,
+                                                                           v_left)
+                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_right,
+                                                                           v_right)
+                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_left,
+                                                                           v_right)
                 if u == v:
                     continue
-                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_right, v_left)
+                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_right,
+                                                                           v_left)
 
         self.approx_points = points_curr
         self.approx_diameter = delta_curr

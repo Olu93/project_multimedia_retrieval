@@ -1,16 +1,14 @@
 # %%
-import pandas as pd
 import matplotlib.pyplot as plt
-import numpy as np
-
+import pandas as pd
 
 data = pd.read_csv("data/psb/statistics.csv")
-data.head() 
+data.head()
 # %%
-x = data["bound_xmax"]-data["bound_xmin"]
-y = data["bound_ymax"]-data["bound_ymin"]
-z = data["bound_zmax"]-data["bound_zmin"]
-data["bound_volume"] = x * y * z 
+x = data["bound_xmax"] - data["bound_xmin"]
+y = data["bound_ymax"] - data["bound_ymin"]
+z = data["bound_zmax"] - data["bound_zmin"]
+data["bound_volume"] = x * y * z
 
 data.head()
 # %%
@@ -21,7 +19,7 @@ no_outlier_data.bound_volume.hist(bins=100)
 # %%
 f"Mean is {data.bound_volume.mean()} and std {data.bound_volume.std()}"
 # %%
-fig, axes = plt.subplots(1, 2, figsize=(10,5))
+fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
 axes[0].hist(data.bound_volume, bins=100)
 axes[0].set_title("Volume distribution with outliers")
