@@ -50,6 +50,7 @@ class FeatureExtractor:
     def mono_run_pipeline(data):
         final_dict = {}
         final_dict["name"] = data["meta_data"]["name"]
+        final_dict["label"] = data["meta_data"]["label"]
         data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
         singleton_pipeline = [
             FeatureExtractor.compactness,
