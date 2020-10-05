@@ -5,10 +5,12 @@ from pathlib import Path
 import numpy as np
 import pyacvd
 from pyvista import PolyData
+import pyvista as pv
 from tqdm import tqdm
 
 from helper.config import DEBUG, DATA_PATH_PSB, DATA_PATH_DEBUG, CLASS_FILE, DATA_PATH_NORMED
 from reader import PSBDataset
+from helper.mp_functions import compute_normalization
 
 
 class Normalizer:
@@ -21,8 +23,8 @@ class Normalizer:
             self.reader.convert_all_to_polydata()
             self.reader.compute_shape_statistics()
             self.full_data = self.reader.full_data
-            self.history = []
-            self.history.append([item["poly_data"] for item in self.full_data])
+            # self.history = []
+            # self.history.append([item["poly_data"] for item in self.full_data])
 
     # https://www.grasshopper3d.com/forum/topics/best-uniform-remesher-for-patterning-organic-suraces
     def uniform_remeshing(self):
@@ -39,7 +41,8 @@ class Normalizer:
             tmp_mesh.append(remesh)
         self.history.append(tmp_mesh)
 
-    def mono_uniform_remeshing(self, data):
+    @staticmethod
+    def mono_uniform_remeshing(data):
         print(f"Remeshing: {data['meta_data']['name']}")
         data = data["poly_data"].clean()
         clus = pyacvd.Clustering(data)
@@ -62,7 +65,8 @@ class Normalizer:
             tmp_mesh.append(remesh)
         self.history.append(tmp_mesh)
 
-    def mono_centering(self, data):
+    @staticmethod
+    def mono_centering(data):
         print(f"Centering: {data['meta_data']['name']}")
         mesh = data["poly_data"]
         remesh = PolyData(mesh.points.copy(), mesh.faces.copy())
@@ -83,7 +87,8 @@ class Normalizer:
             tmp_mesh.append(remesh)
         self.history.append(tmp_mesh)
 
-    def mono_alignment(self, data):
+    @staticmethod
+    def mono_alignment(data):
         print(f"Aligning: {data['meta_data']['name']}")
         mesh = data["poly_data"]
         A_cov = np.cov(mesh.points.T)
@@ -107,7 +112,8 @@ class Normalizer:
             tmp_mesh.append(remesh)
         self.history.append(tmp_mesh)
 
-    def mono_scaling(self, data):
+    @staticmethod
+    def mono_scaling(data):
         print(f"\nScaling: {data['meta_data']['name']}")
         mesh = data["poly_data"]
         max_range = np.max(mesh.points, axis=0)
@@ -128,7 +134,8 @@ class Normalizer:
             tmp_mesh.append(remesh)
         self.history.append(tmp_mesh)
 
-    def mono_flipping(self, data):
+    @staticmethod
+    def mono_flipping(data):
         print(f"Flipping: {data['meta_data']['name']}")
         mesh = data["poly_data"]
         face_centers = mesh.cell_centers().points
@@ -145,7 +152,8 @@ class Normalizer:
                 os.mkdir(target_directory)
             processed_mesh.save(f"{target_directory}\\{data['meta_data']['name']}.ply")
 
-    def mono_saving(self, data):
+    @staticmethod
+    def mono_saving(data):
         print(f"Saving: {data['meta_data']['name']}")
         mesh = data["poly_data"]
         target_directory = Path(f"{DATA_PATH_NORMED}/{data['meta_data']['label']}")
@@ -157,38 +165,36 @@ class Normalizer:
             os.makedirs(target_directory)
 
         mesh.save(final_directory)
-        print(
-            f"{data['meta_data']['name']} was {'successfully saved.' if path.exists(final_directory) else 'NOT saved!'}")
-        return mesh
+        print(f"{data['meta_data']['name']} was {'successfully saved.' if path.exists(final_directory) else 'NOT saved!'}")
+        return data
 
-    def mono_run_pipeline(self, data, save=False):
-        history = [{"op": "(a) Original", "data": data["poly_data"]}]
-        new_mesh = self.mono_scaling(data)
+    @staticmethod
+    def mono_run_pipeline(data):
+        new_mesh = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
+        history = [{"op": "(a) Original", "data": new_mesh}]
+        new_mesh = Normalizer.mono_scaling(dict(data, poly_data=new_mesh))
         history.append({"op": "(b) Scale", "data": new_mesh})
-        new_mesh = self.mono_centering(dict(data, poly_data=new_mesh))
+        new_mesh = Normalizer.mono_centering(dict(data, poly_data=new_mesh))
         history.append({"op": "(c) Center", "data": new_mesh})
-        new_mesh = self.mono_alignment(dict(data, poly_data=new_mesh))
+        new_mesh = Normalizer.mono_alignment(dict(data, poly_data=new_mesh))
         history.append({"op": "(d) Align", "data": new_mesh})
-        new_mesh = self.mono_flipping(dict(data, poly_data=new_mesh))
+        new_mesh = Normalizer.mono_flipping(dict(data, poly_data=new_mesh))
         history.append({"op": "(e) Flip", "data": new_mesh})
-        new_mesh = self.mono_uniform_remeshing(dict(data, poly_data=new_mesh))
+        new_mesh = Normalizer.mono_uniform_remeshing(dict(data, poly_data=new_mesh))
         history.append({"op": "(f) Remesh", "data": new_mesh})
 
-        if not save:
-            print(f"Pipeline complete for {data['meta_data']['name']} - Without saving!")
-            return dict(data, poly_data=new_mesh, history=history)
-        new_mesh = self.mono_saving(dict(data, poly_data=new_mesh))
         print(f"Pipeline complete for {data['meta_data']['name']}")
-        final_mesh = dict(data, poly_data=new_mesh, history=history)
-        return final_mesh
+        return dict(data, poly_data=new_mesh, history=history)
 
     def run_full_pipeline(self, max_num_items=None):
         num_full_data = len(self.reader.full_data)
-        relevant_subset_of_data = self.reader.full_data[
-                                  :min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
+        relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
         num_data_being_processed = len(relevant_subset_of_data)
-        items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed)
-        self.reader.full_data = list((self.mono_run_pipeline(item, save=True) for item in items_generator))
+        for item in relevant_subset_of_data:
+            del item["poly_data"]
+        normalization_data_generator = compute_normalization(self, relevant_subset_of_data)
+        items_generator = tqdm(normalization_data_generator, total=num_data_being_processed)
+        self.reader.full_data = list((self.mono_saving(item) for item in items_generator))
         print("Done!")
 
 
