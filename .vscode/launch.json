@@ -5,17 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Olu",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/olu.py",
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Python: Pipeline",
+            "name": "Python: Feature Extract",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/feature_extractor.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Complicated Algorithm",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/split_tree.py",
             "console": "integratedTerminal"
         }
     ]

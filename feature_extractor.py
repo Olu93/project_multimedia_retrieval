@@ -10,13 +10,13 @@ from reader import PSBDataset
 # TODO: [x] surface area
 # TODO: [x] compactness (with respect to a sphere)
 # TODO: [x] axis-aligned bounding-box volume
-# TODO: [] diameter
+# TODO: [x] diameter
 # TODO: [x] eccentricity
-# TODO: [] A3: angle between 3 random vertices
-# TODO: [] D1: distance between barycenter and random vertex
-# TODO: [] D2: distance between 2 random vertices
-# TODO: [] D3: square root of area of triangle given by 3 random vertices
-# TODO: [] D4: cube root of volume of tetrahedron formed by 4 random vertices
+# TODO: [x] A3: angle between 3 random vertices
+# TODO: [x] D1: distance between barycenter and random vertex
+# TODO: [x] D2: distance between 2 random vertices
+# TODO: [x] D3: square root of area of triangle given by 3 random vertices
+# TODO: [x] D4: cube root of volume of tetrahedron formed by 4 random vertices
 
 
 class FeatureExtractor:
@@ -55,7 +55,15 @@ class FeatureExtractor:
         return {"compactness": compactness}
 
     def diameter(self, data):
+        mesh = data["poly_data"]
+        return {"diameter": compute_diameter(mesh)}
 
+    def diameter3(self, data):
+        mesh = data["poly_data"]
+        all_vertices = np.array(mesh.points)
+        return {"diameter": compute_distance(all_vertices)}
+
+    def diameter2(self, data):
         mesh = data["poly_data"]
         all_vertices = np.array(mesh.points)
         vertices1, vertices2 = list(zip(*product(all_vertices, all_vertices)))
@@ -164,13 +172,13 @@ class FeatureExtractor:
     def make_bins(data, n_bins):
         bins = np.linspace(np.min(data), np.max(data), n_bins)
         indices = np.digitize(data, bins)
-        count_dict = Counter(indices)
-        return dict(sorted(count_dict.items()))
+        count_dict = dict(sorted(Counter(indices).items()))
+        result = np.array(list(count_dict.values()))
+        return result / result.sum()
 
     @staticmethod
     def generate_random_ints(min_val, max_val, shape):
-        return np.array([np.random.choice(line, shape[1], replace=False) for line in
-                         np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
+        return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
 
 
 if __name__ == "__main__":
