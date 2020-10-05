@@ -1,12 +1,16 @@
 from collections import Counter
 from itertools import product
-
+from pprint import pprint
 import numpy as np
 from tqdm import tqdm
+from helper.misc import exception_catcher
 from helper.diameter_computer import compute_diameter
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET
 from reader import PSBDataset
-
+import jsonlines
+import io
+from os import path
+from datetime import datetime
 # TODO: [x] surface area
 # TODO: [x] compactness (with respect to a sphere)
 # TODO: [x] axis-aligned bounding-box volume
@@ -19,37 +23,78 @@ from reader import PSBDataset
 # TODO: [x] D4: cube root of volume of tetrahedron formed by 4 random vertices
 
 
+
 class FeatureExtractor:
     number_vertices_sampled = 1000
     number_bins = 20
 
-    def __init__(self):
+    def __init__(self, target_file="./computed_features.jsonl", append_mode=False):
         self.reader = PSBDataset(search_path=DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED)
         self.reader.read()
         self.reader.load_files_in_memory()
         self.reader.convert_all_to_polydata()
         self.reader.compute_shape_statistics()
         self.full_data = self.reader.full_data
+        self.timestamp = str(datetime.now())
+        self.feature_stats_file = target_file
+        self.append_mode = append_mode
 
     @staticmethod
-    def mono_run_pipeline(self, data, save=False):
+    def mono_run_pipeline(data, timestamp=None):
         final_dict = {}
-        
-        print(result)
+        final_dict["name"] = data["meta_data"]["name"]
+        if timestamp:
+            final_dict["time_stamp"] = timestamp
+        singleton_pipeline = [
+            FeatureExtractor.compactness,
+            FeatureExtractor.sphericity,
+            FeatureExtractor.aabb_volume,
+            FeatureExtractor.surface_area,
+            FeatureExtractor.eccentricity,
+        ]
+        histogram_pipeline = [
+            FeatureExtractor.angle_three_rand_verts,
+            FeatureExtractor.dist_bar_vert,
+            FeatureExtractor.dist_two_rand_verts,
+            FeatureExtractor.dist_sqrt_area_rand_triangle,
+            FeatureExtractor.cube_root_volume_four_rand_verts,
+        ]
+        if not DEBUG:
+            singleton_pipeline.append(FeatureExtractor.diameter)
+
+        gather_data = [list(func(data).items())[0] for func in [*singleton_pipeline, *histogram_pipeline]]
+
+        final_dict.update(gather_data)
+
+        return final_dict
 
     def run_full_pipeline(self, max_num_items=None):
-        num_full_data = len(self.reader.full_data)
-        relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
-        num_data_being_processed = len(relevant_subset_of_data)
-        items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed)
-        self.reader.full_data = list((self.mono_run_pipeline(item) for item in items_generator))
+        target_file = self.feature_stats_file
+        with jsonlines.open(target_file, mode="a" if self.append_mode else "w") as writer:
+            num_full_data = len(self.reader.full_data)
+            relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
+            num_data_being_processed = len(relevant_subset_of_data)
+            items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed)
+            feature_data_generator = (self.mono_run_pipeline(item, self.timestamp) for item in items_generator)
+            prepared_data = (self.jsonify(item) for item in feature_data_generator)
+            # first_feature_set = next(prepared_data)
+            # csv_writer = csv.DictWriter(fh, fieldnames=list(first_feature_set.keys()))
+            # csv_writer.writeheader()
+            for next_feature_set in prepared_data:
+                writer.write(next_feature_set)
 
     @staticmethod
+    def jsonify(item):
+        result = {key: list(value) if type(value) in [np.ndarray] else value for key, value in item.items()}
+        return result
+
+    @staticmethod
+    @exception_catcher
     def compactness(data):
         mesh = data["poly_data"]
         edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
         if edges.n_faces > 0:
-                mesh.fill_holes(1000, inplace=True)
+            mesh = mesh.fill_holes(1000)
         volume = mesh.volume
         cell_ids = PSBDataset._get_cells(mesh)
         cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
@@ -58,31 +103,34 @@ class FeatureExtractor:
         return {"compactness": compactness}
 
     @staticmethod
+    @exception_catcher
     def sphericity(data):
         mesh = data["poly_data"]
         edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
         if edges.n_faces > 0:
-            mesh.fill_holes(1000, inplace=True)
+            mesh = mesh.fill_holes(1000)
         volume = mesh.volume
         cell_ids = PSBDataset._get_cells(mesh)
         cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
         surface_area = sum(cell_areas)
-        sphericity = (np.power(np.pi, 1/3) * np.power(6*volume, 2/3)) / surface_area
+        sphericity = (np.power(np.pi, 1 / 3) * np.power(6 * volume, 2 / 3)) / surface_area
         return {"sphericity": sphericity}
 
     @staticmethod
+    @exception_catcher
     def diameter(data):
         mesh = data["poly_data"]
         return {"diameter": compute_diameter(mesh)}
 
-
     @staticmethod
+    @exception_catcher
     def aabb_volume(data):
         mesh = data["poly_data"]
         length_x, length_y, length_z = np.abs(np.diff(np.reshape(mesh.bounds, (3, 2))))
-        return {"aabb_volume": (length_x * length_y * length_z)}
+        return {"aabb_volume": (length_x * length_y * length_z)[0]}
 
     @staticmethod
+    @exception_catcher
     def surface_area(data):
         mesh = data["poly_data"]
         cell_ids = PSBDataset._get_cells(mesh)
@@ -90,6 +138,7 @@ class FeatureExtractor:
         return {"surface_area": sum(cell_areas)}
 
     @staticmethod
+    @exception_catcher
     def eccentricity(data):
         mesh = data["poly_data"]
         A_cov = np.cov(mesh.points.T)
@@ -97,6 +146,7 @@ class FeatureExtractor:
         return {"eccentricity": np.max(eigenvalues) / np.min(eigenvalues)}
 
     @staticmethod
+    @exception_catcher
     def cube_root_volume_four_rand_verts(data):
         # https://stackoverflow.com/a/9866530
         def treaeder_volume(points):
@@ -104,7 +154,7 @@ class FeatureExtractor:
             return np.abs(np.dot(a - d, np.cross(b - d, c - d))) / 6
 
         mesh = data["poly_data"]
-        random_indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (self.number_vertices_sampled, 4))
+        random_indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 4))
         quad_points = mesh.points[random_indices, :]
         # volumes = np.array([treaeder_volume(points) for points in quad_points])
         A = quad_points[:, 0] - quad_points[:, 3]
@@ -116,6 +166,7 @@ class FeatureExtractor:
         return {"cube_root_volume_four_rand_verts": histogram}
 
     @staticmethod
+    @exception_catcher
     def angle_three_rand_verts(data):
         # This question quite fitted the case (https://bit.ly/3in7MjH)
         angles_degrees = []
@@ -134,6 +185,7 @@ class FeatureExtractor:
         return {"rand_angle_three_verts": FeatureExtractor.make_bins(angles_degrees, FeatureExtractor.number_bins)}
 
     @staticmethod
+    @exception_catcher
     def dist_two_rand_verts(data):
         distances = []
         mesh = data["poly_data"]
@@ -147,6 +199,7 @@ class FeatureExtractor:
         return {"rand_dist_two_verts": FeatureExtractor.make_bins(distances, FeatureExtractor.number_bins)}
 
     @staticmethod
+    @exception_catcher
     def dist_bar_vert(data):
         distances = []
         mesh = data["poly_data"]
@@ -159,6 +212,7 @@ class FeatureExtractor:
         return {"dist_bar_vert": FeatureExtractor.make_bins(distances, FeatureExtractor.number_bins)}
 
     @staticmethod
+    @exception_catcher
     def dist_sqrt_area_rand_triangle(data):
         mesh = data["poly_data"]
         verts_list = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, [100, 3])
@@ -180,9 +234,6 @@ class FeatureExtractor:
         return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
 
 
-    
-
-
 if __name__ == "__main__":
     FE = FeatureExtractor()
-    FE.run_full_pipeline(10 if DEBUG else None, save=True)
+    pprint(FE.mono_run_pipeline(FE.full_data[0]))

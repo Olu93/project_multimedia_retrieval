@@ -12,6 +12,13 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python: Olu",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/olu.py",
+            "console": "internalConsole"
+        },
+        {
             "name": "Python: Complicated Algorithm",
             "type": "python",
             "request": "launch",
