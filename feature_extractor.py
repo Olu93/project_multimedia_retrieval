@@ -3,7 +3,7 @@ from itertools import product
 
 import numpy as np
 from tqdm import tqdm
-
+from helper.diameter_computer import compute_diameter
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET
 from reader import PSBDataset
 
@@ -31,10 +31,9 @@ class FeatureExtractor:
         self.reader.compute_shape_statistics()
         self.full_data = self.reader.full_data
 
-    def mono_run_pipeline(self, data):
-        # result = self.diameter(data)
-        result = self.sphericity(data)
-        # result = self.dist_sqrt_area_rand_triangle(data)
+    def mono_run_pipeline(self, data, save=False):
+        final_dict = {}
+        self.aabb_volume
         print(result)
 
     def run_full_pipeline(self, max_num_items=None):
@@ -72,21 +71,6 @@ class FeatureExtractor:
         mesh = data["poly_data"]
         return {"diameter": compute_diameter(mesh)}
 
-    def diameter3(self, data):
-        mesh = data["poly_data"]
-        all_vertices = np.array(mesh.points)
-        return {"diameter": compute_distance(all_vertices)}
-
-    def diameter2(self, data):
-        mesh = data["poly_data"]
-        all_vertices = np.array(mesh.points)
-        vertices1, vertices2 = list(zip(*product(all_vertices, all_vertices)))
-        difference_between_points = np.array(vertices1) - np.array(vertices2)
-        squared_difference = np.square(difference_between_points)
-        sum_of_squared = np.sum(squared_difference, axis=1)
-        L2_distance = np.sqrt(sum_of_squared)
-        max_distance = np.max(L2_distance)
-        return {"diameter": max_distance}
 
     def aabb_volume(self, data):
         mesh = data["poly_data"]
@@ -183,9 +167,10 @@ class FeatureExtractor:
     def generate_random_ints(min_val, max_val, shape):
         return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
 
-    # def visualize_features(self):
+
+    
 
 
 if __name__ == "__main__":
     FE = FeatureExtractor()
-    FE.run_full_pipeline(10 if DEBUG else None)
+    FE.run_full_pipeline(10 if DEBUG else None, save=True)
