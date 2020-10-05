@@ -1,20 +1,29 @@
 import sys
 
+import pandas as pd
 import pyvista as pv
 from PyQt5 import Qt
 from PyQt5.QtWidgets import QPushButton, QFileDialog
 from pyvistaqt import BackgroundPlotter
 
 import reader
+from helper.viz import TableWidget
 from normalizer import Normalizer
 from reader import DataSet
 
+df = pd.DataFrame({'a': ['Mary', 'Jim', 'John'],
+                   'b': [100, 200, 300],
+                   'c': ['a', 'b', 'c']})
+
+
 # TODO: [] Fix bug, when "cancel" pressed on file choosing window
+# TODO: [] Add Tabular viewer from QT and link it to data table from feature extractor
 
 
 class MainWindow(Qt.QMainWindow):
     def __init__(self, parent=None, show=True):
         Qt.QMainWindow.__init__(self, parent)
+        self.ds = reader.DataSet("")
         self.meshes = []
         self.plotter = BackgroundPlotter(shape=(2, 2), border_color='white', title="MMR Visualization")
         self.setWindowTitle('MMR UI')
@@ -23,7 +32,7 @@ class MainWindow(Qt.QMainWindow):
         self.normalizer = Normalizer()
         self.frame.setLayout(vlayout)
         self.setCentralWidget(self.frame)
-        self.frame.setWindowTitle(self.title)
+        self.frame.setWindowTitle("MMR Plotter")
         mainMenu = self.menuBar()
         fileMenu = mainMenu.addMenu('File')
         exitButton = Qt.QAction('Exit', self)
@@ -45,6 +54,9 @@ class MainWindow(Qt.QMainWindow):
         remesh_button = QPushButton("Show data processing")
         remesh_button.clicked.connect(lambda: self.show_processing(self.open_file_name_dialog()))
 
+        self.tableWidget = TableWidget(df, self)
+
+        vlayout.addWidget(self.tableWidget)
         vlayout.addWidget(load_button)
         vlayout.addWidget(remesh_button)
 
@@ -67,7 +79,6 @@ class MainWindow(Qt.QMainWindow):
     def open_file_name_dialog(self):
         fileName, _ = QFileDialog.getOpenFileName(self, "Choose shape to view.", "",
                                                   "All Files (*);; Model Files (.obj, .off, .ply, .stl)")
-        self.ds = reader.DataSet("")
         if fileName:
             mesh = DataSet._read(fileName)
             return mesh

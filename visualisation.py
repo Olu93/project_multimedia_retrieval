@@ -1,24 +1,30 @@
 # %%
 from feature_extractor import FeatureExtractor
-from helper.viz import visualize_histogram
 from helper.config import DATA_PATH_NORMED_SUBSET
-#%%
+from helper.viz import visualize_histogram
+
+# %%
 FE = FeatureExtractor(DATA_PATH_NORMED_SUBSET)
 plot_names = "Ant Human Guitar1 Guitar2".split()
 # %%
-fig = visualize_histogram(FE, "angle_three_rand_verts", "Angle of randomly sampled vertext triplets", list(range(4)), plot_names)
+fig = visualize_histogram(FE, "angle_three_rand_verts", "Angle of randomly sampled vertext triplets", list(range(4)),
+                          plot_names)
 fig.savefig('trash/angle_three_rand_verts.png')
 fig.show()
-fig = visualize_histogram(FE, "cube_root_volume_four_rand_verts", "Cube root of randomly sampled tetrahedrons", list(range(4)), plot_names)
+fig = visualize_histogram(FE, "cube_root_volume_four_rand_verts", "Cube root of randomly sampled tetrahedrons",
+                          list(range(4)), plot_names)
 fig.savefig('trash/cube_root_volume_four_rand_verts.png')
 fig.show()
-fig = visualize_histogram(FE, "dist_two_rand_verts", "Distance of randomly sampled vertext pairs", list(range(4)), plot_names)
+fig = visualize_histogram(FE, "dist_two_rand_verts", "Distance of randomly sampled vertext pairs", list(range(4)),
+                          plot_names)
 fig.savefig('trash/dist_two_rand_verts.png')
 fig.show()
-fig = visualize_histogram(FE, "dist_bar_vert", "Distance between randomly sampled vertices and barycenter", list(range(4)), plot_names)
+fig = visualize_histogram(FE, "dist_bar_vert", "Distance between randomly sampled vertices and barycenter",
+                          list(range(4)), plot_names)
 fig.savefig('trash/dist_bar_vert.png')
 fig.show()
-fig = visualize_histogram(FE, "dist_sqrt_area_rand_triangle", "Square root of randomly sampled triangles", list(range(4)), plot_names)
+fig = visualize_histogram(FE, "dist_sqrt_area_rand_triangle", "Square root of randomly sampled triangles",
+                          list(range(4)), plot_names)
 fig.savefig('trash/dist_sqrt_area_rand_triangle.png')
 fig.show()
 # %%
