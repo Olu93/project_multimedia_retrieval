@@ -112,10 +112,8 @@ class FeatureExtractor:
 
     def angle_three_rand_verts(self, data):
         # This question quite fitted the case (https://bit.ly/3in7MjH)
-        data_out = dict()
         angles_degrees = []
         mesh = data["poly_data"]
-        name = data["meta_data"]["name"]
         indices_triplets = self.generate_random_ints(0, len(mesh.points) - 1, (self.number_vertices_sampled, 3))
         verts_triplets = [mesh.points[triplet] for triplet in indices_triplets]
 
@@ -130,10 +128,8 @@ class FeatureExtractor:
         return {"rand_angle_three_verts": self.make_bins(angles_degrees, self.number_bins)}
 
     def dist_two_rand_verts(self, data):
-        data_out = dict()
         distances = []
         mesh = data["poly_data"]
-        name = data["meta_data"]["name"]
         indices_tuples = self.generate_random_ints(0, len(mesh.points) - 1, (self.number_vertices_sampled, 2))
         verts_tuples = [mesh.points[tup] for tup in indices_tuples]
 
@@ -141,22 +137,18 @@ class FeatureExtractor:
             distance = np.abs(np.diff(verts_tuple, axis=0))
             distances.append(np.linalg.norm(distance))
 
-        data_out.update({name: {"rand_dist_two_verts": self.make_bins(distances, self.number_bins)}})
-        return data_out
+        return {"rand_dist_two_verts": self.make_bins(distances, self.number_bins)}
 
     def dist_bar_vert(self, data):
-        data_out = dict()
         distances = []
         mesh = data["poly_data"]
         bary_center = data["bary_center"]
-        name = data["meta_data"]["name"]
         indices = self.generate_random_ints(0, len(mesh.points) - 1, (self.number_vertices_sampled, 1))
         rand_verts = mesh.points[indices]
         for vert in rand_verts:
             distance = np.abs(np.diff(np.vstack((bary_center, vert)), axis=0))
             distances.append(np.linalg.norm(distance))
-        data_out.update({name: {"dist_bar_vert": self.make_bins(distances, self.number_bins)}})
-        return data_out
+        return {"dist_bar_vert": self.make_bins(distances, self.number_bins)}
 
     @staticmethod
     def make_bins(data, n_bins):
