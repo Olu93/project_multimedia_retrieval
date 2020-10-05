@@ -74,13 +74,9 @@ class FeatureExtractor:
             num_full_data = len(self.reader.full_data)
             relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
             num_data_being_processed = len(relevant_subset_of_data)
-            items_generator = tqdm(relevant_subset_of_data, total=num_data_being_processed)
-            feature_data_generator = (self.mono_run_pipeline(item, self.timestamp) for item in items_generator)
-            prepared_data = (self.jsonify(item) for item in feature_data_generator)
-            # first_feature_set = next(prepared_data)
-            # csv_writer = csv.DictWriter(fh, fieldnames=list(first_feature_set.keys()))
-            # csv_writer.writeheader()
-            for next_feature_set in prepared_data:
+            feature_data_generator = (FeatureExtractor.mono_run_pipeline(item, self.timestamp) for item in relevant_subset_of_data)
+            prepared_data = (FeatureExtractor.jsonify(item) for item in feature_data_generator)
+            for next_feature_set in tqdm(prepared_data, total=num_data_being_processed):
                 writer.write(next_feature_set)
 
     @staticmethod

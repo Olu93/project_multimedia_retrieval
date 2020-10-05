@@ -16,7 +16,7 @@
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/olu.py",
-            "console": "internalConsole"
+            "console": "integratedTerminal"
         },
         {
             "name": "Python: Complicated Algorithm",
