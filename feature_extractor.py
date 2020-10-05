@@ -164,7 +164,8 @@ class FeatureExtractor:
         bins = np.linspace(np.min(data), np.max(data), n_bins)
         indices = np.digitize(data, bins)
         count_dict = dict(sorted(Counter(indices).items()))
-        result = np.array(list(count_dict.values()))
+        count_dict_without_holes = {idx: count_dict[idx] if idx in count_dict.keys() else 0 for idx in range(1, FeatureExtractor.number_bins + 1)}
+        result = np.array(list(count_dict_without_holes.values()))
         return result / result.sum()
 
     @staticmethod
