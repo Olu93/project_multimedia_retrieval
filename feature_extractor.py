@@ -20,8 +20,8 @@ from reader import PSBDataset
 
 
 class FeatureExtractor:
-    number_vertices_sampled = 100
-    number_bins = 10
+    number_vertices_sampled = 1000
+    number_bins = 20
 
     def __init__(self):
         self.reader = PSBDataset(search_path=DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED)
@@ -125,10 +125,8 @@ class FeatureExtractor:
 
     def angle_three_rand_verts(self, data):
         # This question quite fitted the case (https://bit.ly/3in7MjH)
-        data_out = dict()
         angles_degrees = []
         mesh = data["poly_data"]
-        name = data["meta_data"]["name"]
         indices_triplets = self.generate_random_ints(0, len(mesh.points) - 1, (self.number_vertices_sampled, 3))
         verts_triplets = [mesh.points[triplet] for triplet in indices_triplets]
 
@@ -140,14 +138,11 @@ class FeatureExtractor:
             angle_radians = np.arccos(cosine_angle)
             angles_degrees.append(np.degrees(angle_radians))
 
-        data_out.update({name: {"rand_angle_three_verts": self.make_bins(angles_degrees, self.number_bins)}})
-        return data_out
+        return {"rand_angle_three_verts": self.make_bins(angles_degrees, self.number_bins)}
 
     def dist_two_rand_verts(self, data):
-        data_out = dict()
         distances = []
         mesh = data["poly_data"]
-        name = data["meta_data"]["name"]
         indices_tuples = self.generate_random_ints(0, len(mesh.points) - 1, (self.number_vertices_sampled, 2))
         verts_tuples = [mesh.points[tup] for tup in indices_tuples]
 
@@ -155,22 +150,18 @@ class FeatureExtractor:
             distance = np.abs(np.diff(verts_tuple, axis=0))
             distances.append(np.linalg.norm(distance))
 
-        data_out.update({name: {"rand_dist_two_verts": self.make_bins(distances, self.number_bins)}})
-        return data_out
+        return {"rand_dist_two_verts": self.make_bins(distances, self.number_bins)}
 
     def dist_bar_vert(self, data):
-        data_out = dict()
         distances = []
         mesh = data["poly_data"]
         bary_center = data["bary_center"]
-        name = data["meta_data"]["name"]
         indices = self.generate_random_ints(0, len(mesh.points) - 1, (self.number_vertices_sampled, 1))
         rand_verts = mesh.points[indices]
         for vert in rand_verts:
             distance = np.abs(np.diff(np.vstack((bary_center, vert)), axis=0))
             distances.append(np.linalg.norm(distance))
-        data_out.update({name: {"dist_bar_vert": self.make_bins(distances, self.number_bins)}})
-        return data_out
+        return {"dist_bar_vert": self.make_bins(distances, self.number_bins)}
 
     def dist_sqrt_area_rand_triangle(self, data):
         data_out = dict()
@@ -187,7 +178,8 @@ class FeatureExtractor:
         bins = np.linspace(np.min(data), np.max(data), n_bins)
         indices = np.digitize(data, bins)
         count_dict = dict(sorted(Counter(indices).items()))
-        result = np.array(list(count_dict.values()))
+        count_dict_without_holes = {idx: count_dict[idx] if idx in count_dict.keys() else 0 for idx in range(1, FeatureExtractor.number_bins + 1)}
+        result = np.array(list(count_dict_without_holes.values()))
         return result / result.sum()
 
     @staticmethod

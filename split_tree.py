@@ -125,11 +125,13 @@ class AprxDiameter(object):
     def compute_approx_diameter(self, eps=.01):
         start_time = time.time()
         self.root = self.root.split_fair()
+        start_time_only_algorithm = time.time()
         p_curr = []
         starting_pair = Pair(self.root, self.root)
         u_root_repr, v_root_repr = starting_pair.get_pair_reprensetantives()
         delta_curr = np.linalg.norm(u_root_repr - v_root_repr)
-        points_curr = self.root.min_max_points
+        # points_curr = self.root.min_max_points
+        points_curr = (self.root.center, self.root.center)
         heapq.heapify(p_curr)
         heapq.heappush(p_curr, starting_pair)
         while p_curr:
@@ -158,6 +160,7 @@ class AprxDiameter(object):
         self.approx_points = points_curr
         self.approx_diameter = delta_curr
         self.approx_time = time.time() - start_time
+        self.approx_time_only_algorithm = time.time() - start_time_only_algorithm
         return delta_curr
 
     @staticmethod
@@ -225,23 +228,24 @@ diameter_computer.show()
 # %%
 def compute_comparison(data, num_points):
 
-    mesh = pv.PolyData(data.points[:num_points])
+    mesh = pv.PolyData(random.sample(list(data.points), num_points))
     root = Node(mesh.points, parent=None)
     diameter_computer = AprxDiameter(root.split_fair())
-    diameter_computer.compute_approx_diameter(0.1)
-    # diameter_computer.compute_exact_diameter()
+    diameter_computer.compute_approx_diameter()
+    diameter_computer.compute_exact_diameter()
     return {
         "Number of points": num_points,
         "Approximated diameter": diameter_computer.approx_diameter,
         "Exact diameter": diameter_computer.exact_diameter,
         "Approx. diameter computation time (in sec)": diameter_computer.approx_time,
         "Exact. diameter computation time (in sec)": diameter_computer.exact_time,
+        "Approx. diameter computation time (in sec) [Without tree constiruction]": diameter_computer.approx_time_only_algorithm,
     }
 
 
 # data = examples.download_bunny().triangulate().decimate(.7)
 num_experiments = 10
-experiment_results = pd.DataFrame([compute_comparison(data, int(num_points)) for num_points in tqdm(np.linspace(50, len(data.points), num_experiments), total=num_experiments)])
+experiment_results = pd.DataFrame([compute_comparison(data, int(num_points)) for num_points in tqdm(np.linspace(len(data.points)/10, len(data.points), num_experiments), total=num_experiments)])
 experiment_results
 
 # %%

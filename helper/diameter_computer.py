@@ -11,16 +11,21 @@ import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
+
 class Node(NodeMixin):
     def __init__(self, points, parent=None, children=None):
         super(Node, self).__init__()
         self.parent = parent
         self.points = points
         poly_data = pv.PolyData(points)
-        self.bounds = poly_data.bounds
+        # self.bounds = poly_data.bounds
         self.center = np.array(poly_data.center)
-        self.bbox_lengths = np.diff(np.array(self.bounds).reshape((-1, 2)), axis=1)
-        self.bbox_diameter = np.linalg.norm(np.diff(np.array(self.root.bounds).reshape((-1, 2)), axis=1))
+        # min_max_point = np.array(self.bounds).reshape((-1, 2))
+        min_point = np.min(points, axis=0)
+        max_point = np.max(points, axis=0)
+        self.min_max_points = (min_point, max_point)
+        self.bbox_lengths = np.abs(max_point - min_point)
+        # self.bbox_diameter = np.linalg.norm(max_point - min_point)
         self.bsphere_radius = self.bbox_lengths.max() / 2
         self.name = f"Node ({len(points)} points, radius:{self.bsphere_radius:.2f})"
 
@@ -34,7 +39,7 @@ class Node(NodeMixin):
     def split_fair(self):
         if len(self.points) <= 1:
             return Leaf(self.points)
-        differences = np.abs(np.diff(np.array(self.bounds).reshape((-1, 2)), axis=1))
+        differences = np.abs(self.min_max_points[0] - self.min_max_points[1])
         longest_axis = np.argmax(differences)
         splitting_plane_normal = np.zeros_like(differences)
         splitting_plane_normal[longest_axis] = 1
@@ -100,14 +105,20 @@ class Pair(object):
 
 class AprxDiameter(object):
     def __init__(self, root_node):
-        self.root = root_node.split_fair()
+        self.root = root_node
+        self.exact_diameter = None
+        self.exact_time = None
 
     def compute_approx_diameter(self, eps=.01):
         start_time = time.time()
+        self.root = self.root.split_fair()
+        start_time_only_algorithm = time.time()
         p_curr = []
-        delta_curr = self.root.bbox_diameter
         starting_pair = Pair(self.root, self.root)
-        points_curr = starting_pair.get_pair_reprensetantives()
+        u_root_repr, v_root_repr = starting_pair.get_pair_reprensetantives()
+        delta_curr = np.linalg.norm(u_root_repr - v_root_repr)
+        # points_curr = self.root.min_max_points
+        points_curr = (self.root.center, self.root.center)
         heapq.heapify(p_curr)
         heapq.heappush(p_curr, starting_pair)
         while p_curr:
@@ -136,6 +147,7 @@ class AprxDiameter(object):
         self.approx_points = points_curr
         self.approx_diameter = delta_curr
         self.approx_time = time.time() - start_time
+        self.approx_time_only_algorithm = time.time() - start_time_only_algorithm
         return delta_curr
 
     @staticmethod
@@ -144,12 +156,12 @@ class AprxDiameter(object):
         points_curr = pair.get_pair_reprensetantives()
         u_representative, v_representative = points_curr
         m = pair.M
+        L2_distance = np.linalg.norm(u_representative - v_representative)
+        delta_curr = L2_distance if L2_distance > delta_curr else delta_curr
         if m <= limit:
             return heap, delta_curr, points_curr
 
-        L2_distance = np.linalg.norm(u_representative - v_representative)
         points_curr = pair.get_pair_reprensetantives()
-        delta_curr = L2_distance if L2_distance > delta_curr else delta_curr
         heapq.heappush(heap, pair)
         return heap, delta_curr, points_curr
 
@@ -191,6 +203,7 @@ class AprxDiameter(object):
 
     def __repr__(self):
         return AprxDiameter.traverse(self.pairs)
+
 
 def compute_diameter(mesh, eps=0.1):
     root = Node(mesh.points, parent=None)
