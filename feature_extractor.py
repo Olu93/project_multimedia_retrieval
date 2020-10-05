@@ -164,14 +164,11 @@ class FeatureExtractor:
         return {"dist_bar_vert": self.make_bins(distances, self.number_bins)}
 
     def dist_sqrt_area_rand_triangle(self, data):
-        data_out = dict()
         mesh = data["poly_data"]
-        name = data["meta_data"]["name"]
         verts_list = self.generate_random_ints(0, len(mesh.points) - 1, [100, 3])
         triangle_areas = self.reader._get_cell_areas(mesh.points, verts_list)
         sqrt_areas = np.sqrt(triangle_areas)
-        data_out.update({name: {"sqrt_area_rand_three_verts": self.make_bins(sqrt_areas, self.number_bins)}})
-        return data_out
+        return {"sqrt_area_rand_three_verts": self.make_bins(sqrt_areas, self.number_bins)}
 
     @staticmethod
     def make_bins(data, n_bins):
