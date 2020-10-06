@@ -87,11 +87,11 @@ class FeatureExtractor:
         if not DEBUG:
             singleton_pipeline[FeatureExtractor.diameter] = "Diameter"
         histogram_pipeline = {
-            FeatureExtractor.angle_three_rand_verts: "Angle of randomly sampled vertex triplets",
-            FeatureExtractor.dist_bar_vert: "Distance between randomly sampled vertices and barycenter",
-            FeatureExtractor.dist_two_rand_verts: "Distance of randomly sampled vertex pairs",
-            FeatureExtractor.dist_sqrt_area_rand_triangle: "Square root of randomly sampled triangles",
-            FeatureExtractor.cube_root_volume_four_rand_verts: "Cube root of randomly sampled tetrahedrons",
+            FeatureExtractor.angle_three_rand_verts: "Angl. of sampled vert. triplets",
+            FeatureExtractor.dist_bar_vert: "Dist. between sampled vert. & barycenter",
+            FeatureExtractor.dist_two_rand_verts: "Dist. of sampled vert. pairs",
+            FeatureExtractor.dist_sqrt_area_rand_triangle: "Sqrt. of sampled triangles",
+            FeatureExtractor.cube_root_volume_four_rand_verts: "Curt. of sampled tetrahedrons",
         }
         return (singleton_pipeline, histogram_pipeline)
 

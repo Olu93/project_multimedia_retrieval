@@ -23,7 +23,7 @@ def visualize_histograms(extractor, functions, item_ids=[0, 1], names=None, plot
     num_items = len(item_ids)
     num_rows = len(result_sets)
     num_bins = extractor.number_bins
-    fig = plt.figure(figsize=(10 * num_items, 7 * num_rows))
+    fig = plt.figure(figsize=(10 * num_items, 9 * num_rows))
     # axes = [
     #     (fig.add_subplot(2, num_items, idx + 1), fig.add_subplot(2, num_items, num_items + idx + 1, projection='3d'))
     #     for idx
@@ -43,10 +43,10 @@ def visualize_histograms(extractor, functions, item_ids=[0, 1], names=None, plot
         plot_mesh(mesh["poly_data"], ax)
 
     for ax_row, y_title in zip(hist_axes[:, 0], plot_titles):
-        ax_row.set_ylabel(y_title, rotation=90, size='large')
+        ax_row.set_ylabel(y_title, rotation=90, fontsize=30.0)
 
     for ax_col, x_title in zip(hist_axes[0, :], names):
-        ax_col.set_title(x_title, size='large')
+        ax_col.set_title(x_title, fontsize=30.0)
 
     fig.tight_layout()
     # plt.show()

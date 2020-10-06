@@ -11,7 +11,7 @@ _, hist_functions = FeatureExtractor.get_pipeline_functions()
 
 # %%
 fig = visualize_histograms(FE, hist_functions, item_ids=list(range(4)), names=mesh_names)
-fig.savefig('trash/test.png')
+fig.savefig('trash/features.png')
 # fig.show()
 # fig = visualize_hifunctfunctionsroot_volume_four_rand_verts", "Cube root of randomly sampled tetrahedrons",
 #                    function_namesange(4)), plot_names)

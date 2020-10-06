@@ -10,18 +10,18 @@ import time
 # FE.run_full_pipeline()
 
 # %%
-if __name__ == "__main__":
-    norm = Normalizer(PSBDataset(DATA_PATH_DEBUG if DEBUG else DATA_PATH_PSB, class_file_path=CLASS_FILE))
-    norm.run_full_pipeline()
+# if __name__ == "__main__":
+#     norm = Normalizer(PSBDataset(DATA_PATH_DEBUG if DEBUG else DATA_PATH_PSB, class_file_path=CLASS_FILE))
+#     norm.run_full_pipeline()
 
 # %%
-# dataset = PSBDataset(DATA_PATH_NORMED, class_file_path=CLASS_FILE)
-# dataset.read()
+dataset = PSBDataset(DATA_PATH_NORMED, class_file_path=CLASS_FILE)
+dataset.read()
 # dataset.show_class_histogram()
-# dataset.load_files_in_memory()
-# dataset.convert_all_to_polydata()
-# dataset.compute_shape_statistics()
-# dataset.detect_outliers()
+dataset.load_files_in_memory()
+dataset.convert_all_to_polydata()
+dataset.compute_shape_statistics()
+dataset.detect_outliers()
 # # %%
-# dataset.save_statistics("./stats")
+dataset.save_statistics("./stats")
 # %%
