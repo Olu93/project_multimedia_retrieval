@@ -155,7 +155,7 @@ class Normalizer:
     @staticmethod
     def mono_saving(data):
         print(f"Saving: {data['meta_data']['name']}")
-        mesh = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
+        mesh = pv.PolyData(data["history"][-1]["vertices"], data["history"][-1]["faces"])
         target_directory = Path(f"{DATA_PATH_NORMED}/{data['meta_data']['label']}")
         final_directory = target_directory / f"{data['meta_data']['name']}.ply"
 
