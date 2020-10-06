@@ -13,7 +13,7 @@ def compute_feature_extraction(extractor, data):
 
 def compute_normalization(normalizer, data):
     pool = mp.Pool(math.ceil(mp.cpu_count() * .75))
-    normalized = pool.imap_unordered(normalizer.mono_run_pipeline, data)
+    normalized = pool.imap_unordered(normalizer.mono_run_pipeline, data, chunksize=10)
     return normalized
 
 

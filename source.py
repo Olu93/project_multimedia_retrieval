@@ -94,13 +94,14 @@ class MainWindow(Qt.QMainWindow):
             plt.subplot(int(idx / 3), idx % 3)
             if elements[idx]["op"] == "Center":
                 plt.add_mesh(pv.Cube().extract_all_edges())
-            plt.add_mesh(elements[idx]["data"], color='w', show_edges=True)
+            curr_mesh = pv.PolyData(elements[idx]["data"][0], elements[idx]["data"][1])
+            plt.add_mesh(curr_mesh, color='w', show_edges=True)
             plt.reset_camera()
             plt.view_isometric()
             plt.add_text(
                 elements[idx]["op"] +
-                "\nVertices: " + str(len(elements[idx]["data"].points)) +
-                "\nFaces: " + str(elements[idx]["data"].n_faces))
+                "\nVertices: " + str(len(curr_mesh.points)) +
+                "\nFaces: " + str(curr_mesh.n_faces))
             plt.show_grid()
 
 

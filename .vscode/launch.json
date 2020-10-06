@@ -19,6 +19,13 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python: GUI",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/source.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python: Complicated Algorithm",
             "type": "python",
             "request": "launch",
