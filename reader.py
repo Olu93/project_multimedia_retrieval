@@ -199,6 +199,7 @@ class DataSet:
         counts_list = list(Counter(pd_data["label"].astype(str).values).items())
         counts = pd.DataFrame([{"label": label, "counts": int(count)} for label, count in counts_list])
         plt.bar(counts["label"], counts["counts"])
+        plt.xticks(rotation=90)
         plt.show()
 
     @staticmethod
@@ -301,10 +302,10 @@ class ModelNet40Dataset(DataSet):
 if __name__ == "__main__":
     dataset = PSBDataset()
     dataset.read()
-    # dataset.show_class_histogram()
+    dataset.show_class_histogram()
     dataset.load_files_in_memory()
     dataset.convert_all_to_polydata()
     dataset.compute_shape_statistics()
-    # dataset.detect_outliers()
-    # dataset.save_statistics()
+    dataset.detect_outliers()
+    dataset.save_statistics()
     # pprint(dataset.full_data[0])
