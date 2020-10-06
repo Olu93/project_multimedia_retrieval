@@ -19,6 +19,13 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python: Viz",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/visualisation.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python: GUI",
             "type": "python",
             "request": "launch",

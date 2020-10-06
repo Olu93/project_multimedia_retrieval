@@ -3,7 +3,7 @@ processed_data*/**
 !data/.gitkeep
 !processed_data/.gitkeep
 config.py
-settings.json
+.vscode/settings.json
 
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,pycharm+all,python,jupyternotebooks
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,pycharm+all,python,jupyternotebooks
@@ -245,7 +245,6 @@ dmypy.json
 
 ### VisualStudioCode ###
 .vscode/*
-!.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json

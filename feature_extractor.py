@@ -52,24 +52,9 @@ class FeatureExtractor:
         final_dict["name"] = data["meta_data"]["name"]
         final_dict["label"] = data["meta_data"]["label"]
         data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
-        singleton_pipeline = [
-            FeatureExtractor.compactness,
-            FeatureExtractor.sphericity,
-            FeatureExtractor.aabb_volume,
-            FeatureExtractor.surface_area,
-            FeatureExtractor.eccentricity,
-        ]
-        histogram_pipeline = [
-            FeatureExtractor.angle_three_rand_verts,
-            FeatureExtractor.dist_bar_vert,
-            FeatureExtractor.dist_two_rand_verts,
-            FeatureExtractor.dist_sqrt_area_rand_triangle,
-            FeatureExtractor.cube_root_volume_four_rand_verts,
-        ]
-        if not DEBUG:
-            singleton_pipeline.append(FeatureExtractor.diameter)
+        singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
 
-        gather_data = [list(func(data).items())[0] for func in [*singleton_pipeline, *histogram_pipeline]]
+        gather_data = [list(func(data).items())[0] for func in [*list(singleton_pipeline.keys()), *list(histogram_pipeline.key())]]
 
         final_dict.update(gather_data)
 
@@ -80,8 +65,7 @@ class FeatureExtractor:
         target_file = self.feature_stats_file
         with jsonlines.open(target_file, mode="a" if self.append_mode else "w") as writer:
             num_full_data = len(self.reader.full_data)
-            relevant_subset_of_data = self.reader.full_data[
-                                      :min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
+            relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
             num_data_being_processed = len(relevant_subset_of_data)
             for item in relevant_subset_of_data:
                 del item["poly_data"]
@@ -90,6 +74,26 @@ class FeatureExtractor:
             prepared_data = (dict(timestamp=self.timestamp, **item) for item in prepared_data)
             for next_feature_set in tqdm(prepared_data, total=num_data_being_processed):
                 writer.write(next_feature_set)
+
+    @staticmethod
+    def get_pipeline_functions():
+        singleton_pipeline = {
+            FeatureExtractor.compactness: "Compactness",
+            FeatureExtractor.sphericity: "Sphericity",
+            FeatureExtractor.aabb_volume: "Bounding Box Volume",
+            FeatureExtractor.surface_area: "Surface Area",
+            FeatureExtractor.eccentricity: "Eccentricity",
+        }
+        if not DEBUG:
+            singleton_pipeline[FeatureExtractor.diameter] = "Diameter"
+        histogram_pipeline = {
+            FeatureExtractor.angle_three_rand_verts: "Angle of randomly sampled vertex triplets",
+            FeatureExtractor.dist_bar_vert: "Distance between randomly sampled vertices and barycenter",
+            FeatureExtractor.dist_two_rand_verts: "Distance of randomly sampled vertex pairs",
+            FeatureExtractor.dist_sqrt_area_rand_triangle: "Square root of randomly sampled triangles",
+            FeatureExtractor.cube_root_volume_four_rand_verts: "Cube root of randomly sampled tetrahedrons",
+        }
+        return (singleton_pipeline, histogram_pipeline)
 
     @staticmethod
     def jsonify(item):
@@ -162,14 +166,13 @@ class FeatureExtractor:
             return np.abs(np.dot(a - d, np.cross(b - d, c - d))) / 6
 
         mesh = data["poly_data"]
-        random_indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1,
-                                                               (FeatureExtractor.number_vertices_sampled, 4))
+        random_indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 4))
         quad_points = mesh.points[random_indices, :]
         # volumes = np.array([treaeder_volume(points) for points in quad_points])
         A = quad_points[:, 0] - quad_points[:, 3]
         B = np.cross(quad_points[:, 1] - quad_points[:, 3], quad_points[:, 2] - quad_points[:, 3])
         f_volumes = np.abs(np.einsum("ij,ij -> i", A, B)) / 6
-        cube_root = f_volumes ** (1 / 3)
+        cube_root = f_volumes**(1 / 3)
         histogram = FeatureExtractor.make_bins(cube_root, FeatureExtractor.number_bins)
 
         return {"cube_root_volume_four_rand_verts": histogram}
@@ -180,8 +183,7 @@ class FeatureExtractor:
         # This question quite fitted the case (https://bit.ly/3in7MjH)
         angles_degrees = []
         mesh = data["poly_data"]
-        indices_triplets = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1,
-                                                                 (FeatureExtractor.number_vertices_sampled, 3))
+        indices_triplets = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 3))
         verts_triplets = [mesh.points[triplet] for triplet in indices_triplets]
 
         for verts_triplet in verts_triplets:
@@ -199,8 +201,7 @@ class FeatureExtractor:
     def dist_two_rand_verts(data):
         distances = []
         mesh = data["poly_data"]
-        indices_tuples = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1,
-                                                               (FeatureExtractor.number_vertices_sampled, 2))
+        indices_tuples = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 2))
         verts_tuples = [mesh.points[tup] for tup in indices_tuples]
 
         for verts_tuple in verts_tuples:
@@ -215,8 +216,7 @@ class FeatureExtractor:
         distances = []
         mesh = data["poly_data"]
         bary_center = data["bary_center"]
-        indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1,
-                                                        (FeatureExtractor.number_vertices_sampled, 1))
+        indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 1))
         rand_verts = mesh.points[indices]
         for vert in rand_verts:
             distance = np.abs(np.diff(np.vstack((bary_center, vert)), axis=0))
@@ -237,15 +237,13 @@ class FeatureExtractor:
         bins = np.linspace(np.min(data), np.max(data), n_bins)
         indices = np.digitize(data, bins)
         count_dict = dict(sorted(Counter(indices).items()))
-        count_dict_without_holes = {idx: count_dict[idx] if idx in count_dict.keys() else 0 for idx in
-                                    range(1, FeatureExtractor.number_bins + 1)}
+        count_dict_without_holes = {idx: count_dict[idx] if idx in count_dict.keys() else 0 for idx in range(1, FeatureExtractor.number_bins + 1)}
         result = np.array(list(count_dict_without_holes.values()))
         return result / result.sum()
 
     @staticmethod
     def generate_random_ints(min_val, max_val, shape):
-        return np.array([np.random.choice(line, shape[1], replace=False) for line in
-                         np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
+        return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
 
 
 if __name__ == "__main__":
