@@ -12,6 +12,8 @@ import pyvista as pv
 from plyfile import PlyData
 from tqdm import tqdm
 
+from helper.config import STAT_PATH, CLASS_FILE, DATA_PATH_DEBUG, DATA_PATH_PSB
+
 
 class DataSet:
     data_descriptors = []
@@ -86,11 +88,15 @@ class DataSet:
         def add_to_stats(m_object):
             m_object["statistics"]["faces_outlier"] = m_object["faces_outlier"]
             m_object["statistics"]["vertices_outlier"] = m_object["vertices_outlier"]
+            m_object["statistics"]["face_area_outlier"] = m_object["face_area_outlier"]
             return m_object
 
         all_faces_counts, all_vertices_counts = self.all_statistics["faces"], self.all_statistics["vertices"]
+
         self.faces_mean, self.faces_std = all_faces_counts.mean(), all_faces_counts.std()
-        self.vertices_mean, self.vertices_std = all_faces_counts.mean(), all_faces_counts.std()
+        self.vertices_mean, self.vertices_std = all_vertices_counts.mean(), all_vertices_counts.std()
+        self.face_area_mean, self.face_area_std = self.all_statistics["cell_area_mean"].mean(), self.all_statistics["cell_area_std"].mean()
+
         init_pipe = (mesh_object for mesh_object in self.full_data)
         faces_pipe = (dict(**mesh_object, faces_outlier=True if np.abs(
             mesh_object["statistics"]["faces"] - self.faces_mean) > 2 * self.faces_std else False)
@@ -98,7 +104,11 @@ class DataSet:
         vertices_pipe = (dict(**mesh_object, vertices_outlier=True if np.abs(
             mesh_object["statistics"]["vertices"] - self.vertices_mean) > 2 * self.vertices_std else False)
                          for mesh_object in faces_pipe)
-        add_to_stats_pipe = (add_to_stats(mesh_object) for mesh_object in vertices_pipe)
+        face_area_pipe = (dict(**mesh_object, face_area_outlier=True if np.abs(
+            mesh_object["statistics"]["cell_area_mean"] - self.face_area_mean) > 2 * self.face_area_std else False)
+                          for mesh_object in vertices_pipe)
+
+        add_to_stats_pipe = (add_to_stats(mesh_object) for mesh_object in face_area_pipe)
 
         self.full_data = list(add_to_stats_pipe)
         self.all_statistics = pd.DataFrame([mesh_object["statistics"] for mesh_object in self.full_data])
@@ -300,7 +310,7 @@ class ModelNet40Dataset(DataSet):
 
 
 if __name__ == "__main__":
-    dataset = PSBDataset()
+    dataset = PSBDataset(stats_path=STAT_PATH, search_path=DATA_PATH_PSB, class_file_path=CLASS_FILE)
     dataset.read()
     dataset.show_class_histogram()
     dataset.load_files_in_memory()
