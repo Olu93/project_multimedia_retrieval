@@ -1,6 +1,6 @@
 ### Feature extraction
 [x] surface area
-[x] compactness (with respect to a sphere)
+[x] compactness (with respect to a sphere) IS STILL WRONG!!! Must be at most 1!
 [x] axis-aligned bounding-box volume
 [x] diameter
 [x] eccentricity
@@ -21,4 +21,5 @@
 [] Streamline the formulas in the paper
 [] Proof read the paper
 [] Rerun the full process
+[] Add all package references
 

@@ -1,5 +1,5 @@
 import numpy as np
-import multiprocessing as mp
+import multiprocess as mp
 import math
 import itertools
 from tqdm import tqdm
@@ -13,7 +13,7 @@ def compute_feature_extraction(extractor, data):
 
 def compute_normalization(normalizer, data):
     pool = mp.Pool(math.ceil(mp.cpu_count() * .75))
-    normalized = pool.imap_unordered(normalizer.mono_run_pipeline, data, chunksize=10)
+    normalized = pool.imap_unordered(normalizer.mono_run_pipeline, data, chunksize=100)
     return normalized
 
 
