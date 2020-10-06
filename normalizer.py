@@ -155,7 +155,7 @@ class Normalizer:
     @staticmethod
     def mono_saving(data):
         print(f"Saving: {data['meta_data']['name']}")
-        mesh = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
+        mesh = pv.PolyData(data["history"][-1]["data"]["vertices"], data["history"][-1]["data"]["faces"])
         target_directory = Path(f"{DATA_PATH_NORMED}/{data['meta_data']['label']}")
         final_directory = target_directory / f"{data['meta_data']['name']}.ply"
 
@@ -183,7 +183,7 @@ class Normalizer:
         new_mesh = Normalizer.mono_uniform_remeshing(dict(data, poly_data=new_mesh))
         history.append({"op": "(f) Remesh", "data": new_mesh})
 
-        history = [{"op": step["op"], "data": (step["data"].points, step["data"].faces)} for step in history]
+        history = [{"op": step["op"], "data": {"vertices": step["data"].points, "faces":step["data"].faces}} for step in history]
         print(f"Pipeline complete for {data['meta_data']['name']}")
         return dict(data, history=history)
 
