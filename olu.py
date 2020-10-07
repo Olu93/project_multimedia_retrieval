@@ -16,9 +16,13 @@ import time
 
 # %%
 if __name__ == "__main__":
-    dataset = PSBDataset(DATA_PATH_DEBUG, class_file_path=CLASS_FILE)
-    norm = Normalizer(dataset)
-    FE = FeatureExtractor(DATA_PATH_NORMED_SUBSET)
+    # dataset = PSBDataset(DATA_PATH_DEBUG, class_file_path=CLASS_FILE)
+    # norm = Normalizer(dataset, target_path=DATA_PATH_NORMED_SUBSET)
+    # normed_data = norm.run_full_pipeline()
+
+    normed_dataset = PSBDataset(search_path=DATA_PATH_NORMED_SUBSET, class_file_path=CLASS_FILE)
+    FE = FeatureExtractor(normed_dataset)
+    features = FE.run_full_pipeline()
     # dataset.run_full_pipeline()
     # print(dataset.full_data[0])
 

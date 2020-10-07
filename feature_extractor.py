@@ -10,7 +10,7 @@ from helper import diameter_computer
 from helper.config import DEBUG, DATA_PATH_NORMED_SUBSET
 from helper.misc import exception_catcher
 from helper.diameter_computer import compute_diameter
-from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET
+from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
 from helper.mp_functions import compute_feature_extraction
 from reader import PSBDataset
 import jsonlines
@@ -34,17 +34,13 @@ class FeatureExtractor:
     number_vertices_sampled = 1000
     number_bins = 20
 
-    def __init__(self, data_path=None, target_file="./computed_features.jsonl", append_mode=False):
-        assert data_path, "Plzzz provide a data path. Wherez all the data???"
-        self.reader = PSBDataset(search_path=data_path)
-        self.reader.read()
-        self.reader.load_files_in_memory()
-        self.reader.convert_all_to_polydata()
-        self.reader.compute_shape_statistics()
-        self.full_data = self.reader.full_data
+    def __init__(self, reader=None, target_file="./computed_features.jsonl", append_mode=False):
         self.timestamp = str(datetime.now())
         self.feature_stats_file = target_file
         self.append_mode = append_mode
+        if reader:
+            self.reader = reader
+            self.full_data = reader.run_full_pipeline()
 
     @staticmethod
     def mono_run_pipeline(data):
@@ -54,7 +50,7 @@ class FeatureExtractor:
         data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
         singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
 
-        gather_data = [list(func(data).items())[0] for func in [*list(singleton_pipeline.keys()), *list(histogram_pipeline.key())]]
+        gather_data = [list(func(data).items())[0] for func in [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
 
         final_dict.update(gather_data)
 
@@ -63,17 +59,18 @@ class FeatureExtractor:
     def run_full_pipeline(self, max_num_items=None):
 
         target_file = self.feature_stats_file
+        features = []
         with jsonlines.open(target_file, mode="a" if self.append_mode else "w") as writer:
             num_full_data = len(self.reader.full_data)
             relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
             num_data_being_processed = len(relevant_subset_of_data)
-            for item in relevant_subset_of_data:
-                del item["poly_data"]
-            feature_data_generator = compute_feature_extraction(self, relevant_subset_of_data)
+            feature_data_generator = compute_feature_extraction(self, tqdm(relevant_subset_of_data, total=num_data_being_processed))
             prepared_data = (FeatureExtractor.jsonify(item) for item in feature_data_generator)
             prepared_data = (dict(timestamp=self.timestamp, **item) for item in prepared_data)
-            for next_feature_set in tqdm(prepared_data, total=num_data_being_processed):
+            for next_feature_set in prepared_data:
+                features.append(next_feature_set)
                 writer.write(next_feature_set)
+        return features
 
     @staticmethod
     def get_pipeline_functions():
@@ -247,5 +244,5 @@ class FeatureExtractor:
 
 
 if __name__ == "__main__":
-    FE = FeatureExtractor(DATA_PATH_NORMED_SUBSET)
+    FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET, class_file_path=CLASS_FILE))
     pprint(FE.mono_run_pipeline(FE.full_data[0]))

@@ -43,6 +43,7 @@ class DataSet:
         self.full_data = list(read_data)
         return self.full_data
 
+
     @staticmethod
     def mono_run_pipeline(descriptor):
         data = DataSet.descriptor_to_meta(descriptor)
@@ -250,11 +251,16 @@ class DataSet:
             vertices = np.array(off_data.points)
             return {"vertices": vertices, "faces": faces}
         except Exception as e:
-            print(f"ERROR: Couldn't load {file}")
+            print(f"ERROR {e}: Couldn't load {file}")
             return None
 
-    def _extract_descr(self, file_path):
-        raise NotImplementedError
+    @staticmethod
+    def _extract_descr(file_path):
+        path = Path(file_path)
+        file_name = path.stem
+        file_type = path.suffix
+        label = "no_class"
+        return {"label": label, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
 
     @staticmethod
     def _compute_center(face_normals, face_areas):
