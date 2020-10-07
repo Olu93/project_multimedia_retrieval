@@ -16,6 +16,11 @@ def compute_normalization(normalizer, data):
     normalized = pool.imap_unordered(normalizer.mono_run_pipeline, data, chunksize=10)
     return normalized
 
+def compute_read(reader, data):
+    pool = mp.Pool(math.ceil(mp.cpu_count() * .75))
+    read = pool.imap_unordered(reader.mono_run_pipeline, data, chunksize=5)
+    return read
+
 
 def compute_distance(points):
     all_combinations = itertools.product(points, points)

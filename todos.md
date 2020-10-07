@@ -22,4 +22,5 @@
 [] Proof read the paper
 [] Rerun the full process
 [] Add all package references
+[] Streamline cells/faces and point/vertex usage
 
