@@ -5,6 +5,7 @@ from reader import PSBDataset, DataSet
 from helper.config import FEATURE_DATA_FILE, DEBUG, DATA_PATH_NORMED_SUBSET, DATA_PATH_NORMED, CLASS_FILE, DATA_PATH_PSB, DATA_PATH_DEBUG
 import time
 import pyvista as pv
+from pprint import pprint
 
 # %%
 if __name__ == "__main__":
@@ -15,7 +16,7 @@ if __name__ == "__main__":
     normed_data_item = Normalizer.mono_run_pipeline(data_item)
     features_data_item = FeatureExtractor.mono_run_pipeline(normed_data_item)
 
-    print(features_data_item)
+    pprint(features_data_item)
 
     plotter = pv.Plotter(shape=(1, 2))
     plotter.subplot(0, 0)
@@ -33,6 +34,10 @@ if __name__ == "__main__":
     print("=" * 10 + "Testing full pipeline for dataset reader" + "=" * 10)
     dataset = PSBDataset(DATA_PATH_DEBUG, class_file_path=CLASS_FILE)
     dataset.run_full_pipeline()
+    dataset.compute_shape_statistics()
+    dataset.detect_outliers()
+    dataset.convert_all_to_polydata()
+    dataset.save_statistics("./stats", "stats_test.csv")
     print("======================================= Done! ===========================================")
 
     print("=" * 10 + "Testing full pipeline for normalizer" + "=" * 10)

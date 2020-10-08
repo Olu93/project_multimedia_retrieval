@@ -114,20 +114,17 @@ class DataSet:
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
     def compute_shape_statistics(self):
-        assert self.has_poly_data, f"No pyvista objects available. Run {self.convert_all_to_polydata.__name__} first"
-        self.full_data = [dict(object_descriptor, statistics=self._compute_statistics(object_descriptor)) for object_descriptor in self.full_data]
         self.all_statistics = pd.DataFrame([mesh_object["statistics"] for mesh_object in self.full_data])
         self.has_stats = True
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
-    def save_statistics(self, stats_path=None):
+    def save_statistics(self, stats_path=None, stats_filename=None):
         path_for_statistics = stats_path if stats_path else self.stats_path
         assert path_for_statistics, "No path for statistics given. Either set it for specific class or provide it as param!"
-        self.all_statistics.to_csv(str(path_for_statistics) + "/statistics.csv", index=False)
+        self.all_statistics.to_csv(str(path_for_statistics) + f"/{stats_filename if stats_filename else 'statistics.csv'}", index=False)
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
     def convert_all_to_polydata(self):
-        assert self.has_loaded_data, f"No data was loaded. Run {self.load_files_in_memory.__name__} first!"
         self.full_data = [dict(**mesh_data, poly_data=pv.PolyData(mesh_data["data"]["vertices"], mesh_data["data"]["faces"])) for mesh_data in self.full_data]
         self.has_poly_data = True
         print(f"Finished {inspect.currentframe().f_code.co_name}")
