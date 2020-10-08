@@ -19,6 +19,13 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python: Misc",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/c18.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python: Test",
             "type": "python",
             "request": "launch",

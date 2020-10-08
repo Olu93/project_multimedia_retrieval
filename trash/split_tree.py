@@ -15,10 +15,7 @@ from tqdm import tqdm
 # %% Load mesh
 data = examples.download_cow().triangulate()
 
-
 # %%
-
-
 class Node(NodeMixin):
     def __init__(self, points, parent=None, children=None):
         super(Node, self).__init__()
@@ -58,6 +55,21 @@ class Node(NodeMixin):
         return self
 
     @staticmethod
+    def _split_fair(node):
+        if len(node.points) <= 1:
+            return Leaf(node.points)
+        differences = np.abs(node.min_max_points[0] - node.min_max_points[1])
+        longest_axis = np.argmax(differences)
+        splitting_plane_normal = np.zeros_like(differences)
+        splitting_plane_normal[longest_axis] = 1
+        splitting_plane_normal = splitting_plane_normal.flatten()
+        dataset = pv.PolyData(node.points)
+        u = dataset.clip(splitting_plane_normal)
+        v = dataset.clip(-1 * splitting_plane_normal)
+        node.children = (Node(u.points, parent=node), Node(v.points, parent=node))
+        return node
+
+    @staticmethod
     def show_tree(root_node):
         for pre, fill, node in RenderTree(root_node):
             print("%s%s" % (pre, node.name))
@@ -67,6 +79,7 @@ class Leaf(Node):
     def __init__(self, points):
         self.points = points
         self.name = f"Leaf: ({len(self.points)} points)"
+        self.bbox_lengths = np.zeros(3)
         self.bsphere_radius = 0
         self.center = points[0]
 
@@ -86,8 +99,7 @@ class Pair(object):
     """
     Comparable pair of nodes in the tree. 
     """
-
-    def __init__(self, u, v):
+    def __init__(self, u: Node, v: Node):
         self.u = u
         self.v = v
         self.M = Pair.M(u, v)
@@ -95,6 +107,8 @@ class Pair(object):
         self.v_num_points = len(v.points)
         self.u_representative = random.choice(u.points)
         self.v_representative = random.choice(v.points)
+        self.u_longest_bbox_edge = u.bbox_lengths.max()
+        self.v_longest_bbox_edge = v.bbox_lengths.max()
 
     @staticmethod
     def M(u, v):
@@ -105,6 +119,15 @@ class Pair(object):
 
     def get_pair_reprensetantives(self):
         return self.u_representative, self.v_representative
+
+    def get_node_with_larger_bbox(self):
+        return self.u if self.u_longest_bbox_edge > self.v_longest_bbox_edge else self.v
+
+    def get_node_with_smaller_bbox(self):
+        return self.u if self.u_longest_bbox_edge < self.v_longest_bbox_edge else self.v
+
+    def get_split_candidate_and_non_split_candidate(self):
+        return self.get_node_with_larger_bbox(), self.get_node_with_smaller_bbox()
 
     # Shout out to: https://stackoverflow.com/a/1227152/4162265
     def __eq__(self, other):
@@ -152,16 +175,12 @@ class AprxDiameter(object):
                 p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_right, v)
                 p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_left, v)
             if pair.u_num_points > 1 and pair.v_num_points > 1:
-                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_left,
-                                                                           v_left)
-                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_right,
-                                                                           v_right)
-                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_left,
-                                                                           v_right)
+                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_left, v_left)
+                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_right, v_right)
+                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_left, v_right)
                 if u == v:
                     continue
-                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_right,
-                                                                           v_left)
+                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_right, v_left)
 
         self.approx_points = points_curr
         self.approx_diameter = delta_curr
@@ -250,26 +269,152 @@ def compute_comparison(data, num_points):
     }
 
 
-# data = examples.download_bunny().triangulate().decimate(.7)
-num_experiments = 10
-experiment_results = pd.DataFrame([compute_comparison(data, int(num_points)) for num_points in
-                                   tqdm(np.linspace(len(data.points) / 10, len(data.points), num_experiments),
-                                        total=num_experiments)])
-experiment_results
+# data = pv.PolyData(random.sample(list(examples.download_bunny().triangulate().points), 2500))
+# num_experiments = 10
+# experiment_results = pd.DataFrame(
+#     [compute_comparison(data, int(num_points)) for num_points in tqdm(np.linspace(len(data.points) / 10, len(data.points), num_experiments), total=num_experiments)])
+# experiment_results
+
+# # %%
+# fig, axes = plt.subplots(1, 2, figsize=(10, 5), sharex=True)
+# x_axis = experiment_results.iloc[:, 0]
+# diameter_plot = axes[0]
+# diameter_plot.plot(x_axis, experiment_results.iloc[:, 1], label="approx")
+# diameter_plot.plot(x_axis, experiment_results.iloc[:, 2], label="exact")
+# diameter_plot.set_title("Diameter")
+# diameter_plot.legend()
+# computation_time_plot = axes[1]
+# computation_time_plot.plot(x_axis, experiment_results.iloc[:, 3], label="approx")
+# computation_time_plot.plot(x_axis, experiment_results.iloc[:, 4], label="exact")
+# computation_time_plot.set_title("Computation time (in sec)")
+# computation_time_plot.legend()
+# plt.tight_layout()
+# plt.show()
+# %%
+
+
+class AprxDiamWSPD(AprxDiameter):
+    def compute_approx_diameter(self, eps=.01):
+        start_time = time.time()
+        self.root = self.root.split_fair()
+        start_time_only_algorithm = time.time()
+        p_curr = []
+        starting_pair = Pair(self.root, self.root)
+        u_root_repr, v_root_repr = starting_pair.get_pair_reprensetantives()
+        delta_curr = np.linalg.norm(u_root_repr - v_root_repr)
+        # points_curr = self.root.min_max_points
+        points_curr = (self.root.center, self.root.center)
+        heapq.heapify(p_curr)
+        heapq.heappush(p_curr, starting_pair)
+        while p_curr:
+            pair = heapq.heappop(p_curr)
+            m = pair.M
+            u, v = pair.get_pair()
+            u_left, u_right = u.get_children()
+            v_left, v_right = v.get_children()
+            curr_limit = (1 + eps) * delta_curr
+            if pair.u_num_points < 1 or pair.v_num_points < 1 or m <= curr_limit:
+                continue
+            if pair.u_num_points == 1:
+                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u, v_right)
+                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u, v_left)
+            if pair.v_num_points == 1:
+                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_right, v)
+                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, u_left, v)
+            if pair.u_num_points > 1 and pair.v_num_points > 1:
+                larger_node, smaller_node = pair.get_split_candidate_and_non_split_candidate()
+                left, right = larger_node.get_children()
+                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, smaller_node, left)
+                p_curr, delta_curr, points_curr = AprxDiameter.add_to_heap(p_curr, curr_limit, delta_curr, smaller_node, right)
+
+        self.approx_points = points_curr
+        self.approx_diameter = delta_curr
+        self.approx_time = time.time() - start_time
+        self.approx_time_only_algorithm = time.time() - start_time_only_algorithm
+        return delta_curr
+
+
+data = examples.download_bunny().triangulate().decimate(.7)
+mesh = pv.PolyData(data.points[:1000])
+root = Node(mesh.points, parent=None)
+diameter_computer = AprxDiamWSPD(root)
+print(diameter_computer.compute_approx_diameter())
+print(diameter_computer.compute_exact_diameter())
+diameter_computer.show()
+
 
 # %%
-fig, axes = plt.subplots(1, 2, figsize=(10, 5), sharex=True)
-x_axis = experiment_results.iloc[:, 0]
-diameter_plot = axes[0]
-diameter_plot.plot(x_axis, experiment_results.iloc[:, 1], label="approx")
-diameter_plot.plot(x_axis, experiment_results.iloc[:, 2], label="exact")
-diameter_plot.set_title("Diameter")
-diameter_plot.legend()
-computation_time_plot = axes[1]
-computation_time_plot.plot(x_axis, experiment_results.iloc[:, 3], label="approx")
-computation_time_plot.plot(x_axis, experiment_results.iloc[:, 4], label="exact")
-computation_time_plot.set_title("Computation time (in sec)")
-computation_time_plot.legend()
-plt.tight_layout()
-plt.show()
-# %%
+class AprxDiamWSPDRecursive(AprxDiameter):
+    def compute_approx_diameter(self, eps=.01):
+        self.eps = eps
+        # print(" Starting approximation")
+        start_time = time.time()
+        start_time_only_algorithm = time.time()
+        starting_pair = Pair(self.root, self.root)
+        u_root_repr, v_root_repr = starting_pair.get_pair_reprensetantives()
+        delta_curr = np.linalg.norm(u_root_repr - v_root_repr)
+        points_curr = (self.root.center, self.root.center)
+        delta_curr, points_curr = self.split(starting_pair, delta_curr, points_curr)
+        self.approx_points = points_curr
+        self.approx_diameter = delta_curr
+        self.approx_time = time.time() - start_time
+        self.approx_time_only_algorithm = time.time() - start_time_only_algorithm
+        return delta_curr
+
+    def split(self, pair, delta_curr, points_curr):
+        # print(pair)
+        points_curr = pair.get_pair_reprensetantives()
+        u_representative, v_representative = points_curr
+        initial_candidate = (delta_curr, points_curr)
+        m = pair.M
+        L2_distance = np.linalg.norm(u_representative - v_representative)
+        delta_curr = L2_distance if L2_distance > delta_curr else delta_curr
+        curr_limit = (1 + self.eps) * delta_curr
+
+        if pair.u_num_points < 1 or pair.v_num_points < 1 or m <= curr_limit:
+            return (delta_curr, points_curr)
+        if pair.u_num_points == 1 or pair.v_num_points == 1:
+            keep, left, right = self._one_sided_split(pair)
+        if pair.u_num_points > 1 and pair.v_num_points > 1:
+            larger_node, keep = pair.get_split_candidate_and_non_split_candidate()
+            left, right = Node._split_fair(larger_node).get_children()
+
+        results_1, results_2 = self.next_traversal(keep, left, right, delta_curr, points_curr)
+        candidates = (initial_candidate, results_1, results_2)
+        max_idx = np.argmax([item[0] for item in candidates])
+        return candidates[max_idx]
+
+    def next_traversal(self, keep, left, right, delta_curr, points_curr):
+        pair_1 = Pair(keep, left)
+        pair_2 = Pair(keep, right)
+        curr_limit = (1 + self.eps) * delta_curr
+        results_1 = (delta_curr, points_curr) if pair_1.M <= curr_limit else self.split(pair_1, delta_curr, points_curr)
+        delta_curr, points_curr = results_1 if results_1[0] > delta_curr else (delta_curr, points_curr)
+        results_2 = (delta_curr, points_curr) if pair_2.M <= curr_limit else self.split(pair_2, delta_curr, points_curr)
+        return results_1, results_2
+
+    def _one_sided_split(self, pair):
+        keep, left, right = None, None, None
+        if pair.u_num_points == 1:
+            u, v = pair.get_pair()
+            left, right = Node._split_fair(v).get_children()
+            keep = u
+        if pair.v_num_points == 1:
+            u, v = pair.get_pair()
+            left, right = Node._split_fair(u).get_children()
+            keep = v
+        return keep, left, right
+
+    def compute_exact_diameter(self):
+        # print("Starting exact computation")
+        return super().compute_exact_diameter()
+
+
+data = examples.download_bunny().triangulate().decimate(.7)
+mesh = pv.PolyData(data.points[:50])
+root = Node(mesh.points, parent=None)
+diameter_computer = AprxDiamWSPDRecursive(root)
+print(diameter_computer.compute_approx_diameter())
+print(diameter_computer.compute_exact_diameter())
+diameter_computer.show()
+
