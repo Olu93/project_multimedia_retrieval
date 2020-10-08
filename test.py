@@ -37,7 +37,7 @@ if __name__ == "__main__":
     dataset.compute_shape_statistics()
     dataset.detect_outliers()
     dataset.convert_all_to_polydata()
-    dataset.save_statistics("./stats", "stats_test.csv")
+    dataset.save_statistics("./trash", "stats_test.csv")
     print("======================================= Done! ===========================================")
 
     print("=" * 10 + "Testing full pipeline for normalizer" + "=" * 10)
@@ -48,6 +48,6 @@ if __name__ == "__main__":
 
     print("=" * 10 + "Testing full pipeline for feature extractor" + "=" * 10)
     normed_dataset = PSBDataset(search_path=DATA_PATH_NORMED_SUBSET, class_file_path=CLASS_FILE)
-    FE = FeatureExtractor(normed_dataset)
+    FE = FeatureExtractor(normed_dataset, target_file="./trash/feat_test.jsonl")
     features = FE.run_full_pipeline()
     print("======================================= Done! ===========================================")

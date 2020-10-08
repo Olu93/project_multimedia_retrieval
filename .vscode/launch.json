@@ -47,6 +47,13 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python: QM",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/query_matcher.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python: Complicated Algorithm",
             "type": "python",
             "request": "launch",
