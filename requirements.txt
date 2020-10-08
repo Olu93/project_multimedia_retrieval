@@ -30,3 +30,4 @@ tqdm~=4.49.0
 anytree~=2.8.0
 jsonlines~=1.2.0
 multiprocess~=0.70.10
+pymeshfix~=0.14.1

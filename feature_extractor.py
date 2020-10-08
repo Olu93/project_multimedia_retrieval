@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from helper import diameter_computer
 from helper.config import DEBUG, DATA_PATH_NORMED_SUBSET
-from helper.misc import exception_catcher
+from helper.misc import exception_catcher, fill_holes
 from helper.diameter_computer import compute_diameter
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
 from helper.mp_functions import compute_feature_extraction
@@ -103,7 +103,7 @@ class FeatureExtractor:
         mesh = data["poly_data"]
         edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
         if edges.n_faces > 0:
-            mesh = mesh.fill_holes(1000)  # TODO: Maybe try pip install pymeshfix
+            mesh = fill_holes(mesh) 
         volume = mesh.volume
         cell_ids = PSBDataset._get_cells(mesh)
         cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
@@ -117,7 +117,7 @@ class FeatureExtractor:
         mesh = data["poly_data"]
         edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
         if edges.n_faces > 0:
-            mesh = mesh.fill_holes(1000)  # TODO: Maybe try pip install pymeshfix
+            mesh = fill_holes(mesh)  
         volume = mesh.volume
         cell_ids = PSBDataset._get_cells(mesh)
         cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
@@ -241,6 +241,7 @@ class FeatureExtractor:
     @staticmethod
     def generate_random_ints(min_val, max_val, shape):
         return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
+
 
 
 if __name__ == "__main__":
