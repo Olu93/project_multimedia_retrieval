@@ -103,7 +103,7 @@ class FeatureExtractor:
         mesh = data["poly_data"]
         edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
         if edges.n_faces > 0:
-            mesh = fill_holes(mesh) 
+            mesh = fill_holes(mesh)
         volume = mesh.volume
         cell_ids = PSBDataset._get_cells(mesh)
         cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
@@ -117,7 +117,7 @@ class FeatureExtractor:
         mesh = data["poly_data"]
         edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
         if edges.n_faces > 0:
-            mesh = fill_holes(mesh)  
+            mesh = fill_holes(mesh)
         volume = mesh.volume
         cell_ids = PSBDataset._get_cells(mesh)
         cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
@@ -241,7 +241,6 @@ class FeatureExtractor:
     @staticmethod
     def generate_random_ints(min_val, max_val, shape):
         return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
-
 
 
 if __name__ == "__main__":
