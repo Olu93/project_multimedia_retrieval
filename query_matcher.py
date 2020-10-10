@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import OrderedDict
+from sklearn.preprocessing import StandardScaler
 
 
 class QueryMatcher(object):
@@ -23,6 +24,14 @@ class QueryMatcher(object):
         self.features_df = pd.DataFrame(self.features_flattened)
         self.features_df = self.features_df.set_index('name').drop(columns="timestamp")
         self.features_column_names = list(self.features_df.columns)
+
+    @staticmethod
+    def init_from_query_mesh_features(feature_dict):
+        features_flattened = [QueryMatcher.flatten_feature_dict(feature_set) for feature_set in feature_dict]
+        features_df = pd.DataFrame(features_flattened)
+        features_df = features_df.set_index('name').drop(columns="timestamp")
+        features_column_names = list(features_df.columns)
+        return features_df
 
     def compare_features_with_database(self, feature_set, k=5, distance_function=None):
         distance_function = QueryMatcher.cosine_similarity_faf if not distance_function else distance_function
