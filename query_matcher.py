@@ -14,7 +14,7 @@ from sklearn.preprocessing import StandardScaler
 
 
 class QueryMatcher(object):
-    IGNORE_COLUMNS = ["timestamp", "name"]
+    IGNORE_COLUMNS = ["timestamp", "name", "label"]
 
     def __init__(self, extracted_feature_file):
         self.path_to_features = Path(extracted_feature_file)
@@ -35,12 +35,14 @@ class QueryMatcher(object):
 
     def compare_features_with_database(self, feature_set, k=5, distance_function=None):
         distance_function = QueryMatcher.cosine_similarity_faf if not distance_function else distance_function
-        feature_dict_in_correct_order = self.prepare_single_feature_for_comparison(feature_set, self.features_column_names)
+        # feature_dict_in_correct_order = self.prepare_single_feature_for_comparison(feature_set, self.features_column_names)
+        feature_dict_in_correct_order = self.prepare_single_feature_for_comparison(feature_set, list(feature_set.columns))
         feature_instance_vector = np.array(list(feature_dict_in_correct_order.values())).reshape(1, -1)
         feature_database_matrix = self.features_df.values
         result = distance_function(feature_instance_vector, feature_database_matrix)
         indices, cosine_values = QueryMatcher.get_top_k(result, k)
         return indices, cosine_values
+
 
     @staticmethod
     def get_top_k(cosine_similarities, k=5):
@@ -59,8 +61,8 @@ class QueryMatcher(object):
 
     @staticmethod
     def flatten_feature_dict(feature_set):
-        singletons = {key: value for key, value in feature_set.items() if type(value) is not list}
-        distributional = [{f"{key}_{idx}": val for idx, val in enumerate(dist)} for key, dist in feature_set.items() if type(dist) is list]
+        singletons = {key: value for key, value in feature_set.items() if type(value) not in [list, np.ndarray]}
+        distributional = [{f"{key}_{idx}": val for idx, val in enumerate(dist)} for key, dist in feature_set.items() if type(dist) in [list, np.ndarray]]
         # flattened_feature_set = dict((pair for d in distributional for pair in d.items()))
         flattened_feature_set = dict(ChainMap(*distributional, singletons))
         return flattened_feature_set
@@ -72,7 +74,7 @@ class QueryMatcher(object):
         for col in columns_in_order:
             if col in QueryMatcher.IGNORE_COLUMNS:
                 continue
-            dict_in_order[col] = int(features.get(col, np.nan))
+            dict_in_order[col] = float(features.get(col, np.nan))
         return dict_in_order
 
 
