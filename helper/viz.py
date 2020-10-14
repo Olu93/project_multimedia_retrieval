@@ -1,9 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from PyQt5.QtCore import pyqtSlot
-from PyQt5.QtGui import QDoubleValidator
+from PyQt5.QtGui import QDoubleValidator, QIcon
 from PyQt5.QtWidgets import QTableWidget, \
-    QTableWidgetItem, QItemDelegate, QLineEdit
+    QTableWidgetItem, QItemDelegate, QLineEdit, QPushButton
 
 from reader import DataSet
 
@@ -66,22 +66,43 @@ class FloatDelegate(QItemDelegate):
 class TableWidget(QTableWidget):
     def __init__(self, df, parent=None):
         QTableWidget.__init__(self, parent)
+        self.setEditTriggers(self.NoEditTriggers)
         self.df = df
         nRows = len(self.df.index)
         nColumns = len(self.df.columns)
         self.setRowCount(nRows)
         self.setColumnCount(nColumns)
         self.setItemDelegate(FloatDelegate())
+        self.setFixedHeight(250)
+        self.buttonsInTable = {}
+        key = ""
+        value = None
 
         for i in range(self.rowCount()):
             for j in range(self.columnCount()):
-                x = f'{self.df.iloc[i, j]}'
-                self.setItem(i, j, QTableWidgetItem(x))
+                if i < 8:
+                    x = f'{self.df.iloc[i, j]}'
+                    self.setItem(i, j, QTableWidgetItem(x))
+                else:
+                    if j == 1:
+                        btn = QPushButton(QIcon('histogramicon.png'), 'Plot Values',self)
+                        btn.setText('Plot Values')
+                        self.setCellWidget(i, j, btn)
+                        value = btn
+                    else:
+                        x = f'{self.df.iloc[i, j]}'
+                        self.setItem(i, j, QTableWidgetItem(x))
+                        key = x
 
-        self.cellChanged.connect(self.onCellChanged)
+                    self.buttonsInTable[key] = value
+
+        self.cellChanged.connect(self.on_cell_changed)
 
     @pyqtSlot(int, int)
-    def onCellChanged(self, row, column):
+    def on_cell_changed(self, row, column):
         text = self.item(row, column).text()
         number = float(text)
         self.df.set_value(row, column, number)
+
+    def get_buttons_in_table(self):
+        return self.buttonsInTable

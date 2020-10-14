@@ -1,8 +1,9 @@
 import glob
 import sys
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pyqtgraph as pg
 import pyvista as pv
 from PyQt5 import Qt as Qt
 from PyQt5 import QtWidgets, QtGui
@@ -52,6 +53,9 @@ class SimilarMeshWindow(Qt.QWidget):
         self.QTIplotter.add_mesh(self.mesh, show_edges=True)
         self.QTIplotter.isometric_view()
         self.QTIplotter.show_bounds(grid='front', location='outer', all_edges=True)
+
+
+# class
 
 
 class SimilarMeshesListWindow(Qt.QWidget):
@@ -128,15 +132,18 @@ class SimilarMeshesListWindow(Qt.QWidget):
 class MainWindow(Qt.QMainWindow):
     def __init__(self, parent=None, show=True):
         Qt.QMainWindow.__init__(self, parent)
+        self.buttons = {}
         self.ds = reader.DataSet("")
         self.meshes = []
         self.normalizer = Normalizer()
+        self.smlw = None
 
         self.frame = Qt.QFrame()
         self.QTIplotter = QtInteractor(self.frame)
         self.vlayout = Qt.QVBoxLayout()
         self.frame.setLayout(self.vlayout)
         self.setCentralWidget(self.frame)
+        self.hist_dict = {}
 
         # Create main menu
         mainMenu = self.menuBar()
@@ -149,6 +156,10 @@ class MainWindow(Qt.QMainWindow):
         # Create load button and init action
         load_button = QPushButton("Load Mesh to query")
         load_button.clicked.connect(lambda: self.load_and_prep_query_mesh(self.open_file_name_dialog()))
+
+        # Create Plots widget
+        self.graphWidget = pg.PlotWidget()
+        self.graphWidget.setBackground('w')
 
         # Create and add widgets to layout
         self.tableWidget = TableWidget(df, self)
@@ -184,7 +195,8 @@ class MainWindow(Qt.QMainWindow):
 
         # Extract features
         features_dict = FeatureExtractor.mono_run_pipeline(normed_data)
-        feature_df = pd.DataFrame({'key': list(features_dict.keys()),
+        feature_formatted_keys = [form_key.replace("_", " ").title() for form_key in features_dict.keys()]
+        feature_df = pd.DataFrame({'key': list(feature_formatted_keys),
                                    'value': list([list(f) if isinstance(f, np.ndarray)
                                                   else f for f in features_dict.values()])})
 
@@ -201,11 +213,33 @@ class MainWindow(Qt.QMainWindow):
         self.QTIplotter.add_mesh(normed_mesh, show_edges=True)
         self.QTIplotter.isometric_view()
         self.QTIplotter.show_bounds(grid='front', location='outer', all_edges=True)
+        self.vlayout.addWidget(self.graphWidget)
 
         # Compare shapes
         self.smlw = SimilarMeshesListWindow(features_dict)
         self.smlw.move(self.geometry().topRight())
+
+        self.hist_dict = feature_df.set_index("key").tail().to_dict()
+        self.buttons = self.tableWidget.get_buttons_in_table()
+
+        for key, value in self.buttons.items():
+            value.clicked.connect(lambda: self.plot_selected_hist(value, key, self.hist_dict["value"][key]))
+
         self.smlw.show()
+
+    def plot_selected_hist(self, btn, hist_title, hist_data):
+        self.graphWidget.clear()
+        print(btn)
+        styles = {"color": "#f00", "font-size": "15px"}
+        pen = pg.mkPen(color=(255, 0, 0), width=5, style=QtCore.SolidLine)
+        self.graphWidget.setTitle(hist_title, color="b", size="15pt")
+        self.graphWidget.setLabel("left", "Values", **styles)
+        self.graphWidget.setLabel("bottom", "Bins", **styles)
+        self.graphWidget.addLegend()
+        self.graphWidget.showGrid(x=True, y=True)
+        self.graphWidget.setXRange(0, len(hist_data))
+        self.graphWidget.setYRange(min(hist_data), max(hist_data))
+        self.graphWidget.plot(np.arange(0, len(hist_data)), hist_data, pen=pen)
 
 
 if __name__ == '__main__':
