@@ -80,9 +80,10 @@ class FeatureExtractor:
             FeatureExtractor.aabb_volume: "Bounding Box Volume",
             FeatureExtractor.surface_area: "Surface Area",
             FeatureExtractor.eccentricity: "Eccentricity",
+            FeatureExtractor.diameter: "Diameter"
         }
-        if not DEBUG:
-            singleton_pipeline[FeatureExtractor.diameter] = "Diameter"
+        # if not DEBUG:
+        #     singleton_pipeline[FeatureExtractor.diameter] = "Diameter"
         histogram_pipeline = {
             FeatureExtractor.angle_three_rand_verts: "Angl. of sampled vert. triplets",
             FeatureExtractor.dist_bar_vert: "Dist. between sampled vert. & barycenter",

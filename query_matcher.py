@@ -1,17 +1,17 @@
-from helper.config import DEBUG, DATA_PATH_NORMED_SUBSET, FEATURE_DATA_FILE, DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
-import jsonlines
 import io
-from os import path
-import pyvista as pv
-from pathlib import Path
 from collections import ChainMap
-from pprint import pprint
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 from collections import OrderedDict
-from sklearn.preprocessing import StandardScaler
+from pathlib import Path
 
+import jsonlines
+import numpy as np
+import pandas as pd
+
+from helper.config import FEATURE_DATA_FILE
+
+
+# TODO: [] Display histograms
+# TODO: [] Check Distance function
 
 class QueryMatcher(object):
     IGNORE_COLUMNS = ["timestamp", "name", "label"]
@@ -36,13 +36,13 @@ class QueryMatcher(object):
     def compare_features_with_database(self, feature_set, k=5, distance_function=None):
         distance_function = QueryMatcher.cosine_similarity_faf if not distance_function else distance_function
         # feature_dict_in_correct_order = self.prepare_single_feature_for_comparison(feature_set, self.features_column_names)
-        feature_dict_in_correct_order = self.prepare_single_feature_for_comparison(feature_set, list(feature_set.columns))
+        feature_dict_in_correct_order = self.prepare_single_feature_for_comparison(feature_set,
+                                                                                   list(feature_set.columns))
         feature_instance_vector = np.array(list(feature_dict_in_correct_order.values())).reshape(1, -1)
         feature_database_matrix = self.features_df.values
         result = distance_function(feature_instance_vector, feature_database_matrix)
         indices, cosine_values = QueryMatcher.get_top_k(result, k)
         return indices, cosine_values
-
 
     @staticmethod
     def get_top_k(cosine_similarities, k=5):
@@ -62,7 +62,8 @@ class QueryMatcher(object):
     @staticmethod
     def flatten_feature_dict(feature_set):
         singletons = {key: value for key, value in feature_set.items() if type(value) not in [list, np.ndarray]}
-        distributional = [{f"{key}_{idx}": val for idx, val in enumerate(dist)} for key, dist in feature_set.items() if type(dist) in [list, np.ndarray]]
+        distributional = [{f"{key}_{idx}": val for idx, val in enumerate(dist)} for key, dist in feature_set.items() if
+                          type(dist) in [list, np.ndarray]]
         # flattened_feature_set = dict((pair for d in distributional for pair in d.items()))
         flattened_feature_set = dict(ChainMap(*distributional, singletons))
         return flattened_feature_set

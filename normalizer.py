@@ -4,13 +4,13 @@ from pathlib import Path
 
 import numpy as np
 import pyacvd
-from pyvista import PolyData
 import pyvista as pv
+from pyvista import PolyData
 from tqdm import tqdm
 
-from helper.config import DEBUG, DATA_PATH_PSB, DATA_PATH_DEBUG, CLASS_FILE, DATA_PATH_NORMED
-from reader import PSBDataset
+from helper.config import DEBUG, DATA_PATH_PSB, DATA_PATH_DEBUG, CLASS_FILE
 from helper.mp_functions import compute_normalization
+from reader import PSBDataset
 
 VERBOSE = False
 
@@ -106,11 +106,13 @@ class Normalizer:
             os.makedirs(target_directory)
 
         mesh.save(final_directory)
-        print(f"{data['meta_data']['name']} was {'successfully saved.' if path.exists(final_directory) else 'NOT saved!'}")
+        print(
+            f"{data['meta_data']['name']} was {'successfully saved.' if path.exists(final_directory) else 'NOT saved!'}")
         return data
 
     @staticmethod
     def mono_run_pipeline(data):
+        if not data: return False  # If user cancelled operation
         new_mesh = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
         history = [{"op": "(a) Original", "data": new_mesh}]
         new_mesh = Normalizer.mono_scaling(dict(data, poly_data=new_mesh))
@@ -124,8 +126,9 @@ class Normalizer:
         new_mesh = Normalizer.mono_uniform_remeshing(dict(data, poly_data=new_mesh))
         history.append({"op": "(f) Remesh", "data": new_mesh})
 
-        history = [{"op": step["op"], "data": {"vertices": step["data"].points, "faces": step["data"].faces}} for step in history]
-        
+        history = [{"op": step["op"], "data": {"vertices": step["data"].points, "faces": step["data"].faces}} for step
+                   in history]
+
         copy_data = dict(data)
         copy_data.update({"data": history[-1]["data"]})
         print(f"Pipeline complete for {data['meta_data']['name']}")
@@ -133,7 +136,8 @@ class Normalizer:
 
     def run_full_pipeline(self, max_num_items=None):
         num_full_data = len(self.reader.full_data)
-        relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
+        relevant_subset_of_data = self.reader.full_data[
+                                  :min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
         num_data_being_processed = len(relevant_subset_of_data)
         normalization_data_generator = compute_normalization(self, relevant_subset_of_data)
         items_generator = tqdm(normalization_data_generator, total=num_data_being_processed)
