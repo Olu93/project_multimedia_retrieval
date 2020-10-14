@@ -25,28 +25,44 @@ df = pd.DataFrame({'x': ['Query mesh description']})
 class SimilarMeshWindow(Qt.QWidget):
     def __init__(self, mesh, feature_df):
         super().__init__()
+        self.setWindowTitle('Similar Mesh Window')
         self.mesh = mesh
         self.mesh_features = feature_df
         self.QTIplotter = QtInteractor()
         self.vlayout = Qt.QVBoxLayout()
         self.setLayout(self.vlayout)
-        # self.setCentralWidget(self.frame)
 
         # Create and add widgets to layout
         # features_df = pd.DataFrame({'key': self.mesh_features.transpose().index,
         #                             'value': list([x[0] for x in self.mesh_features.transpose().values])})
 
-        features_df = pd.DataFrame({'key': list(self.mesh_features.keys()),
-                                    'value': list(self.mesh_features.values())}).drop(0)
-        self.tableWidget = TableWidget(features_df, self)
+        feature_formatted_keys = [form_key.replace("_", " ").title() for form_key in self.mesh_features.keys()]
+
+        features_df = pd.DataFrame({'key': list(feature_formatted_keys),
+                                    'value': list([list(f) if isinstance(f, np.ndarray)
+                                                   else f for f in self.mesh_features.values()])}).drop(0)
+
+        # Create Table widget
+        self.tableWidget = TableWidget(features_df, self, 7)
         self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+
+        # Create Plots widget
+        self.graphWidget = pg.PlotWidget()
+        self.graphWidget.setBackground('w')
+
+        self.hist_dict = features_df.set_index("key").tail().to_dict()
+        self.buttons = self.tableWidget.get_buttons_in_table()
+
+        for key, value in self.buttons.items():
+            value.clicked.connect(lambda state, x=key, y=self.hist_dict["value"][key]:
+                                  self.plot_selected_hist(x, y))
+
         self.vlayout.addWidget(self.QTIplotter.interactor)
         self.vlayout.addWidget(self.tableWidget)
+        self.vlayout.addWidget(self.graphWidget)
 
         # Position SimilarMeshWindow
-        screen_topRight = QDesktopWidget().availableGeometry().topRight()
         screen_height = QDesktopWidget().availableGeometry().height()
-        # self.move(screen_topRight)
         self.resize(self.width(), screen_height - 50)
 
         # Set widgets
@@ -54,8 +70,18 @@ class SimilarMeshWindow(Qt.QWidget):
         self.QTIplotter.isometric_view()
         self.QTIplotter.show_bounds(grid='front', location='outer', all_edges=True)
 
-
-# class
+    def plot_selected_hist(self, hist_title, hist_data):
+        self.graphWidget.clear()
+        styles = {"color": "#f00", "font-size": "15px"}
+        pen = pg.mkPen(color=(255, 0, 0), width=5, style=QtCore.SolidLine)
+        self.graphWidget.setTitle(hist_title, color="b", size="15pt")
+        self.graphWidget.setLabel("left", "Values", **styles)
+        self.graphWidget.setLabel("bottom", "Bins", **styles)
+        self.graphWidget.addLegend()
+        self.graphWidget.showGrid(x=True, y=True)
+        self.graphWidget.setXRange(0, len(hist_data))
+        self.graphWidget.setYRange(min(hist_data), max(hist_data))
+        self.graphWidget.plot(np.arange(0, len(hist_data)), hist_data, pen=pen)
 
 
 class SimilarMeshesListWindow(Qt.QWidget):
@@ -65,7 +91,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.query_mesh_features = feature_dict
         layout = Qt.QVBoxLayout()
         self.setLayout(layout)
-        self.label = Qt.QLabel("Another Window")
+        self.setWindowTitle('Similar Meshes Widget')
 
         self.distanceMethodList = Qt.QComboBox()
         self.distanceMethodList.addItems(["Euclidean", "Cosine", "EMD"])
@@ -137,6 +163,7 @@ class MainWindow(Qt.QMainWindow):
         self.meshes = []
         self.normalizer = Normalizer()
         self.smlw = None
+        self.setWindowTitle('Source Mesh Window')
 
         self.frame = Qt.QFrame()
         self.QTIplotter = QtInteractor(self.frame)
@@ -223,13 +250,13 @@ class MainWindow(Qt.QMainWindow):
         self.buttons = self.tableWidget.get_buttons_in_table()
 
         for key, value in self.buttons.items():
-            value.clicked.connect(lambda: self.plot_selected_hist(value, key, self.hist_dict["value"][key]))
+            value.clicked.connect(lambda state, x=key, y=self.hist_dict["value"][key]:
+                                  self.plot_selected_hist(x, y))
 
         self.smlw.show()
 
-    def plot_selected_hist(self, btn, hist_title, hist_data):
+    def plot_selected_hist(self, hist_title, hist_data):
         self.graphWidget.clear()
-        print(btn)
         styles = {"color": "#f00", "font-size": "15px"}
         pen = pg.mkPen(color=(255, 0, 0), width=5, style=QtCore.SolidLine)
         self.graphWidget.setTitle(hist_title, color="b", size="15pt")
