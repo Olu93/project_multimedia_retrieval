@@ -106,8 +106,8 @@ class Normalizer:
             os.makedirs(target_directory)
 
         mesh.save(final_directory)
-        print(
-            f"{data['meta_data']['name']} was {'successfully saved.' if path.exists(final_directory) else 'NOT saved!'}")
+        print(f"{data['meta_data']['name']} was "
+              f"{'successfully saved.'if path.exists(final_directory) else 'NOT saved!'}")
         return data
 
     @staticmethod

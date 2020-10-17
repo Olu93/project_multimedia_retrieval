@@ -64,7 +64,7 @@ class FloatDelegate(QItemDelegate):
 
 
 class TableWidget(QTableWidget):
-    def __init__(self, df, parent=None, num_non_hist=8):
+    def __init__(self, df, parent=None, num_non_hist=7):
         QTableWidget.__init__(self, parent)
         self.setEditTriggers(self.NoEditTriggers)
         self.df = df

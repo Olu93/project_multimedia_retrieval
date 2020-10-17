@@ -43,7 +43,7 @@ class SimilarMeshWindow(Qt.QWidget):
                                                    else f for f in self.mesh_features.values()])}).drop(0)
 
         # Create Table widget
-        self.tableWidget = TableWidget(features_df, self, 7)
+        self.tableWidget = TableWidget(features_df, self)
         self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
 
         # Create Plots widget
@@ -130,14 +130,15 @@ class SimilarMeshesListWindow(Qt.QWidget):
         features_df = pd.DataFrame(features_flattened, index=[0])
         indices, cosine_values = self.query_matcher.compare_features_with_database(features_df,
                                                                                    k=self.sliderKNN.value())
-        for ind in indices[0]:
+        self.list.clear()
+        for ind in reversed(indices):
             item = Qt.QListWidgetItem()
             icon = Qt.QIcon()
-            filename = 'm' + str(ind) + "_thumb.jpg"
+            filename = str(ind) + "_thumb.jpg"
             path_to_thumb = glob.glob(DATA_PATH_PSB + "\\**\\" + filename, recursive=True)
             icon.addPixmap(Qt.QPixmap(path_to_thumb[0]), QtGui.QIcon.Normal, QtGui.QIcon.Off)
             item.setIcon(icon)
-            item.setText("m" + str(ind))
+            item.setText(str(ind))
             self.list.addItem(item)
 
     def plot_selected_mesh(self):
@@ -146,7 +147,6 @@ class SimilarMeshesListWindow(Qt.QWidget):
         path_to_mesh = glob.glob(DATA_PATH_NORMED + "\\**\\" + mesh_name + ".*", recursive=True)
         data = DataSet._load_ply(path_to_mesh[0])
         mesh = pv.PolyData(data["vertices"], data["faces"])
-        # mesh_features = self.query_matcher.features_raw[self.query_matcher.features_df.index == mesh_name]
         mesh_features = [d for d in self.query_matcher.features_raw if d["name"] == mesh_name][0]
         self.smw = SimilarMeshWindow(mesh, mesh_features)
         self.smw.show()
@@ -158,6 +158,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
 class MainWindow(Qt.QMainWindow):
     def __init__(self, parent=None, show=True):
         Qt.QMainWindow.__init__(self, parent)
+        self.supported_file_types = [".ply", ".off"]
         self.buttons = {}
         self.ds = reader.DataSet("")
         self.meshes = []
@@ -208,14 +209,21 @@ class MainWindow(Qt.QMainWindow):
         fileName, _ = QFileDialog.getOpenFileName(self,
                                                   caption="Choose shape to view.",
                                                   filter="All Files (*);; Model Files (.obj, .off, .ply, .stl)")
-        if fileName:
-            mesh = DataSet._read(fileName)
-            return mesh
+        if not fileName: return False
+        if fileName[-4:] not in self.supported_file_types:
+            error_dialog = QtWidgets.QErrorMessage(parent=self)
+            error_dialog.showMessage(("Selected file not supported."
+                                      f"\nPlease select mesh files of type: {self.supported_file_types}"))
+            return False
+
+        mesh = DataSet._read(fileName)
+        return mesh
+
 
     def load_and_prep_query_mesh(self, data):
+        if not data: return
         # Normalize query mesh
         normed_data = self.normalizer.mono_run_pipeline(data)
-        if not normed_data: return
         normed_mesh = pv.PolyData(normed_data["history"][-1]["data"]["vertices"],
                                   normed_data["history"][-1]["data"]["faces"])
         normed_data['poly_data'] = normed_mesh
@@ -234,7 +242,7 @@ class MainWindow(Qt.QMainWindow):
         self.vlayout.removeWidget(self.QTIplotter)
         self.QTIplotter = QtInteractor(self.frame)
         self.vlayout.addWidget(self.QTIplotter)
-        self.tableWidget = TableWidget(feature_df, self)
+        self.tableWidget = TableWidget(feature_df.drop(1, axis='rows'), self)
         self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.vlayout.addWidget(self.tableWidget)
         self.QTIplotter.add_mesh(normed_mesh, show_edges=True)
@@ -264,7 +272,7 @@ class MainWindow(Qt.QMainWindow):
         self.graphWidget.setLabel("bottom", "Bins", **styles)
         self.graphWidget.addLegend()
         self.graphWidget.showGrid(x=True, y=True)
-        self.graphWidget.setXRange(0, len(hist_data))
+        self.graphWidget.setXRange(1, len(hist_data))
         self.graphWidget.setYRange(min(hist_data), max(hist_data))
         self.graphWidget.plot(np.arange(0, len(hist_data)), hist_data, pen=pen)
 
