@@ -14,12 +14,12 @@ from sklearn.neighbors import NearestNeighbors
 
 from helper.config import FEATURE_DATA_FILE
 
-
 # TODO: [x] Display histograms
 # TODO: [x] Check Distance function
 # TODO: [] Check normalisation as shapes have different values
 # TODO: [] Histograms values weight should be divided by n_bins so for one distributional feature to weight as other
 #          features (i.e. line 142 each val/20), but when this is the case results are not well enough.
+
 
 
 class QueryMatcher(object):
