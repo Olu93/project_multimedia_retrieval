@@ -2,16 +2,25 @@ import io
 from collections import ChainMap
 from collections import OrderedDict
 from pathlib import Path
-from scipy.stats import wasserstein_distance
+
 import jsonlines
 import numpy as np
 import pandas as pd
+from scipy.spatial.distance import cosine, euclidean, cityblock, sqeuclidean
+from scipy.stats import wasserstein_distance
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from sklearn.neighbors import NearestNeighbors
 
 from helper.config import FEATURE_DATA_FILE
 
+# TODO: [x] Display histograms
+# TODO: [x] Check Distance function
+# TODO: [] Check normalisation as shapes have different values
+# TODO: [] Histograms values weight should be divided by n_bins so for one distributional feature to weight as other
+#          features (i.e. line 142 each val/20), but when this is the case results are not well enough.
 
-# TODO: [] Display histograms
-# TODO: [] Check Distance function
+
 
 class QueryMatcher(object):
     IGNORE_COLUMNS = ["timestamp", "name", "label"]
@@ -30,8 +39,25 @@ class QueryMatcher(object):
         features_flattened = [QueryMatcher.flatten_feature_dict(feature_set) for feature_set in feature_dict]
         features_df = pd.DataFrame(features_flattened)
         features_df = features_df.set_index('name').drop(columns="timestamp")
-        features_column_names = list(features_df.columns)
         return features_df
+
+    @staticmethod
+    def perform_knn(dataset, query, k):
+        neighbors = NearestNeighbors(n_neighbors=k).fit(query)
+        return neighbors.kneighbors(dataset)
+
+    @staticmethod
+    def compute_pca(data_matrix, n_components=50):
+        # https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html
+        pca = PCA(n_components=n_components)
+        projected = pca.fit(data_matrix.T)
+        return projected.components_.T
+
+    @staticmethod
+    def compute_tsne(data_matrix, n_components=2):
+        # https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html
+        X_embedded = TSNE(n_components=n_components).fit_transform(data_matrix)
+        return X_embedded
 
     def compare_features_with_database(self, feature_set, k=5, distance_function=None):
         distance_function = QueryMatcher.cosine_similarity_faf if not distance_function else distance_function
@@ -48,43 +74,74 @@ class QueryMatcher(object):
         full_mat[np.isnan(full_mat)], full_mat[np.isinf(full_mat)] = 0, 1
         # Standardise (zscore)
         full_mat[:, :6] = (full_mat[:, :6] - np.mean(full_mat[:, :6], axis=0)) / np.std(full_mat[:, :6], axis=0)
-        # Get results from distance function
-        result = distance_function(full_mat[0, :].reshape(1, -1), full_mat[1:, :])
-        # Get indices and values, but indices are not of the filename in db (i.e. 'm + index' won't work)
-        indices, cosine_values = QueryMatcher.get_top_k(result, k)
+        # Because the cosine implemented by hand return most similar closer to zero we need to reverse in that case
+        if distance_function == QueryMatcher.perform_knn:
+            # Reduce matrix using PCA to alleviate computational load of TSNE,
+            # default components is 50 as suggested in TSNE doc page here https://bit.ly/3j8ltDq
+            full_mat = self.compute_pca(full_mat)
+            # Perform t-distributed Stochastic Neighbor Embedding and reduce to default (n_shapes, 2) for
+            # visualization porpoises
+            full_mat = self.compute_tsne(full_mat)
+            # Perform knn and store results
+            distance_values, indices = self.perform_knn(full_mat[0, :].reshape(1, -1), full_mat[1:, :], k)
+        else:
+            # Get results from distance function providing first row of matrix (query) and all others to match it with
+            result = distance_function(full_mat[0, :].reshape(1, -1), full_mat[1:, :])
+            # Get indices and values, but indices are not of the filename in db (i.e. 'm + index' won't work)
+            indices, distance_values = QueryMatcher.get_top_k(result, k)
         # Retrieve the actual name from indexing the raw dict of shapes
         selected_shapes = np.array(self.features_raw)[indices]
         # For each shape selected, append name and return it
         names = [s["name"] for s in selected_shapes[0]]
-        return names, cosine_values
+        return names, distance_values
 
     @staticmethod
-    def get_top_k(cosine_similarities, k=5):
-        cosine_similarities = np.nan_to_num(cosine_similarities)
-        top_k_indices = cosine_similarities.argsort(axis=1)[:, -k:]
+    def get_top_k(cosine_similarities, k=5, flipped=False):
+        top_k_indices = cosine_similarities.argsort(axis=1)[:, :k]
+        # if not flipped else cosine_similarities.argsort(
+        # axis=1)[:, -k:]
         taken = np.take(cosine_similarities, top_k_indices, axis=1)
         row_range = list(range(cosine_similarities.shape[0]))
         return top_k_indices, taken[row_range, row_range, :]
 
-    @staticmethod
-    def cosine_similarity_faf(A, B):
-        nominator = np.dot(A, B.T)
-        norm_A = np.linalg.norm(A, axis=1)
-        norm_B = np.linalg.norm(B, axis=1)
-        denominator = np.reshape(norm_A, [-1, 1]) * np.reshape(norm_B, [1, -1])
-        return np.divide(nominator, denominator)
+    # @staticmethod
+    # def cosine_similarity_faf(A, B):
+    #     nominator = np.dot(A, B.T)
+    #     norm_A = np.linalg.norm(A, axis=1)
+    #     norm_B = np.linalg.norm(B, axis=1)
+    #     denominator = np.reshape(norm_A, [-1, 1]) * np.reshape(norm_B, [1, -1])
+    #     return np.flip(np.divide(nominator, denominator))
 
     @staticmethod
     def wasserstein_distance(A, B):
-        pass
+        result = [wasserstein_distance(A.reshape(-1, ), B[r, :].reshape(-1, )) for r in range(B.shape[0])]
+        return np.array(result).reshape(1, -1)
+
+    @staticmethod
+    def cosine_distance(A, B):
+        result = [cosine(A.reshape(1, -1), B[r, :].reshape(1, -1)) for r in range(B.shape[0])]
+        return np.array(result).reshape(1, -1)
+
+    @staticmethod
+    def euclidean_distance(A, B):
+        result = [euclidean(A.reshape(1, -1), B[r, :].reshape(1, -1)) for r in range(B.shape[0])]
+        return np.array(result).reshape(1, -1)
+
+    @staticmethod
+    def sqeuclidean_distance(A, B):
+        result = [sqeuclidean(A.reshape(1, -1), B[r, :].reshape(1, -1)) for r in range(B.shape[0])]
+        return np.array(result).reshape(1, -1)
+
+    @staticmethod
+    def manhattan_distance(A, B):
+        result = [cityblock(A.reshape(1, -1), B[r, :].reshape(1, -1)) for r in range(B.shape[0])]
+        return np.array(result).reshape(1, -1)
 
     @staticmethod
     def flatten_feature_dict(feature_set):
         singletons = {key: value for key, value in feature_set.items() if type(value) not in [list, np.ndarray]}
         distributional = [{f"{key}_{idx}": val for idx, val in enumerate(dist)} for key, dist in feature_set.items() if
                           type(dist) in [list, np.ndarray]]
-
-        # flattened_feature_set = dict((pair for d in distributional for pair in d.items()))
         flattened_feature_set = dict(ChainMap(*distributional, singletons))
         return flattened_feature_set
 

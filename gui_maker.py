@@ -93,16 +93,21 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.setLayout(layout)
         self.setWindowTitle('Similar Meshes Widget')
 
-        self.distanceMethodList = Qt.QComboBox()
-        self.distanceMethodList.addItems(["Euclidean", "Cosine", "EMD"])
+        self.scalarDistancesDict = {  # "Handmade Cosine": QueryMatcher.cosine_similarity_faf,
+            "EMD": QueryMatcher.wasserstein_distance,
+            "Cosine": QueryMatcher.cosine_distance,
+            "Manhattan": QueryMatcher.manhattan_distance,
+            "K-Nearest Neighbors": QueryMatcher.perform_knn,
+            "Squared Euclidian": QueryMatcher.sqeuclidean_distance,
+            "Euclidean": QueryMatcher.euclidean_distance}
 
-        self.slider1 = QSlider(QtCore.Horizontal)
-        self.slider1.setGeometry(30, 40, 200, 30)
+        self.scalarDistanceMethodList = Qt.QComboBox()
+        self.scalarDistanceMethodList.addItems(self.scalarDistancesDict.keys())
 
         self.sliderKNN = QSlider(QtCore.Horizontal)
         self.sliderKNN.setRange(5, 20)
-        self.sliderKNN.valueChanged.connect(self.update_KNN_label)
-        self.KNNlabel = Qt.QLabel("KNN: 5", self)
+        self.sliderKNN.valueChanged.connect(self.update_K_label)
+        self.KNNlabel = Qt.QLabel("K: 5", self)
 
         self.list = QListWidget()
         self.list.setViewMode(Qt.QListView.ListMode)
@@ -116,9 +121,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.plotButton.setEnabled(False)
         self.list.currentItemChanged.connect(lambda: self.plotButton.setEnabled(True))
 
-        layout.addWidget(self.distanceMethodList)
-        layout.addWidget(Qt.QLabel("Distance Slider1"))
-        layout.addWidget(self.slider1)
+        layout.addWidget(self.scalarDistanceMethodList)
         layout.addWidget(self.KNNlabel)
         layout.addWidget(self.sliderKNN)
         layout.addWidget(self.matchButton)
@@ -126,12 +129,15 @@ class SimilarMeshesListWindow(Qt.QWidget):
         layout.addWidget(self.list)
 
     def update_similar_meshes_list(self):
+        scalarDistanceFunctionText = self.scalarDistanceMethodList.currentText()
+        scalarDistFunction = self.scalarDistancesDict[scalarDistanceFunctionText]
         features_flattened = QueryMatcher.flatten_feature_dict(self.query_mesh_features)
         features_df = pd.DataFrame(features_flattened, index=[0])
         indices, cosine_values = self.query_matcher.compare_features_with_database(features_df,
-                                                                                   k=self.sliderKNN.value())
+                                                                                   k=self.sliderKNN.value(),
+                                                                                   distance_function=scalarDistFunction)
         self.list.clear()
-        for ind in reversed(indices):
+        for ind in indices:
             item = Qt.QListWidgetItem()
             icon = Qt.QIcon()
             filename = str(ind) + "_thumb.jpg"
@@ -143,7 +149,6 @@ class SimilarMeshesListWindow(Qt.QWidget):
 
     def plot_selected_mesh(self):
         mesh_name = self.list.selectedItems()[0].text()
-        # mesh_name = "m0"
         path_to_mesh = glob.glob(DATA_PATH_NORMED + "\\**\\" + mesh_name + ".*", recursive=True)
         data = DataSet._load_ply(path_to_mesh[0])
         mesh = pv.PolyData(data["vertices"], data["faces"])
@@ -151,7 +156,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.smw = SimilarMeshWindow(mesh, mesh_features)
         self.smw.show()
 
-    def update_KNN_label(self, value):
+    def update_K_label(self, value):
         self.KNNlabel.setText("KNN: " + str(value))
 
 
@@ -209,8 +214,9 @@ class MainWindow(Qt.QMainWindow):
         fileName, _ = QFileDialog.getOpenFileName(self,
                                                   caption="Choose shape to view.",
                                                   filter="All Files (*);; Model Files (.obj, .off, .ply, .stl)")
-        if not fileName: return False
-        if fileName[-4:] not in self.supported_file_types:
+        if not fileName:
+            return False
+        elif fileName[-4:] not in self.supported_file_types:
             error_dialog = QtWidgets.QErrorMessage(parent=self)
             error_dialog.showMessage(("Selected file not supported."
                                       f"\nPlease select mesh files of type: {self.supported_file_types}"))
@@ -218,7 +224,6 @@ class MainWindow(Qt.QMainWindow):
 
         mesh = DataSet._read(fileName)
         return mesh
-
 
     def load_and_prep_query_mesh(self, data):
         if not data: return
