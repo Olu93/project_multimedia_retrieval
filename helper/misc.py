@@ -1,5 +1,5 @@
 import pymeshfix as mf
-
+import trimesh.repair as repair
 
 def exception_catcher(func):
     def new_func(*args, **kwargs):
@@ -11,9 +11,13 @@ def exception_catcher(func):
     return new_func
 
 
-def fill_holes(mesh):
+def fill_holes_old(mesh):
     # https://pymeshfix.pyvista.org/index.html: M. Attene. A lightweight approach to repairing digitized polygon meshes. The Visual Computer, 2010. (c) Springer. DOI: 10.1007/s00371-010-0416-3
     meshfix = mf.MeshFix(mesh)
     meshfix.repair(verbose=False)
     repaired = meshfix.mesh
     return repaired
+
+def fill_holes(mesh):
+    return mesh.fill_holes(1000)
+

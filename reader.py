@@ -76,6 +76,8 @@ class DataSet:
         cell_ids = DataSet._get_cells(mesh)
         cell_areas = DataSet._get_cell_areas(mesh.points, cell_ids)
         cell_centers = mesh.cell_centers().points
+        if np.sum(cell_areas) == 0:
+            print(f'{item["meta_data"]["path"]} has no surface area!')
         item["bary_center"] = np.array(DataSet._compute_center(cell_centers, cell_areas))
         item["statistics"].update(dict(zip(["bound_" + b for b in "xmin xmax ymin ymax zmin zmax".split()], mesh.bounds)))
         item["statistics"].update({f"center_{dim}": val for dim, val in zip("x y z".split(), item["bary_center"])})

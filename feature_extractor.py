@@ -19,7 +19,6 @@ from os import path
 from datetime import datetime
 import pyvista as pv
 
-
 # TODO: [x] surface area
 # TODO: [x] compactness (with respect to a sphere)
 # TODO: [x] axis-aligned bounding-box volume
@@ -31,6 +30,7 @@ import pyvista as pv
 # TODO: [x] D3: square root of area of triangle given by 3 random vertices
 # TODO: [x] D4: cube root of volume of tetrahedron formed by 4 random vertices
 # TODO: [x] Mention m94 removal and m1693 eccentricity stabilisation
+# np.seterr('raise')
 
 
 class FeatureExtractor:
@@ -53,8 +53,7 @@ class FeatureExtractor:
         data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
         singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
 
-        gather_data = [list(func(data).items())[0] for func in
-                       [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
+        gather_data = [list(func(data).items())[0] for func in [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
 
         final_dict.update(gather_data)
 
@@ -66,11 +65,25 @@ class FeatureExtractor:
         features = []
         with jsonlines.open(target_file, mode="a" if self.append_mode else "w") as writer:
             num_full_data = len(self.reader.full_data)
-            relevant_subset_of_data = self.reader.full_data[
-                                      :min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
+            relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
             num_data_being_processed = len(relevant_subset_of_data)
-            feature_data_generator = compute_feature_extraction(self, tqdm(relevant_subset_of_data,
-                                                                           total=num_data_being_processed))
+            feature_data_generator = compute_feature_extraction(self, tqdm(relevant_subset_of_data, total=num_data_being_processed))
+            prepared_data = (FeatureExtractor.jsonify(item) for item in feature_data_generator)
+            prepared_data = (dict(timestamp=self.timestamp, **item) for item in prepared_data)
+            for next_feature_set in prepared_data:
+                features.append(next_feature_set)
+                writer.write(next_feature_set)
+        return features
+
+    def run_full_pipeline_slow(self, max_num_items=None):
+
+        target_file = self.feature_stats_file
+        features = []
+        with jsonlines.open(target_file, mode="a" if self.append_mode else "w") as writer:
+            num_full_data = len(self.reader.full_data)
+            relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
+            num_data_being_processed = len(relevant_subset_of_data)
+            feature_data_generator = [FeatureExtractor.mono_run_pipeline(data) for data in tqdm(relevant_subset_of_data, total=num_data_being_processed)]
             prepared_data = (FeatureExtractor.jsonify(item) for item in feature_data_generator)
             prepared_data = (dict(timestamp=self.timestamp, **item) for item in prepared_data)
             for next_feature_set in prepared_data:
@@ -115,6 +128,9 @@ class FeatureExtractor:
         cell_ids = PSBDataset._get_cells(mesh)
         cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
         surface_area = sum(cell_areas)
+        if volume == 0:
+            print("Shit")
+            raise Exception
         compactness = np.power(surface_area, 3) / ((36 * np.pi) * np.square(volume))
         return {"compactness": compactness}
 
@@ -160,8 +176,7 @@ class FeatureExtractor:
         A_cov = np.cov(mesh.points.T)
         eigenvalues, _ = np.linalg.eig(A_cov)
         eigenvalues = np.sort(eigenvalues)
-        return {
-            "eccentricity": np.max(eigenvalues) / np.min(eigenvalues) if np.min(eigenvalues) != 0 else eigenvalues[1]}
+        return {"eccentricity": np.max(eigenvalues) / np.min(eigenvalues) if np.min(eigenvalues) != 0 else eigenvalues[1]}
 
     @staticmethod
     @exception_catcher
@@ -172,14 +187,13 @@ class FeatureExtractor:
             return np.abs(np.dot(a - d, np.cross(b - d, c - d))) / 6
 
         mesh = data["poly_data"]
-        random_indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1,
-                                                               (FeatureExtractor.number_vertices_sampled, 4))
+        random_indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 4))
         quad_points = mesh.points[random_indices, :]
         # volumes = np.array([treaeder_volume(points) for points in quad_points])
         A = quad_points[:, 0] - quad_points[:, 3]
         B = np.cross(quad_points[:, 1] - quad_points[:, 3], quad_points[:, 2] - quad_points[:, 3])
         f_volumes = np.abs(np.einsum("ij,ij -> i", A, B)) / 6
-        cube_root = f_volumes ** (1 / 3)
+        cube_root = f_volumes**(1 / 3)
         histogram = FeatureExtractor.make_bins(cube_root, FeatureExtractor.number_bins)
 
         return {"cube_root_volume_four_rand_verts": histogram}
@@ -190,8 +204,7 @@ class FeatureExtractor:
         # This question quite fitted the case (https://bit.ly/3in7MjH)
         angles_degrees = []
         mesh = data["poly_data"]
-        indices_triplets = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1,
-                                                                 (FeatureExtractor.number_vertices_sampled, 3))
+        indices_triplets = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 3))
         verts_triplets = [mesh.points[triplet] for triplet in indices_triplets]
 
         for verts_triplet in verts_triplets:
@@ -209,8 +222,7 @@ class FeatureExtractor:
     def dist_two_rand_verts(data):
         distances = []
         mesh = data["poly_data"]
-        indices_tuples = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1,
-                                                               (FeatureExtractor.number_vertices_sampled, 2))
+        indices_tuples = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 2))
         verts_tuples = [mesh.points[tup] for tup in indices_tuples]
 
         for verts_tuple in verts_tuples:
@@ -225,8 +237,7 @@ class FeatureExtractor:
         distances = []
         mesh = data["poly_data"]
         bary_center = data["bary_center"]
-        indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1,
-                                                        (FeatureExtractor.number_vertices_sampled, 1))
+        indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 1))
         rand_verts = mesh.points[indices]
         for vert in rand_verts:
             distance = np.abs(np.diff(np.vstack((bary_center, vert)), axis=0))
@@ -247,17 +258,15 @@ class FeatureExtractor:
         bins = np.linspace(np.min(data), np.max(data), n_bins)
         indices = np.digitize(data, bins)
         count_dict = dict(sorted(Counter(indices).items()))
-        count_dict_without_holes = {idx: count_dict[idx] if idx in count_dict.keys() else 0 for idx in
-                                    range(1, FeatureExtractor.number_bins + 1)}
+        count_dict_without_holes = {idx: count_dict[idx] if idx in count_dict.keys() else 0 for idx in range(1, FeatureExtractor.number_bins + 1)}
         result = np.array(list(count_dict_without_holes.values()))
         return result / result.sum()
 
     @staticmethod
     def generate_random_ints(min_val, max_val, shape):
-        return np.array([np.random.choice(line, shape[1], replace=False) for line in
-                         np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
+        return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
 
 
 if __name__ == "__main__":
-    FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET, class_file_path=CLASS_FILE))
-    pprint(FE.mono_run_pipeline(FE.full_data[0]))
+    FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE))
+    FE.run_full_pipeline_slow() if DEBUG else FE.run_full_pipeline()
