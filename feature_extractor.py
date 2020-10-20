@@ -29,13 +29,13 @@ import pyvista as pv
 # TODO: [x] D3: square root of area of triangle given by 3 random vertices
 # TODO: [x] D4: cube root of volume of tetrahedron formed by 4 random vertices
 # TODO: [ ] Mention m94 removal and m1693 eccentricity stabilisation
-# TODO: [ ] Change fill_holes with convex hull operation 
-# 
+# TODO: [ ] Change fill_holes with convex hull operation
+#
 # # np.seterr('raise')
 
 
 class FeatureExtractor:
-    number_vertices_sampled = 1000
+    number_vertices_sampled = 100
     number_bins = 20
 
     def __init__(self, reader=None, target_file="./computed_features.jsonl", append_mode=False):
@@ -188,7 +188,7 @@ class FeatureExtractor:
             return np.abs(np.dot(a - d, np.cross(b - d, c - d))) / 6
 
         mesh = data["poly_data"]
-        random_indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 4))
+        random_indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled//10, 4))
         quad_points = mesh.points[random_indices, :]
         # volumes = np.array([treaeder_volume(points) for points in quad_points])
         A = quad_points[:, 0] - quad_points[:, 3]
@@ -249,7 +249,7 @@ class FeatureExtractor:
     @exception_catcher
     def dist_sqrt_area_rand_triangle(data):
         mesh = data["poly_data"]
-        verts_list = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, [100, 3])
+        verts_list = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 3))
         triangle_areas = PSBDataset._get_cell_areas(mesh.points, verts_list)
         sqrt_areas = np.sqrt(triangle_areas)
         return {"sqrt_area_rand_three_verts": FeatureExtractor.make_bins(sqrt_areas, FeatureExtractor.number_bins)}
@@ -265,13 +265,27 @@ class FeatureExtractor:
 
     @staticmethod
     def generate_random_ints(min_val, max_val, shape):
-        return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
+        return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), 10000, axis=0).reshape(max_val, -1).T])
+
+    @staticmethod
+    def generate_random_ints_(min_val, max_val, shape):
+        def sorting(a):
+            b = np.sort(a, axis=1)
+            return (b[:, 1:] != b[:, :-1]).sum(axis=1) + 1
+
+        X = np.arange(0, max_val)
+        X_samples = np.random.choice(X, shape[0], replace=False)
+        X_combinations_raw = np.array(np.meshgrid(*[X_samples]*shape[1])).T.reshape(-1,shape[1])
+        X_unique_counts = sorting(X_combinations_raw)
+        X_combinations_unique = X_combinations_raw[X_unique_counts == shape[1]]
+        return X_combinations_unique
 
 
 class TsneVisualiser:
     def __init__(self, raw_data):
         self.raw_data = raw_data
         pass
+
 
 if __name__ == "__main__":
     FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE))
