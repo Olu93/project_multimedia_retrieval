@@ -43,7 +43,7 @@ class SimilarMeshWindow(Qt.QWidget):
                                                    else f for f in self.mesh_features.values()])}).drop(0)
 
         # Create Table widget
-        self.tableWidget = TableWidget(features_df, self)
+        self.tableWidget = TableWidget(features_df, self, 8)
         self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
 
         # Create Plots widget
