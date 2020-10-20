@@ -40,10 +40,17 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Python: GUI",
+            "name": "Python: Mini GUI",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/source.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: GUI",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/gui_maker.py",
             "console": "integratedTerminal"
         },
         {
