@@ -29,8 +29,7 @@ class QueryMatcher(object):
         assert self.path_to_features.exists(), f"Feature file does not exist in {self.path_to_features.absolute().as_posix()}"
         self.features_raw = [data for data in jsonlines.Reader(io.open(self.path_to_features))]
         self.features_flattened = [QueryMatcher.flatten_feature_dict(feature_set) for feature_set in self.features_raw]
-        self.features_df = pd.DataFrame(self.features_flattened)
-        self.features_df = self.features_df.set_index('name').drop(columns="timestamp")
+        self.features_df = pd.DataFrame(self.features_flattened).set_index('name').drop(columns="timestamp").drop(columns="label")
         self.features_column_names = list(self.features_df.columns)
 
     @staticmethod
