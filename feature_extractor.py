@@ -28,8 +28,10 @@ import pyvista as pv
 # TODO: [x] D2: distance between 2 random vertices
 # TODO: [x] D3: square root of area of triangle given by 3 random vertices
 # TODO: [x] D4: cube root of volume of tetrahedron formed by 4 random vertices
-# TODO: [x] Mention m94 removal and m1693 eccentricity stabilisation
-# np.seterr('raise')
+# TODO: [ ] Mention m94 removal and m1693 eccentricity stabilisation
+# TODO: [ ] Change fill_holes with convex hull operation 
+# 
+# # np.seterr('raise')
 
 
 class FeatureExtractor:

@@ -1,3 +1,4 @@
+from feature_extractor import FeatureExtractor
 import sys
 
 import pandas as pd
@@ -40,6 +41,7 @@ class MainWindow(Qt.QMainWindow):
         exitButton.triggered.connect(self.close)
         fileMenu.addAction(exitButton)
         meshMenu = mainMenu.addMenu('Mesh')
+
         self.load_mesh = Qt.QAction('Load mesh', self)
         self.load_mesh.triggered.connect(lambda: self.add_mesh(self.open_file_name_dialog()))
         meshMenu.addAction(self.load_mesh)
@@ -47,6 +49,11 @@ class MainWindow(Qt.QMainWindow):
         self.show_norm_pipeline = Qt.QAction('Show norm pipeline', self)
         self.show_norm_pipeline.triggered.connect(lambda: self.show_processing(self.open_file_name_dialog()))
         meshMenu.addAction(self.show_norm_pipeline)
+
+        self.extract_features = Qt.QAction('Extract features', self)
+        self.extract_features.triggered.connect(lambda: print(FeatureExtractor.mono_run_pipeline(self.open_file_name_dialog())))
+        meshMenu.addAction(self.extract_features)
+
 
         if show:
             self.show()
