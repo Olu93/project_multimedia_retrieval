@@ -18,7 +18,8 @@ from helper.viz import TableWidget
 from normalizer import Normalizer
 from query_matcher import QueryMatcher
 from reader import DataSet
-
+from scipy.spatial.distance import cosine, euclidean, cityblock, sqeuclidean
+from scipy.stats import wasserstein_distance
 df = pd.DataFrame({'x': ['Query mesh description']})
 
 
@@ -38,12 +39,10 @@ class SimilarMeshWindow(Qt.QWidget):
 
         feature_formatted_keys = [form_key.replace("_", " ").title() for form_key in self.mesh_features.keys()]
 
-        features_df = pd.DataFrame({'key': list(feature_formatted_keys),
-                                    'value': list([list(f) if isinstance(f, np.ndarray)
-                                                   else f for f in self.mesh_features.values()])}).drop(0)
+        features_df = pd.DataFrame({'key': list(feature_formatted_keys), 'value': list([list(f) if isinstance(f, np.ndarray) else f for f in self.mesh_features.values()])}).drop(0)
 
         # Create Table widget
-        self.tableWidget = TableWidget(features_df, self)
+        self.tableWidget = TableWidget(features_df, self, 8)
         self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
 
         # Create Plots widget
@@ -54,8 +53,7 @@ class SimilarMeshWindow(Qt.QWidget):
         self.buttons = self.tableWidget.get_buttons_in_table()
 
         for key, value in self.buttons.items():
-            value.clicked.connect(lambda state, x=key, y=self.hist_dict["value"][key]:
-                                  self.plot_selected_hist(x, y))
+            value.clicked.connect(lambda state, x=key, y=self.hist_dict["value"][key]: self.plot_selected_hist(x, y))
 
         self.vlayout.addWidget(self.QTIplotter.interactor)
         self.vlayout.addWidget(self.tableWidget)
@@ -99,7 +97,8 @@ class SimilarMeshesListWindow(Qt.QWidget):
             "Manhattan": QueryMatcher.manhattan_distance,
             "K-Nearest Neighbors": QueryMatcher.perform_knn,
             "Squared Euclidian": QueryMatcher.sqeuclidean_distance,
-            "Euclidean": QueryMatcher.euclidean_distance}
+            "Euclidean": QueryMatcher.euclidean_distance
+        }
 
         self.scalarDistanceMethodList = Qt.QComboBox()
         self.scalarDistanceMethodList.addItems(self.scalarDistancesDict.keys())
@@ -129,13 +128,12 @@ class SimilarMeshesListWindow(Qt.QWidget):
         layout.addWidget(self.list)
 
     def update_similar_meshes_list(self):
-        scalarDistanceFunctionText = self.scalarDistanceMethodList.currentText()
-        scalarDistFunction = self.scalarDistancesDict[scalarDistanceFunctionText]
-        features_flattened = QueryMatcher.flatten_feature_dict(self.query_mesh_features)
-        features_df = pd.DataFrame(features_flattened, index=[0])
-        indices, cosine_values = self.query_matcher.compare_features_with_database(features_df,
-                                                                                   k=self.sliderKNN.value(),
-                                                                                   distance_function=scalarDistFunction)
+        # scalarDistanceFunctionText = self.scalarDistanceMethodList.currentText()
+        # scalarDistFunction = self.scalarDistancesDict[scalarDistanceFunctionText]
+        # features_df = pd.DataFrame(features_flattened, index=[0])
+        function_pipeline = [euclidean] + ([wasserstein_distance] * (len(self.query_matcher.features_list_of_list[0]) - 1))
+        weights = [.5] + ([.1] * (len(self.query_matcher.features_list_of_list[0]) - 1))
+        indices, cosine_values = self.query_matcher.match_with_db(self.query_mesh_features, k=self.sliderKNN.value(), distance_functions=function_pipeline, weights=weights)
         self.list.clear()
         for ind in indices:
             item = Qt.QListWidgetItem()
@@ -211,15 +209,12 @@ class MainWindow(Qt.QMainWindow):
             self.show()
 
     def open_file_name_dialog(self):
-        fileName, _ = QFileDialog.getOpenFileName(self,
-                                                  caption="Choose shape to view.",
-                                                  filter="All Files (*);; Model Files (.obj, .off, .ply, .stl)")
+        fileName, _ = QFileDialog.getOpenFileName(self, caption="Choose shape to view.", filter="All Files (*);; Model Files (.obj, .off, .ply, .stl)")
         if not fileName:
             return False
         elif fileName[-4:] not in self.supported_file_types:
             error_dialog = QtWidgets.QErrorMessage(parent=self)
-            error_dialog.showMessage(("Selected file not supported."
-                                      f"\nPlease select mesh files of type: {self.supported_file_types}"))
+            error_dialog.showMessage(("Selected file not supported." f"\nPlease select mesh files of type: {self.supported_file_types}"))
             return False
 
         mesh = DataSet._read(fileName)
@@ -229,16 +224,13 @@ class MainWindow(Qt.QMainWindow):
         if not data: return
         # Normalize query mesh
         normed_data = self.normalizer.mono_run_pipeline(data)
-        normed_mesh = pv.PolyData(normed_data["history"][-1]["data"]["vertices"],
-                                  normed_data["history"][-1]["data"]["faces"])
+        normed_mesh = pv.PolyData(normed_data["history"][-1]["data"]["vertices"], normed_data["history"][-1]["data"]["faces"])
         normed_data['poly_data'] = normed_mesh
 
         # Extract features
         features_dict = FeatureExtractor.mono_run_pipeline(normed_data)
         feature_formatted_keys = [form_key.replace("_", " ").title() for form_key in features_dict.keys()]
-        feature_df = pd.DataFrame({'key': list(feature_formatted_keys),
-                                   'value': list([list(f) if isinstance(f, np.ndarray)
-                                                  else f for f in features_dict.values()])})
+        feature_df = pd.DataFrame({'key': list(feature_formatted_keys), 'value': list([list(f) if isinstance(f, np.ndarray) else f for f in features_dict.values()])})
 
         # Update plotter & feature table
         # since unfortunately Qtinteractor which plots the mesh cannot be updated (remove and add new mesh)
@@ -263,8 +255,7 @@ class MainWindow(Qt.QMainWindow):
         self.buttons = self.tableWidget.get_buttons_in_table()
 
         for key, value in self.buttons.items():
-            value.clicked.connect(lambda state, x=key, y=self.hist_dict["value"][key]:
-                                  self.plot_selected_hist(x, y))
+            value.clicked.connect(lambda state, x=key, y=self.hist_dict["value"][key]: self.plot_selected_hist(x, y))
 
         self.smlw.show()
 
