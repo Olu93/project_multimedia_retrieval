@@ -99,7 +99,13 @@ class QueryMatcher(object):
         position_in_rank = np.argsort(all_distances)
         indices_of_smallest_distances = [list(position_in_rank).index(k_val) for k_val in range(k)]
         names = [mesh_in_db["name"] for mesh_in_db in np.array(self.features_raw)[indices_of_smallest_distances]]
-        return names, all_distances[indices_of_smallest_distances]
+        labels = [mesh_in_db["label"] for mesh_in_db in np.array(self.features_raw)[indices_of_smallest_distances]]
+        
+        # This sorts the results
+        sorted_results = sorted(zip(all_distances[indices_of_smallest_distances], names, labels))
+        sorted_values, sorted_names, sorted_labels = tuple(zip(*sorted_results))
+        print(sorted_labels)
+        return sorted_names, sorted_values
         # return names, distance_values
 
     @staticmethod
@@ -198,7 +204,7 @@ if __name__ == "__main__":
     sampled_mesh = qm.features_flattened[0]
     close_meshes, computed_values = qm.compare_features_with_database(pd.DataFrame(sampled_mesh, index=[0]), 5, QueryMatcher.cosine_distance)
     assert sampled_mesh["name"] in close_meshes
-    function_pipeline = [cosine] * len(qm.features_list_of_list[0])
+    function_pipeline = [cosine] + ([wasserstein_distance] * (len(qm.features_list_of_list[0])-1))
     print(QueryMatcher.mono_run_functions_pipeline(qm.features_list_of_list[0], qm.features_list_of_list[1], function_pipeline))
     print(qm.match_with_db(qm.features_raw[0], 5, function_pipeline))
     print("Everything worked!")
