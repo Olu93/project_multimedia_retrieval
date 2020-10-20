@@ -7,7 +7,6 @@ import numpy as np
 from tqdm import tqdm
 
 from helper import diameter_computer
-from helper.config import DEBUG, DATA_PATH_NORMED_SUBSET
 from helper.misc import exception_catcher, fill_holes
 from helper.diameter_computer import compute_diameter
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
