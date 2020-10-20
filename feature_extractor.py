@@ -7,7 +7,6 @@ import numpy as np
 from tqdm import tqdm
 
 from helper import diameter_computer
-from helper.config import DEBUG, DATA_PATH_NORMED_SUBSET
 from helper.misc import exception_catcher, fill_holes
 from helper.diameter_computer import compute_diameter
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
@@ -260,4 +259,5 @@ class FeatureExtractor:
 
 if __name__ == "__main__":
     FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET, class_file_path=CLASS_FILE))
-    pprint(FE.mono_run_pipeline(FE.full_data[0]))
+    [FE.mono_run_pipeline(mesh) for mesh in FE.full_data]
+    print("Done")
