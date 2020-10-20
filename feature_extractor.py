@@ -268,6 +268,11 @@ class FeatureExtractor:
         return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
 
 
+class TsneVisualiser:
+    def __init__(self, raw_data):
+        self.raw_data = raw_data
+        pass
+
 if __name__ == "__main__":
     FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE))
     FE.run_full_pipeline_slow() if DEBUG else FE.run_full_pipeline()

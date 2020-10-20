@@ -19,31 +19,30 @@ from normalizer import Normalizer
 from query_matcher import QueryMatcher
 from reader import DataSet
 
-df = pd.DataFrame({'x': ['Query mesh description']})
+
+# df = pd.DataFrame({'x': ['Query mesh description']})
 
 
 class SimilarMeshWindow(Qt.QWidget):
-    def __init__(self, mesh, feature_df):
+    def __init__(self, mesh, features):
         super().__init__()
         self.setWindowTitle('Similar Mesh Window')
         self.mesh = mesh
-        self.mesh_features = feature_df
+        self.mesh_features = features
         self.QTIplotter = QtInteractor()
         self.vlayout = Qt.QVBoxLayout()
         self.setLayout(self.vlayout)
 
         # Create and add widgets to layout
-        # features_df = pd.DataFrame({'key': self.mesh_features.transpose().index,
-        #                             'value': list([x[0] for x in self.mesh_features.transpose().values])})
+        self.hist_labels = list({**FeatureExtractor.get_pipeline_functions()[1]}.values())
+        labels = [f.replace("_", " ").title() for f in list(self.mesh_features.keys())]
 
-        feature_formatted_keys = [form_key.replace("_", " ").title() for form_key in self.mesh_features.keys()]
-
-        features_df = pd.DataFrame({'key': list(feature_formatted_keys),
-                                    'value': list([list(f) if isinstance(f, np.ndarray)
+        features_df = pd.DataFrame({'key': labels,
+                                    'value': list([list(f) if isinstance(f, np.ndarray)           # Drop timestamp
                                                    else f for f in self.mesh_features.values()])}).drop(0)
 
         # Create Table widget
-        self.tableWidget = TableWidget(features_df, self)
+        self.tableWidget = TableWidget(features_df, self, len(self.hist_labels))
         self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
 
         # Create Plots widget
@@ -195,7 +194,8 @@ class MainWindow(Qt.QMainWindow):
         self.graphWidget.setBackground('w')
 
         # Create and add widgets to layout
-        self.tableWidget = TableWidget(df, self)
+        self.hist_labels = list({**FeatureExtractor.get_pipeline_functions()[1]}.values())
+        self.tableWidget = TableWidget(pd.DataFrame(), self, len(self.hist_labels))
         self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.vlayout.addWidget(load_button)
         self.vlayout.addWidget(self.QTIplotter.interactor)
@@ -235,10 +235,10 @@ class MainWindow(Qt.QMainWindow):
 
         # Extract features
         features_dict = FeatureExtractor.mono_run_pipeline(normed_data)
-        feature_formatted_keys = [form_key.replace("_", " ").title() for form_key in features_dict.keys()]
-        feature_df = pd.DataFrame({'key': list(feature_formatted_keys),
-                                   'value': list([list(f) if isinstance(f, np.ndarray)
-                                                  else f for f in features_dict.values()])})
+        labels = [f.replace("_", " ").title() for f in list(features_dict.keys())]
+        features_df = pd.DataFrame({'key': labels,
+                                    'value': list([list(f) if isinstance(f, np.ndarray)
+                                                   else f for f in features_dict.values()])})
 
         # Update plotter & feature table
         # since unfortunately Qtinteractor which plots the mesh cannot be updated (remove and add new mesh)
@@ -247,7 +247,7 @@ class MainWindow(Qt.QMainWindow):
         self.vlayout.removeWidget(self.QTIplotter)
         self.QTIplotter = QtInteractor(self.frame)
         self.vlayout.addWidget(self.QTIplotter)
-        self.tableWidget = TableWidget(feature_df.drop(1, axis='rows'), self)
+        self.tableWidget = TableWidget(features_df, self, len(self.hist_labels))
         self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.vlayout.addWidget(self.tableWidget)
         self.QTIplotter.add_mesh(normed_mesh, show_edges=True)
@@ -259,7 +259,7 @@ class MainWindow(Qt.QMainWindow):
         self.smlw = SimilarMeshesListWindow(features_dict)
         self.smlw.move(self.geometry().topRight())
 
-        self.hist_dict = feature_df.set_index("key").tail().to_dict()
+        self.hist_dict = features_df.set_index("key").tail().to_dict()
         self.buttons = self.tableWidget.get_buttons_in_table()
 
         for key, value in self.buttons.items():
