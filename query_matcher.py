@@ -21,7 +21,6 @@ from helper.config import FEATURE_DATA_FILE
 #          features (i.e. line 142 each val/20), but when this is the case results are not well enough.
 
 
-
 class QueryMatcher(object):
     IGNORE_COLUMNS = ["timestamp", "name", "label"]
 
@@ -70,8 +69,6 @@ class QueryMatcher(object):
         feature_database_matrix = self.features_df.values
         # Create a matrix of query feature plus all other in db
         full_mat = np.vstack((feature_instance_vector, feature_database_matrix))
-        # Replace NaN's with 0 and inf with 1, can be done better
-        full_mat[np.isnan(full_mat)], full_mat[np.isinf(full_mat)] = 0, 1
         # Standardise (zscore)
         full_mat[:, :6] = (full_mat[:, :6] - np.mean(full_mat[:, :6], axis=0)) / np.std(full_mat[:, :6], axis=0)
         # Because the cosine implemented by hand return most similar closer to zero we need to reverse in that case
@@ -81,7 +78,7 @@ class QueryMatcher(object):
             full_mat = self.compute_pca(full_mat)
             # Perform t-distributed Stochastic Neighbor Embedding and reduce to default (n_shapes, 2) for
             # visualization porpoises
-            full_mat = self.compute_tsne(full_mat)
+            # full_mat = self.compute_tsne(full_mat)
             # Perform knn and store results
             distance_values, indices = self.perform_knn(full_mat[0, :].reshape(1, -1), full_mat[1:, :], k)
         else:
@@ -96,7 +93,7 @@ class QueryMatcher(object):
         return names, distance_values
 
     @staticmethod
-    def get_top_k(cosine_similarities, k=5, flipped=False):
+    def get_top_k(cosine_similarities, k=5):
         top_k_indices = cosine_similarities.argsort(axis=1)[:, :k]
         # if not flipped else cosine_similarities.argsort(
         # axis=1)[:, -k:]
