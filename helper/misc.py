@@ -1,5 +1,8 @@
 import pymeshfix as mf
 import trimesh.repair as repair
+from scipy.spatial import ConvexHull
+from pyvista import PolyData
+import numpy as np
 
 def exception_catcher(func):
     def new_func(*args, **kwargs):
@@ -22,3 +25,8 @@ def fill_holes_old(mesh):
 def fill_holes(mesh):
     return mesh.fill_holes(1000)
 
+def polyhull(mesh):
+    hull = ConvexHull(mesh.points)
+    faces = np.column_stack((3 * np.ones((len(hull.simplices), 1), dtype=np.int), hull.simplices)).flatten()
+    poly = PolyData(hull.points, faces)
+    return poly

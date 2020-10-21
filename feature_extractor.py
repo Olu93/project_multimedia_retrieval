@@ -35,7 +35,7 @@ import pyvista as pv
 
 
 class FeatureExtractor:
-    number_vertices_sampled = 10000
+    number_vertices_sampled = 1000
     number_bins = 20
 
     def __init__(self, reader=None, target_file="./computed_features.jsonl", append_mode=False):
