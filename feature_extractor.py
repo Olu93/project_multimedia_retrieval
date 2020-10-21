@@ -120,6 +120,20 @@ class FeatureExtractor:
 
     @staticmethod
     @exception_catcher
+    def rectangularity(data):
+        mesh = data["poly_data"]
+        edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
+        if edges.n_faces > 0:
+            mesh = fill_holes(mesh)
+        volume = mesh.volume
+        min_max_point = np.array(mesh.bounds).reshape((-1, 2))
+        differences = np.diff(min_max_point, axis=1)
+        obb_volume = np.prod(differences)
+        rectangularity = volume/obb_volume
+        return {"rectangularity": rectangularity}
+
+    @staticmethod
+    @exception_catcher
     def compactness(data):
         mesh = data["poly_data"]
         edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
