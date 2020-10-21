@@ -45,7 +45,7 @@ class Normalizer:
         tmp_mesh = []
         for mesh, full_mesh_stuff in zip(self.history[-1], self.full_data):
             remesh = PolyData(mesh.points.copy(), mesh.faces.copy())
-            offset = full_mesh_stuff["bary_center"]
+            offset = mesh.center
             remesh.translate(np.zeros_like(offset) - offset)
             tmp_mesh.append(remesh)
         self.history.append(tmp_mesh)

@@ -251,7 +251,7 @@ class FeatureExtractor:
     def dist_bar_vert(data):
         distances = []
         mesh = data["poly_data"]
-        bary_center = data["bary_center"]
+        bary_center = mesh.center
         indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 1))
         rand_verts = mesh.points[indices]
         for vert in rand_verts:
