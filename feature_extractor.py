@@ -35,7 +35,7 @@ import pyvista as pv
 
 
 class FeatureExtractor:
-    number_vertices_sampled = 1000
+    number_vertices_sampled = 10000
     number_bins = 20
 
     def __init__(self, reader=None, target_file="./computed_features.jsonl", append_mode=False):
@@ -249,7 +249,7 @@ class FeatureExtractor:
     @exception_catcher
     def dist_sqrt_area_rand_triangle(data):
         mesh = data["poly_data"]
-        verts_list = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, [100, 3])
+        verts_list = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 3))
         triangle_areas = PSBDataset._get_cell_areas(mesh.points, verts_list)
         sqrt_areas = np.sqrt(triangle_areas)
         return {"sqrt_area_rand_three_verts": FeatureExtractor.make_bins(sqrt_areas, FeatureExtractor.number_bins)}
