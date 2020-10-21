@@ -55,7 +55,7 @@ class Normalizer:
         if VERBOSE: print(f"Centering: {data['meta_data']['name']}")
         mesh = data["poly_data"]
         remesh = PolyData(mesh.points.copy(), mesh.faces.copy())
-        offset = data["bary_center"]
+        offset = mesh.center
         remesh.translate(np.zeros_like(offset) - offset)
         return remesh
 
