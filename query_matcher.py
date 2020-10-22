@@ -1,18 +1,21 @@
 import io
+import os.path
 from collections import ChainMap
 from collections import OrderedDict
 from pathlib import Path
 
 import jsonlines
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import cosine, euclidean, cityblock, sqeuclidean
 from scipy.stats import wasserstein_distance
-from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.neighbors import NearestNeighbors
 
 from helper.config import FEATURE_DATA_FILE
+from helper.misc import rand_cmap
+
 
 # TODO: [x] Display histograms
 # TODO: [x] Check Distance function
@@ -29,8 +32,10 @@ class QueryMatcher(object):
         assert self.path_to_features.exists(), f"Feature file does not exist in {self.path_to_features.absolute().as_posix()}"
         self.features_raw = [data for data in jsonlines.Reader(io.open(self.path_to_features))]
         self.features_flattened = [QueryMatcher.flatten_feature_dict(feature_set) for feature_set in self.features_raw]
-        self.features_df = pd.DataFrame(self.features_flattened).set_index('name').drop(columns="timestamp").drop(columns="label")
+        self.features_df = pd.DataFrame(self.features_flattened).set_index('name').drop(columns="timestamp").drop(
+            columns="label")
         self.features_column_names = list(self.features_df.columns)
+        self.full_mat = []
 
     @staticmethod
     def init_from_query_mesh_features(feature_dict):
@@ -44,21 +49,15 @@ class QueryMatcher(object):
         neighbors = NearestNeighbors(n_neighbors=k).fit(query)
         return neighbors.kneighbors(dataset)
 
-    @staticmethod
-    def compute_pca(data_matrix, n_components=50):
-        # https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html
-        pca = PCA(n_components=n_components)
-        projected = pca.fit(data_matrix.T)
-        return projected.components_.T
+    def compare_features_with_database(self, feature_set,
+                                       weights, k=5,
+                                       hist_dist_func=None,
+                                       scalar_dist_func=None,
+                                       n_scalar_features=6):
 
-    @staticmethod
-    def compute_tsne(data_matrix, n_components=2):
-        # https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html
-        X_embedded = TSNE(n_components=n_components).fit_transform(data_matrix)
-        return X_embedded
+        scalar_dist_func = QueryMatcher.cosine_distance if not scalar_dist_func else scalar_dist_func
+        hist_dist_func = QueryMatcher.cosine_distance if not hist_dist_func else hist_dist_func
 
-    def compare_features_with_database(self, feature_set, k=5, distance_function=None):
-        distance_function = QueryMatcher.cosine_similarity_faf if not distance_function else distance_function
         # Make order consistent with matching features db and flatten its distributional values
         feature_dict_in_correct_order = self.prepare_single_feature_for_comparison(feature_set,
                                                                                    list(feature_set.columns))
@@ -67,46 +66,48 @@ class QueryMatcher(object):
         # Get processed features from json file
         feature_database_matrix = self.features_df.values
         # Create a matrix of query feature plus all other in db
-        full_mat = np.vstack((feature_instance_vector, feature_database_matrix))
+        self.full_mat = np.vstack((feature_instance_vector, feature_database_matrix))
+
         # Standardise (zscore)
-        full_mat[:, :6] = (full_mat[:, :6] - np.mean(full_mat[:, :6], axis=0)) / np.std(full_mat[:, :6], axis=0)
-        # Because the cosine implemented by hand return most similar closer to zero we need to reverse in that case
-        if distance_function == QueryMatcher.perform_knn:
-            # Reduce matrix using PCA to alleviate computational load of TSNE,
-            # default components is 50 as suggested in TSNE doc page here https://bit.ly/3j8ltDq
-            full_mat = self.compute_pca(full_mat)
-            # Perform t-distributed Stochastic Neighbor Embedding and reduce to default (n_shapes, 2) for
-            # visualization porpoises
-            # full_mat = self.compute_tsne(full_mat)
+        scalar_values = self.full_mat[:, :n_scalar_features]
+        scalars_mean = np.mean(self.full_mat[:, :n_scalar_features], axis=0)
+        scalars_std = np.std(self.full_mat[:, :n_scalar_features], axis=0)
+        scalar_values = (scalar_values - scalars_mean) / scalars_std
+
+        # Extract hist values
+        hist_values = self.full_mat[:, n_scalar_features:]
+
+        # ttsne = TsneVisualiser()
+        # ttsne.raw_data = self.features_raw
+        # ttsne.distances = full_mat
+        # ttsne.plot()
+
+        if scalar_dist_func == QueryMatcher.perform_knn:
             # Perform knn and store results
-            distance_values, indices = self.perform_knn(full_mat[0, :].reshape(1, -1), full_mat[1:, :], k)
+            distance_values, indices = self.perform_knn(self.full_mat[0, :].reshape(1, -1), self.full_mat[1:, :], k)
         else:
             # Get results from distance function providing first row of matrix (query) and all others to match it with
-            result = distance_function(full_mat[0, :].reshape(1, -1), full_mat[1:, :])
+            scalar_result = scalar_dist_func(scalar_values[0, :].reshape(1, -1), scalar_values[1:, :]) * weights[0]
+
+            hist_result = hist_dist_func(hist_values[0, :].reshape(1, -1), hist_values[1:, :]) * weights[1]
+
+            result = np.sum(np.vstack((scalar_result, hist_result)), axis=0).reshape(-1, 1)
+
             # Get indices and values, but indices are not of the filename in db (i.e. 'm + index' won't work)
             indices, distance_values = QueryMatcher.get_top_k(result, k)
+
         # Retrieve the actual name from indexing the raw dict of shapes
         selected_shapes = np.array(self.features_raw)[indices]
         # For each shape selected, append name and return it
-        names = [s["name"] for s in selected_shapes[0]]
+        names = [s["name"] for s in selected_shapes.reshape(-1, )]
         return names, distance_values
 
     @staticmethod
     def get_top_k(cosine_similarities, k=5):
-        top_k_indices = cosine_similarities.argsort(axis=1)[:, :k]
-        # if not flipped else cosine_similarities.argsort(
-        # axis=1)[:, -k:]
-        taken = np.take(cosine_similarities, top_k_indices, axis=1)
-        row_range = list(range(cosine_similarities.shape[0]))
+        top_k_indices = cosine_similarities.argsort(axis=0)[:k, :]
+        taken = np.take(cosine_similarities, top_k_indices, axis=0)
+        row_range = list(range(cosine_similarities.shape[1]))
         return top_k_indices, taken[row_range, row_range, :]
-
-    # @staticmethod
-    # def cosine_similarity_faf(A, B):
-    #     nominator = np.dot(A, B.T)
-    #     norm_A = np.linalg.norm(A, axis=1)
-    #     norm_B = np.linalg.norm(B, axis=1)
-    #     denominator = np.reshape(norm_A, [-1, 1]) * np.reshape(norm_B, [1, -1])
-    #     return np.flip(np.divide(nominator, denominator))
 
     @staticmethod
     def wasserstein_distance(A, B):
@@ -155,6 +156,34 @@ class QueryMatcher(object):
     def normalise_hist(distribution):
         return np.sum(distribution)
 
+
+class TsneVisualiser:
+    def __init__(self, raw_data, full_mat, filename):
+        self.raw_data = raw_data
+        self.full_mat = full_mat
+        self.filename = filename
+
+    def plot(self):
+        labelled_mat = np.hstack(
+            (np.array([dic["label"] for dic in self.raw_data]).reshape(-1, 1), self.full_mat[1:, :]))
+        df = pd.DataFrame(data=labelled_mat[:, 1:],
+                          index=labelled_mat[:, 0])
+
+        lbl_list = list(df.index)
+        color_map = rand_cmap(len(lbl_list), first_color_black=False, last_color_black=True)
+        lbl_to_idx_map = dict(zip(lbl_list, range(len(lbl_list))))
+        labels = [lbl_to_idx_map[i] for i in lbl_list]
+
+        # Playing around with parameters, this seems like a good fit
+        tsne_results = TSNE(perplexity=50, n_iter=10000, learning_rate=500).fit_transform(df.values)
+        t_x, t_y = tsne_results[:, 0], tsne_results[:, 1]
+        plt.scatter(t_x, t_y, c=labels, cmap=color_map, vmin=0, vmax=len(lbl_list), label=lbl_list, s=10)
+        plt.savefig(self.filename, bbox_inches='tight', dpi=200)
+
+    def file_exist(self):
+        if os.path.isfile(self.filename):
+            return True
+        return False
 
 if __name__ == "__main__":
     qm = QueryMatcher(FEATURE_DATA_FILE)

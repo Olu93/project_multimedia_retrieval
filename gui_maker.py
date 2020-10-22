@@ -1,5 +1,6 @@
 import glob
 import sys
+import reader
 
 import numpy as np
 import pandas as pd
@@ -8,16 +9,15 @@ import pyvista as pv
 from PyQt5 import Qt as Qt
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtCore import Qt as QtCore
-from PyQt5.QtWidgets import QPushButton, QFileDialog, QDesktopWidget, QSlider, QListWidget
+from PyQt5.QtWidgets import QPushButton, QFileDialog, QDesktopWidget, QSlider, QListWidget, QMessageBox
 from pyvistaqt import QtInteractor
-
-import reader
 from feature_extractor import FeatureExtractor
 from helper.config import FEATURE_DATA_FILE, DATA_PATH_NORMED, DATA_PATH_PSB
 from helper.viz import TableWidget
 from normalizer import Normalizer
-from query_matcher import QueryMatcher
+from query_matcher import QueryMatcher, TsneVisualiser
 from reader import DataSet
+from PIL import Image
 
 
 # df = pd.DataFrame({'x': ['Query mesh description']})
@@ -38,7 +38,7 @@ class SimilarMeshWindow(Qt.QWidget):
         labels = [f.replace("_", " ").title() for f in list(self.mesh_features.keys())]
 
         features_df = pd.DataFrame({'key': labels,
-                                    'value': list([list(f) if isinstance(f, np.ndarray)           # Drop timestamp
+                                    'value': list([list(f) if isinstance(f, np.ndarray)  # Drop timestamp
                                                    else f for f in self.mesh_features.values()])}).drop(0)
 
         # Create Table widget
@@ -88,11 +88,19 @@ class SimilarMeshesListWindow(Qt.QWidget):
         super().__init__()
         self.query_matcher = QueryMatcher(FEATURE_DATA_FILE)
         self.query_mesh_features = feature_dict
-        layout = Qt.QVBoxLayout()
-        self.setLayout(layout)
+        self.layout = Qt.QVBoxLayout()
+        self.setLayout(self.layout)
         self.setWindowTitle('Similar Meshes Widget')
 
-        self.scalarDistancesDict = {  # "Handmade Cosine": QueryMatcher.cosine_similarity_faf,
+        self.scalarDistancesDict = {
+            "EMD": QueryMatcher.wasserstein_distance,
+            "Cosine": QueryMatcher.cosine_distance,
+            "Manhattan": QueryMatcher.manhattan_distance,
+            "K-Nearest Neighbors": QueryMatcher.perform_knn,
+            "Squared Euclidian": QueryMatcher.sqeuclidean_distance,
+            "Euclidean": QueryMatcher.euclidean_distance}
+
+        self.histDistancesDict = {
             "EMD": QueryMatcher.wasserstein_distance,
             "Cosine": QueryMatcher.cosine_distance,
             "Manhattan": QueryMatcher.manhattan_distance,
@@ -103,10 +111,25 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.scalarDistanceMethodList = Qt.QComboBox()
         self.scalarDistanceMethodList.addItems(self.scalarDistancesDict.keys())
 
-        self.sliderKNN = QSlider(QtCore.Horizontal)
-        self.sliderKNN.setRange(5, 20)
-        self.sliderKNN.valueChanged.connect(self.update_K_label)
-        self.KNNlabel = Qt.QLabel("K: 5", self)
+        self.histDistanceMethodList = Qt.QComboBox()
+        self.histDistanceMethodList.addItems(self.histDistancesDict.keys())
+
+        self.sliderK = QSlider(QtCore.Horizontal)
+        self.sliderK.setRange(5, 20)
+        self.sliderK.valueChanged.connect(self.update_K_label)
+        self.Klabel = Qt.QLabel("K: 5", self)
+
+        self.scalarSliderWeights = QSlider(QtCore.Horizontal)
+        self.scalarSliderWeights.setRange(0, 10)
+        self.scalarSliderWeights.setValue(10)
+        self.scalarSliderWeights.valueChanged.connect(self.update_scalar_label)
+        self.scalarLabelWeights = Qt.QLabel("Scalars weigh: 1.0", self)
+
+        self.histSliderWeights = QSlider(QtCore.Horizontal)
+        self.histSliderWeights.setRange(0, 10)
+        self.histSliderWeights.setValue(10)
+        self.histSliderWeights.valueChanged.connect(self.update_hist_label)
+        self.histLabelWeights = Qt.QLabel("Histogram weight: 1.0", self)
 
         self.list = QListWidget()
         self.list.setViewMode(Qt.QListView.ListMode)
@@ -115,26 +138,45 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.matchButton = QPushButton('Match with Database', self)
         self.matchButton.clicked.connect(self.update_similar_meshes_list)
 
+        self.viewTSNEButton = QPushButton('Plot tSNE', self)
+        self.viewTSNEButton.clicked.connect(self.plot_tsne)
+        self.viewTSNEButton.hide()
+
         self.plotButton = QPushButton('Plot selected mesh', self)
         self.plotButton.clicked.connect(self.plot_selected_mesh)
         self.plotButton.setEnabled(False)
         self.list.currentItemChanged.connect(lambda: self.plotButton.setEnabled(True))
 
-        layout.addWidget(self.scalarDistanceMethodList)
-        layout.addWidget(self.KNNlabel)
-        layout.addWidget(self.sliderKNN)
-        layout.addWidget(self.matchButton)
-        layout.addWidget(self.plotButton)
-        layout.addWidget(self.list)
+        self.layout.addWidget(Qt.QLabel("Scalar Distance Function", self))
+        self.layout.addWidget(self.scalarDistanceMethodList)
+        self.layout.addWidget(Qt.QLabel("Histogram Distance Function", self))
+        self.layout.addWidget(self.histDistanceMethodList)
+        self.layout.addWidget(self.Klabel)
+        self.layout.addWidget(self.sliderK)
+        self.layout.addWidget(self.scalarLabelWeights)
+        self.layout.addWidget(self.scalarSliderWeights)
+        self.layout.addWidget(self.histLabelWeights)
+        self.layout.addWidget(self.histSliderWeights)
+        self.layout.addWidget(self.matchButton)
+        self.layout.addWidget(self.plotButton)
+        self.layout.addWidget(self.list)
 
     def update_similar_meshes_list(self):
         scalarDistanceFunctionText = self.scalarDistanceMethodList.currentText()
         scalarDistFunction = self.scalarDistancesDict[scalarDistanceFunctionText]
+
+        histDistanceFunctionText = self.histDistanceMethodList.currentText()
+        histDistFunction = self.histDistancesDict[histDistanceFunctionText]
+
+        weights = [self.scalarSliderWeights.value()] + [self.histSliderWeights.value()] * 5
+
         features_flattened = QueryMatcher.flatten_feature_dict(self.query_mesh_features)
         features_df = pd.DataFrame(features_flattened, index=[0])
         indices, cosine_values = self.query_matcher.compare_features_with_database(features_df,
-                                                                                   k=self.sliderKNN.value(),
-                                                                                   distance_function=scalarDistFunction)
+                                                                                   weights=weights,
+                                                                                   k=self.sliderK.value(),
+                                                                                   scalar_dist_func=scalarDistFunction,
+                                                                                   hist_dist_func=histDistFunction)
         self.list.clear()
         for ind in indices:
             item = Qt.QListWidgetItem()
@@ -146,6 +188,9 @@ class SimilarMeshesListWindow(Qt.QWidget):
             item.setText(str(ind))
             self.list.addItem(item)
 
+        self.viewTSNEButton.show()
+        self.layout.addWidget(self.viewTSNEButton)
+
     def plot_selected_mesh(self):
         mesh_name = self.list.selectedItems()[0].text()
         path_to_mesh = glob.glob(DATA_PATH_NORMED + "\\**\\" + mesh_name + ".*", recursive=True)
@@ -156,8 +201,22 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.smw.show()
 
     def update_K_label(self, value):
-        self.KNNlabel.setText("KNN: " + str(value))
+        self.Klabel.setText("KNN: " + str(value))
 
+    def update_scalar_label(self, value):
+        self.scalarLabelWeights.setText("Scalar weight: " + str(value / 10))
+
+    def update_hist_label(self, value):
+        self.histLabelWeights.setText("Histogram weight: " + str(value / 10))
+
+    def plot_tsne(self):
+        tsne_plotter = TsneVisualiser(self.query_matcher.features_raw,
+                                      self.query_matcher.full_mat,
+                                      "tsne.png")
+        if not tsne_plotter.file_exist():
+            tsne_plotter.plot()
+        img = Image.open(open("tsne.png", 'rb'))
+        img.show()
 
 class MainWindow(Qt.QMainWindow):
     def __init__(self, parent=None, show=True):
