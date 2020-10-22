@@ -7,7 +7,7 @@ import numpy as np
 from tqdm import tqdm
 
 from helper import diameter_computer
-from helper.misc import exception_catcher, fill_holes
+from helper.misc import compactness_computation, convex_hull_transformation, exception_catcher, fill_holes, sphericity_computation
 from helper.diameter_computer import compute_diameter
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
 from helper.mp_functions import compute_feature_extraction
@@ -29,8 +29,8 @@ import pyvista as pv
 # TODO: [x] D3: square root of area of triangle given by 3 random vertices
 # TODO: [x] D4: cube root of volume of tetrahedron formed by 4 random vertices
 # TODO: [ ] Mention m94 removal and m1693 eccentricity stabilisation
-# TODO: [ ] Change fill_holes with convex hull operation 
-# 
+# TODO: [ ] Change fill_holes with convex hull operation
+#
 # # np.seterr('raise')
 
 
@@ -120,48 +120,35 @@ class FeatureExtractor:
 
     @staticmethod
     @exception_catcher
+    def convex_hull_volume(data):
+        mesh = convex_hull_transformation(data["poly_data"])
+        convex_hull_volume_result = mesh.volume
+        return {"convex_hull_volume": convex_hull_volume_result}
+
+    @staticmethod
+    @exception_catcher
     def rectangularity(data):
-        mesh = data["poly_data"]
-        edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
-        if edges.n_faces > 0:
-            mesh = fill_holes(mesh)
+        mesh = convex_hull_transformation(data["poly_data"])
         volume = mesh.volume
         min_max_point = np.array(mesh.bounds).reshape((-1, 2))
-        differences = np.diff(min_max_point, axis=1)
+        differences = np.abs(np.diff(min_max_point, axis=1))
         obb_volume = np.prod(differences)
-        rectangularity = volume/obb_volume
-        return {"rectangularity": rectangularity}
+        rectangularity_result = volume / obb_volume
+        return {"rectangularity": rectangularity_result}
 
     @staticmethod
     @exception_catcher
     def compactness(data):
-        mesh = data["poly_data"]
-        edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
-        if edges.n_faces > 0:
-            mesh = fill_holes(mesh)
-        volume = mesh.volume
-        cell_ids = PSBDataset._get_cells(mesh)
-        cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
-        surface_area = sum(cell_areas)
-        if volume == 0:
-            print("Shit")
-            raise Exception
-        compactness = np.power(surface_area, 3) / ((36 * np.pi) * np.square(volume))
-        return {"compactness": compactness}
+        mesh = convex_hull_transformation(data["poly_data"])
+        compactness_result = compactness_computation(mesh)
+        return {"compactness": compactness_result}
 
     @staticmethod
     @exception_catcher
     def sphericity(data):
-        mesh = data["poly_data"]
-        edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
-        if edges.n_faces > 0:
-            mesh = fill_holes(mesh)
-        volume = mesh.volume
-        cell_ids = PSBDataset._get_cells(mesh)
-        cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
-        surface_area = sum(cell_areas)
-        sphericity_result = (np.power(np.pi, 1 / 3) * np.power(6 * volume, 2 / 3)) / surface_area
-        return {"sphericity": sphericity_result}
+        mesh = convex_hull_transformation(data["poly_data"])
+        sphericity_result = sphericity_computation(mesh)
+        return {"sphericity": min(sphericity_result, 1.0)}
 
     @staticmethod
     @exception_catcher
@@ -286,6 +273,7 @@ class TsneVisualiser:
     def __init__(self, raw_data):
         self.raw_data = raw_data
         pass
+
 
 if __name__ == "__main__":
     FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE))

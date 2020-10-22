@@ -4,6 +4,7 @@ from scipy.spatial import ConvexHull
 from pyvista import PolyData
 import numpy as np
 
+
 def exception_catcher(func):
     def new_func(*args, **kwargs):
         try:
@@ -22,11 +23,32 @@ def fill_holes_old(mesh):
     repaired = meshfix.mesh
     return repaired
 
+
 def fill_holes(mesh):
     return mesh.fill_holes(1000)
 
-def polyhull(mesh):
+
+def convex_hull_transformation(mesh):
     hull = ConvexHull(mesh.points)
-    faces = np.column_stack((3 * np.ones((len(hull.simplices), 1), dtype=np.int), hull.simplices)).flatten()
-    poly = PolyData(hull.points, faces)
+    poly = PolyData(hull.points).delaunay_2d()
     return poly
+
+
+def __sphericity_test(mesh):
+    return mesh.area < 1 and mesh.volume > 1
+
+
+def sphericity_computation(mesh):
+    return (np.power(np.pi, 1 / 3) * np.power(6 * mesh.volume, 2 / 3)) / mesh.area
+
+
+def compactness_computation(mesh):
+    return np.power(mesh.area, 3) / ((36 * np.pi) * np.square(mesh.volume))
+
+
+def sphericitiy_compuation_2(mesh): # https://sciencing.com/height-prism-8539712.html
+    V_sphere = mesh.volume
+    radius = np.power((3 * V_sphere * np.pi) / 4, 1 / 3)
+    A_sphere = 4 * np.pi * (radius**2)
+    A_particle = mesh.area
+    return A_sphere / A_particle
