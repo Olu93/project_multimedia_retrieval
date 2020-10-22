@@ -204,20 +204,18 @@ class FeatureExtractor:
     @exception_catcher
     def angle_three_rand_verts(data):
         # This question quite fitted the case (https://bit.ly/3in7MjH)
-        angles_degrees = []
         mesh = data["poly_data"]
         indices_triplets = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 3))
-        verts_triplets = [mesh.points[triplet] for triplet in indices_triplets]
+        verts_triplets = np.array([mesh.points[triplet] for triplet in indices_triplets])
+        o2_1 = verts_triplets[:, 0] - verts_triplets[:, 1]
+        o2_3 = verts_triplets[:, 2] - verts_triplets[:, 1]
+        dot_products = np.einsum("ij,ij->i", o2_1, o2_3)
+        norm_products = np.linalg.norm(o2_1, axis=1) * np.linalg.norm(o2_3, axis=1)
+        cosine_angles = dot_products / norm_products
+        angle_rads = np.arccos(cosine_angles)
+        angles_degs = np.degrees(angle_rads)
 
-        for verts_triplet in verts_triplets:
-            p_1, p_2, p_3 = verts_triplet
-            p2_1 = p_1 - p_2
-            p2_3 = p_3 - p_2
-            cosine_angle = np.dot(p2_1, p2_3) / (np.linalg.norm(p2_1) * np.linalg.norm(p2_3))
-            angle_radians = np.arccos(cosine_angle)
-            angles_degrees.append(np.degrees(angle_radians))
-
-        return {"rand_angle_three_verts": FeatureExtractor.make_bins(angles_degrees, FeatureExtractor.number_bins)}
+        return {"rand_angle_three_verts": FeatureExtractor.make_bins(angles_degs, FeatureExtractor.number_bins)}
 
     @staticmethod
     @exception_catcher
@@ -226,11 +224,7 @@ class FeatureExtractor:
         mesh = data["poly_data"]
         indices_tuples = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 2))
         verts_tuples = [mesh.points[tup] for tup in indices_tuples]
-
-        for verts_tuple in verts_tuples:
-            distance = np.abs(np.diff(verts_tuple, axis=0))
-            distances.append(np.linalg.norm(distance))
-
+        distances = np.linalg.norm(np.abs(np.diff(np.array(verts_tuples), axis=1)).reshape(-1, 3), axis=1)
         return {"rand_dist_two_verts": FeatureExtractor.make_bins(distances, FeatureExtractor.number_bins)}
 
     @staticmethod
@@ -241,9 +235,7 @@ class FeatureExtractor:
         bary_center = mesh.center
         indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 1))
         rand_verts = mesh.points[indices]
-        for vert in rand_verts:
-            distance = np.abs(np.diff(np.vstack((bary_center, vert)), axis=0))
-            distances.append(np.linalg.norm(distance))
+        distances = np.linalg.norm(np.abs(rand_verts.reshape(-1, 3) - bary_center), axis=1)
         return {"dist_bar_vert": FeatureExtractor.make_bins(distances, FeatureExtractor.number_bins)}
 
     @staticmethod
