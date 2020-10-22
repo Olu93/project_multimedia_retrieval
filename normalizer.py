@@ -1,3 +1,4 @@
+from helper.misc import fill_holes
 import os
 from os import path
 from pathlib import Path
@@ -45,7 +46,7 @@ class Normalizer:
         tmp_mesh = []
         for mesh, full_mesh_stuff in zip(self.history[-1], self.full_data):
             remesh = PolyData(mesh.points.copy(), mesh.faces.copy())
-            offset = full_mesh_stuff["bary_center"]
+            offset = mesh.center
             remesh.translate(np.zeros_like(offset) - offset)
             tmp_mesh.append(remesh)
         self.history.append(tmp_mesh)
@@ -55,7 +56,7 @@ class Normalizer:
         if VERBOSE: print(f"Centering: {data['meta_data']['name']}")
         mesh = data["poly_data"]
         remesh = PolyData(mesh.points.copy(), mesh.faces.copy())
-        offset = data["bary_center"]
+        offset = mesh.center
         remesh.translate(np.zeros_like(offset) - offset)
         return remesh
 
@@ -113,7 +114,7 @@ class Normalizer:
     @staticmethod
     def mono_run_pipeline(data):
         if not data: return False  # If user cancelled operation
-        new_mesh = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
+        new_mesh = fill_holes(pv.PolyData(data["data"]["vertices"], data["data"]["faces"]))
         history = [{"op": "(a) Original", "data": new_mesh}]
         new_mesh = Normalizer.mono_scaling(dict(data, poly_data=new_mesh))
         history.append({"op": "(b) Scale", "data": new_mesh})

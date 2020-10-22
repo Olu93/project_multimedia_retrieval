@@ -10,10 +10,13 @@
 [x] D3: square root of area of triangle given by 3 random vertices
 [x] D4: cube root of volume of tetrahedron formed by 4 random vertices
 
+### 
+[] Mention in paper: Rectangularity
+
 ### Personal tasks
 [] Parallelize normalisation operation 
 [] Histograms for before and after normalisation
-[] Implement rest of the features on the slide (Rectangularity, Mesh_Volume (with convex hull), Gravity Point???, Reflective Symmetry, Morphological features)
+[] Implement rest of the features on the slide (Mesh_Volume (with convex hull), Gravity Point???, Reflective Symmetry, Morphological features)
 
 
 ### Clean Up tasks (For the end)
