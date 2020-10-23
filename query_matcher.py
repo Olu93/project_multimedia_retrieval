@@ -1,6 +1,10 @@
 import io
 from collections import ChainMap
 from collections import OrderedDict
+from reader import DataSet
+
+from jsonlines.jsonlines import Reader
+from normalizer import Normalizer
 from pathlib import Path
 from re import IGNORECASE
 
@@ -208,3 +212,6 @@ if __name__ == "__main__":
     print(QueryMatcher.mono_run_functions_pipeline(qm.features_list_of_list[0], qm.features_list_of_list[1], function_pipeline))
     print(qm.match_with_db(qm.features_raw[0], 5, function_pipeline))
     print("Everything worked!")
+
+    # data = DataSet._read('ant.off')
+

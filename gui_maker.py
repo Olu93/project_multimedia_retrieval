@@ -37,10 +37,10 @@ class SimilarMeshWindow(Qt.QWidget):
         self.hist_labels = list({**FeatureExtractor.get_pipeline_functions()[1]}.values())
         labels = [f.replace("_", " ").title() for f in list(self.mesh_features.keys())]
 
-        features_df = pd.DataFrame({'key': list(feature_formatted_keys), 'value': list([list(f) if isinstance(f, np.ndarray) else f for f in self.mesh_features.values()])}).drop(0)
+        features_df = pd.DataFrame({'key': list(labels), 'value': list([list(f) if isinstance(f, np.ndarray) else f for f in self.mesh_features.values()])}).drop(0)
 
         # Create Table widget
-        self.tableWidget = TableWidget(features_df, self, 8)
+        self.tableWidget = TableWidget(features_df, self, 5)
         self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
 
         # Create Plots widget
@@ -129,9 +129,10 @@ class SimilarMeshesListWindow(Qt.QWidget):
         # scalarDistanceFunctionText = self.scalarDistanceMethodList.currentText()
         # scalarDistFunction = self.scalarDistancesDict[scalarDistanceFunctionText]
         # features_df = pd.DataFrame(features_flattened, index=[0])
-        function_pipeline = [euclidean] + ([wasserstein_distance] * (len(self.query_matcher.features_list_of_list[0]) - 1))
-        weights = [.5] + ([.1] * (len(self.query_matcher.features_list_of_list[0]) - 1))
+        function_pipeline = [cityblock] + ([wasserstein_distance] * (len(self.query_matcher.features_list_of_list[0]) - 1))
+        weights = [1] + ([.1] * (len(self.query_matcher.features_list_of_list[0]) - 1))
         indices, cosine_values = self.query_matcher.match_with_db(self.query_mesh_features, k=self.sliderKNN.value(), distance_functions=function_pipeline, weights=weights)
+        print(f"Cosine values and indices are {list(zip(indices, cosine_values))}")
         self.list.clear()
         for ind in indices:
             item = Qt.QListWidgetItem()
