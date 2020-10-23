@@ -2,6 +2,7 @@ import io
 from collections import ChainMap
 from collections import OrderedDict
 from pathlib import Path
+from re import IGNORECASE
 
 import jsonlines
 import numpy as np
@@ -31,6 +32,7 @@ class QueryMatcher(object):
         self.features_flattened = [QueryMatcher.flatten_feature_dict(feature_set) for feature_set in self.features_raw]
         self.features_df = pd.DataFrame(self.features_flattened).set_index('name').drop(columns="timestamp").drop(columns="label")
         self.features_column_names = list(self.features_df.columns)
+        self.features_list_of_list = [QueryMatcher.prepare_for_matching(feature_set) for feature_set in self.features_raw]
 
     @staticmethod
     def init_from_query_mesh_features(feature_dict):
@@ -60,8 +62,7 @@ class QueryMatcher(object):
     def compare_features_with_database(self, feature_set, k=5, distance_function=None):
         distance_function = QueryMatcher.cosine_similarity_faf if not distance_function else distance_function
         # Make order consistent with matching features db and flatten its distributional values
-        feature_dict_in_correct_order = self.prepare_single_feature_for_comparison(feature_set,
-                                                                                   list(feature_set.columns))
+        feature_dict_in_correct_order = self.prepare_single_feature_for_comparison(feature_set, list(feature_set.columns))
         # Make an array of the flattened list and reshape so to be [1,]
         feature_instance_vector = np.array(list(feature_dict_in_correct_order.values())).reshape(1, -1)
         # Get processed features from json file
@@ -90,6 +91,49 @@ class QueryMatcher(object):
         # For each shape selected, append name and return it
         names = [s["name"] for s in selected_shapes[0]]
         return names, distance_values
+
+    def match_with_db(self, feature_set, k=5, distance_functions=[], weights=None):
+        feature_set_transformed = QueryMatcher.prepare_for_matching(feature_set=feature_set)
+        assert len(feature_set_transformed) == len(distance_functions), f"Not enough OR too many distance functions supplied!"
+        all_distances = np.array([QueryMatcher.mono_run_functions_pipeline(feature_set_transformed, mesh_in_db, distance_functions, weights) for mesh_in_db in self.features_list_of_list])
+        position_in_rank = np.argsort(all_distances)
+        indices_of_smallest_distances = [list(position_in_rank).index(k_val) for k_val in range(k)]
+        names = [mesh_in_db["name"] for mesh_in_db in np.array(self.features_raw)[indices_of_smallest_distances]]
+        labels = [mesh_in_db["label"] for mesh_in_db in np.array(self.features_raw)[indices_of_smallest_distances]]
+        
+        # This sorts the results
+        sorted_results = sorted(zip(all_distances[indices_of_smallest_distances], names, labels))
+        sorted_values, sorted_names, sorted_labels = tuple(zip(*sorted_results))
+        print(sorted_labels)
+        return sorted_names, sorted_values
+        # return names, distance_values
+
+    @staticmethod
+    def mono_run_functions_pipeline(a_features, b_features, dist_funcs, weights=None):
+        """
+        Runs the pipeline of functions and computes a comined value
+        :param a_features: First mesh feature set
+        :param b_features: Second mesh feature set
+        :param dist_funcs: List of distance functions
+        :param weightings: weights for which each distance functions takes part
+        :return: Returns score for the distance
+        """
+        weights = [1] * len(dist_funcs) if not weights else weights
+
+        return sum([w * fn(a, b) for a, b, fn, w in zip(a_features, b_features, dist_funcs, weights)])
+
+    @staticmethod
+    def prepare_for_matching(feature_set):
+        """
+        Acts as preparation for the matching process, as different features will use different distance functions.
+        
+        Puts scalar values into a single list. 
+        Every distributional feature will be a single list. 
+        In the all lists are combined into list of lists. 
+        """
+        scalar_features = [np.array([v for k, v in feature_set.items() if type(v) not in [np.ndarray, list] and k not in QueryMatcher.IGNORE_COLUMNS])]
+        distributional_features = [np.array(v) for v in feature_set.values() if type(v) in [np.ndarray, list]]
+        return scalar_features + distributional_features
 
     @staticmethod
     def get_top_k(cosine_similarities, k=5):
@@ -136,8 +180,7 @@ class QueryMatcher(object):
     @staticmethod
     def flatten_feature_dict(feature_set):
         singletons = {key: value for key, value in feature_set.items() if type(value) not in [list, np.ndarray]}
-        distributional = [{f"{key}_{idx}": val for idx, val in enumerate(dist)} for key, dist in feature_set.items() if
-                          type(dist) in [list, np.ndarray]]
+        distributional = [{f"{key}_{idx}": val for idx, val in enumerate(dist)} for key, dist in feature_set.items() if type(dist) in [list, np.ndarray]]
         flattened_feature_set = dict(ChainMap(*distributional, singletons))
         return flattened_feature_set
 
@@ -158,5 +201,10 @@ class QueryMatcher(object):
 
 if __name__ == "__main__":
     qm = QueryMatcher(FEATURE_DATA_FILE)
-    print(len(qm.features_raw))
-    print(qm.compare_features_with_database(qm.features_raw[0]))
+    sampled_mesh = qm.features_flattened[0]
+    close_meshes, computed_values = qm.compare_features_with_database(pd.DataFrame(sampled_mesh, index=[0]), 5, QueryMatcher.cosine_distance)
+    assert sampled_mesh["name"] in close_meshes
+    function_pipeline = [cosine] + ([wasserstein_distance] * (len(qm.features_list_of_list[0])-1))
+    print(QueryMatcher.mono_run_functions_pipeline(qm.features_list_of_list[0], qm.features_list_of_list[1], function_pipeline))
+    print(qm.match_with_db(qm.features_raw[0], 5, function_pipeline))
+    print("Everything worked!")
