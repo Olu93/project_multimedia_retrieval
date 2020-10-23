@@ -1,3 +1,4 @@
+from helper.misc import fill_holes
 import os
 from os import path
 from pathlib import Path
@@ -113,7 +114,7 @@ class Normalizer:
     @staticmethod
     def mono_run_pipeline(data):
         if not data: return False  # If user cancelled operation
-        new_mesh = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
+        new_mesh = fill_holes(pv.PolyData(data["data"]["vertices"], data["data"]["faces"]))
         history = [{"op": "(a) Original", "data": new_mesh}]
         new_mesh = Normalizer.mono_scaling(dict(data, poly_data=new_mesh))
         history.append({"op": "(b) Scale", "data": new_mesh})
