@@ -22,6 +22,6 @@ if __name__ == "__main__":
 # dataset.convert_all_to_polydata()
 # dataset.compute_shape_statistics()
 # dataset.detect_outliers()
-# # %%
+# %%
 # dataset.save_statistics("./stats")
 # %%
