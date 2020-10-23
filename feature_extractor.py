@@ -28,14 +28,14 @@ import pyvista as pv
 # TODO: [x] D2: distance between 2 random vertices
 # TODO: [x] D3: square root of area of triangle given by 3 random vertices
 # TODO: [x] D4: cube root of volume of tetrahedron formed by 4 random vertices
-# TODO: [ ] Mention m94 removal and m1693 eccentricity stabilisation
+# TODO: [ ] Mention m94, m778 removal and m1693 eccentricity stabilisation
 # TODO: [ ] Change fill_holes with convex hull operation
 #
 # # np.seterr('raise')
 
 
 class FeatureExtractor:
-    number_vertices_sampled = 100
+    number_vertices_sampled = 100000
     number_bins = 20
 
     def __init__(self, reader=None, target_file="./computed_features.jsonl", append_mode=False):
@@ -100,7 +100,9 @@ class FeatureExtractor:
             FeatureExtractor.aabb_volume: "Bounding Box Volume",
             FeatureExtractor.surface_area: "Surface Area",
             FeatureExtractor.eccentricity: "Eccentricity",
-            FeatureExtractor.diameter: "Diameter"
+            FeatureExtractor.diameter: "Diameter",
+            FeatureExtractor.convex_hull_volume: "Convex Hull Volume",
+            FeatureExtractor.rectangularity: "Rectangularity",
         }
         # if not DEBUG:
         #     singleton_pipeline[FeatureExtractor.diameter] = "Diameter"
@@ -189,7 +191,7 @@ class FeatureExtractor:
             return np.abs(np.dot(a - d, np.cross(b - d, c - d))) / 6
 
         mesh = data["poly_data"]
-        random_indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled//10, 4))
+        random_indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 4))
         quad_points = mesh.points[random_indices, :]
         # volumes = np.array([treaeder_volume(points) for points in quad_points])
         A = quad_points[:, 0] - quad_points[:, 3]
@@ -268,7 +270,7 @@ class FeatureExtractor:
 
         X = np.arange(0, max_val)
         X_samples = np.random.choice(X, shape[0], replace=False)
-        X_combinations_raw = np.array(np.meshgrid(*[X_samples]*shape[1])).T.reshape(-1,shape[1])
+        X_combinations_raw = np.array(np.meshgrid(*[X_samples] * shape[1])).T.reshape(-1, shape[1])
         X_unique_counts = sorting(X_combinations_raw)
         X_combinations_unique = X_combinations_raw[X_unique_counts == shape[1]]
         return X_combinations_unique

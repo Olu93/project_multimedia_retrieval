@@ -1,6 +1,7 @@
 import pymeshfix as mf
 import trimesh.repair as repair
 from scipy.spatial import ConvexHull
+from scipy.spatial.qhull import QhullError
 from pyvista import PolyData
 import numpy as np
 
@@ -29,8 +30,13 @@ def fill_holes(mesh):
 
 
 def convex_hull_transformation(mesh):
-    hull = ConvexHull(mesh.points)
-    poly = PolyData(hull.points).delaunay_2d()
+    poly = mesh
+    try:
+        hull = ConvexHull(mesh.points)
+        poly = PolyData(hull.points).delaunay_2d()
+    except QhullError as e:
+        print(f"Convex hull operation failed: {str(type(e))} - {str(e)}")
+        print("Using fallback!")
     return poly
 
 
