@@ -1,3 +1,4 @@
+from feature_extractor import FeatureExtractor
 import io
 from collections import ChainMap
 from collections import OrderedDict
@@ -16,6 +17,7 @@ from scipy.stats import wasserstein_distance
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.neighbors import NearestNeighbors
+import pyvista as pv
 
 from helper.config import FEATURE_DATA_FILE
 
@@ -99,12 +101,13 @@ class QueryMatcher(object):
     def match_with_db(self, feature_set, k=5, distance_functions=[], weights=None):
         feature_set_transformed = QueryMatcher.prepare_for_matching(feature_set=feature_set)
         assert len(feature_set_transformed) == len(distance_functions), f"Not enough OR too many distance functions supplied!"
-        all_distances = np.array([QueryMatcher.mono_run_functions_pipeline(feature_set_transformed, mesh_in_db, distance_functions, weights) for mesh_in_db in self.features_list_of_list])
+        all_distances = np.array(
+            [QueryMatcher.mono_run_functions_pipeline(feature_set_transformed, mesh_in_db, distance_functions, weights) for mesh_in_db in self.features_list_of_list])
         position_in_rank = np.argsort(all_distances)
         indices_of_smallest_distances = [list(position_in_rank).index(k_val) for k_val in range(k)]
         names = [mesh_in_db["name"] for mesh_in_db in np.array(self.features_raw)[indices_of_smallest_distances]]
         labels = [mesh_in_db["label"] for mesh_in_db in np.array(self.features_raw)[indices_of_smallest_distances]]
-        
+
         # This sorts the results
         sorted_results = sorted(zip(all_distances[indices_of_smallest_distances], names, labels))
         sorted_values, sorted_names, sorted_labels = tuple(zip(*sorted_results))
@@ -208,10 +211,16 @@ if __name__ == "__main__":
     sampled_mesh = qm.features_flattened[0]
     close_meshes, computed_values = qm.compare_features_with_database(pd.DataFrame(sampled_mesh, index=[0]), 5, QueryMatcher.cosine_distance)
     assert sampled_mesh["name"] in close_meshes
-    function_pipeline = [cosine] + ([wasserstein_distance] * (len(qm.features_list_of_list[0])-1))
+    function_pipeline = [cosine] + ([wasserstein_distance] * (len(qm.features_list_of_list[0]) - 1))
     print(QueryMatcher.mono_run_functions_pipeline(qm.features_list_of_list[0], qm.features_list_of_list[1], function_pipeline))
     print(qm.match_with_db(qm.features_raw[0], 5, function_pipeline))
     print("Everything worked!")
 
-    # data = DataSet._read('ant.off')
-
+    data = DataSet.mono_run_pipeline(DataSet._extract_descr('./processed_data_bkp/bicycle/m1475.ply'))
+    normed_data = Normalizer.mono_run_pipeline(data)
+    normed_mesh = pv.PolyData(normed_data["history"][-1]["data"]["vertices"], normed_data["history"][-1]["data"]["faces"])
+    normed_data['poly_data'] = normed_mesh
+    features_dict = FeatureExtractor.mono_run_pipeline(normed_data)
+    feature_formatted_keys = [form_key.replace("_", " ").title() for form_key in features_dict.keys()]
+    features_df = pd.DataFrame({'key': list(feature_formatted_keys), 'value': list([list(f) if isinstance(f, np.ndarray) else f for f in features_dict.values()])})
+    print(qm.match_with_db(features_dict, 5, function_pipeline))
