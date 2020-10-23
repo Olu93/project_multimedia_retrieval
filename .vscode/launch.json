@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Current",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python: Feature Extract",
             "type": "python",
             "request": "launch",
@@ -19,10 +26,38 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python: Misc",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/c18.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Test",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/test.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Viz",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/visualisation.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python: GUI",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/source.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: QM",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/query_matcher.py",
             "console": "integratedTerminal"
         },
         {
