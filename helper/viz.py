@@ -1,9 +1,12 @@
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtGui import QDoubleValidator, QIcon
 from PyQt5.QtWidgets import QTableWidget, \
     QTableWidgetItem, QItemDelegate, QLineEdit, QPushButton
+from sklearn.manifold import TSNE
 
 from reader import DataSet
 
@@ -85,7 +88,7 @@ class TableWidget(QTableWidget):
                     self.setItem(i, j, QTableWidgetItem(x))
                 else:
                     if j == 1:
-                        btn = QPushButton(QIcon('histogramicon.png'), 'Plot Values',self)
+                        btn = QPushButton(QIcon('histogramicon.png'), 'Plot Values', self)
                         btn.setText('Plot Values')
                         self.setCellWidget(i, j, btn)
                         value = btn
@@ -106,3 +109,35 @@ class TableWidget(QTableWidget):
 
     def get_buttons_in_table(self):
         return self.buttonsInTable
+
+
+class TsneVisualiser:
+    def __init__(self, raw_data, full_mat, filename):
+        self.raw_data = raw_data
+        self.full_mat = full_mat.values
+        self.filename = filename
+
+    def plot(self):
+        labelled_mat = np.hstack(
+            (np.array([dic["label"] for dic in self.raw_data]).reshape(-1, 1), self.full_mat))
+        df = pd.DataFrame(data=labelled_mat[:, 1:],
+                          index=labelled_mat[:, 0])
+
+        lbl_list = list(df.index)
+        color_map = rand_cmap(len(lbl_list), first_color_black=False, last_color_black=True)
+        lbl_to_idx_map = dict(zip(lbl_list, range(len(lbl_list))))
+        labels = [lbl_to_idx_map[i] for i in lbl_list]
+
+        scaler = StandardScaler()
+        st_values = scaler.fit_transform(df.values)
+
+        # Playing around with parameters, this seems like a good fit
+        tsne_results = TSNE(perplexity=50, n_iter=10000, learning_rate=500).fit_transform(st_values)
+        t_x, t_y = tsne_results[:, 0], tsne_results[:, 1]
+        plt.scatter(t_x, t_y, c=labels, cmap=color_map, vmin=0, vmax=len(lbl_list), label=lbl_list, s=10)
+        plt.savefig(self.filename, bbox_inches='tight', dpi=200)
+
+    def file_exist(self):
+        if os.path.isfile(self.filename):
+            return True
+        return False

@@ -7,10 +7,8 @@ import jsonlines
 import numpy as np
 import pandas as pd
 import pyvista as pv
-from scipy.spatial.distance import cosine, euclidean, cityblock, sqeuclidean
+from scipy.spatial.distance import cosine
 from scipy.stats import wasserstein_distance
-from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
 
@@ -20,12 +18,9 @@ from normalizer import Normalizer
 from reader import DataSet
 
 
-# TODO: [x] Display histograms
-# TODO: [x] Check Distance function
-# TODO: [] Check normalisation as shapes have different values
-# TODO: [] Histograms values weight should be divided by n_bins so for one distributional feature to weight as other
-#          features (i.e. line 142 each val/20), but when this is the case results are not well enough.
-
+# TODO: k-nearest takes three arguments so it just displays k=5, doesnt update with user chosen k
+# TODO: EMD does not work for scalars
+# TODO: KNN has very weird results, needs improvements
 
 class QueryMatcher(object):
     IGNORE_COLUMNS = ["timestamp", "name", "label"]
@@ -45,61 +40,18 @@ class QueryMatcher(object):
     @staticmethod
     def init_from_query_mesh_features(feature_dict):
         features_flattened = [QueryMatcher.flatten_feature_dict(feature_set) for feature_set in feature_dict]
-        features_df = pd.DataFrame(features_flattened)
-        features_df = features_df.set_index('name').drop(columns="timestamp")
-        return features_df
+        init_features_df = pd.DataFrame(features_flattened)
+        init_features_df = init_features_df.set_index('name').drop(columns="timestamp")
+        return init_features_df
 
     @staticmethod
-    def perform_knn(dataset, query, k):
-        neighbors = NearestNeighbors(n_neighbors=k).fit(query)
-        return neighbors.kneighbors(dataset)
-
-    @staticmethod
-    def compute_pca(data_matrix, n_components=50):
-        # https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html
-        pca = PCA(n_components=n_components)
-        projected = pca.fit(data_matrix.T)
-        return projected.components_.T
-
-    @staticmethod
-    def compute_tsne(data_matrix, n_components=2):
-        # https://scikit-learn.org/stable/modules/generated/sklearn.manifold.TSNE.html
-        X_embedded = TSNE(n_components=n_components).fit_transform(data_matrix)
-        return X_embedded
-
-    def compare_features_with_database(self, feature_set, k=5, distance_function=None):
-        distance_function = QueryMatcher.cosine_similarity_faf if not distance_function else distance_function
-        # Make order consistent with matching features db and flatten its distributional values
-        feature_dict_in_correct_order = self.prepare_single_feature_for_comparison(feature_set,
-                                                                                   list(feature_set.columns))
-        # Make an array of the flattened list and reshape so to be [1,]
-        feature_instance_vector = np.array(list(feature_dict_in_correct_order.values())).reshape(1, -1)
-        # Get processed features from json file
-        feature_database_matrix = self.features_df.values
-        # Create a matrix of query feature plus all other in db
-        full_mat = np.vstack((feature_instance_vector, feature_database_matrix))
-        # Standardise (zscore)
-        full_mat[:, :6] = (full_mat[:, :6] - np.mean(full_mat[:, :6], axis=0)) / np.std(full_mat[:, :6], axis=0)
-        # Because the cosine implemented by hand return most similar closer to zero we need to reverse in that case
-        if distance_function == QueryMatcher.perform_knn:
-            # Reduce matrix using PCA to alleviate computational load of TSNE,
-            # default components is 50 as suggested in TSNE doc page here https://bit.ly/3j8ltDq
-            full_mat = self.compute_pca(full_mat)
-            # Perform t-distributed Stochastic Neighbor Embedding and reduce to default (n_shapes, 2) for
-            # visualization porpoises
-            # full_mat = self.compute_tsne(full_mat)
-            # Perform knn and store results
-            distance_values, indices = self.perform_knn(full_mat[0, :].reshape(1, -1), full_mat[1:, :], k)
-        else:
-            # Get results from distance function providing first row of matrix (query) and all others to match it with
-            result = distance_function(full_mat[0, :].reshape(1, -1), full_mat[1:, :])
-            # Get indices and values, but indices are not of the filename in db (i.e. 'm + index' won't work)
-            indices, distance_values = QueryMatcher.get_top_k(result, k)
-        # Retrieve the actual name from indexing the raw dict of shapes
-        selected_shapes = np.array(self.features_raw)[indices]
-        # For each shape selected, append name and return it
-        names = [s["name"] for s in selected_shapes[0]]
-        return names, distance_values
+    def perform_knn(query, data_matrix, k):
+        list_of_query = [f.flatten() for f in query]
+        flat_arr = np.concatenate(list_of_query).ravel().reshape(1, -1)
+        matrix_features = data_matrix
+        full_mat = np.vstack((flat_arr, matrix_features))
+        neighbors = NearestNeighbors(n_neighbors=k).fit(full_mat[1:, :])
+        return neighbors.kneighbors(full_mat[0, :].reshape(1, -1))
 
     def match_with_db(self, feature_set, k=5, distance_functions=[], weights=None):
         feature_set_transformed = QueryMatcher.prepare_for_matching(feature_set=feature_set)
@@ -109,26 +61,31 @@ class QueryMatcher(object):
         standardised_features_list_of_list, feature_set_transformed[0] = self.standardize(self.features_list_of_list,
                                                                                           feature_set_transformed,
                                                                                           self.scaler)
+        if QueryMatcher.perform_knn in distance_functions:
+            values, position_in_rank = self.perform_knn(feature_set_transformed, self.features_df.values, k)
+            position_in_rank = position_in_rank.flatten()
+        else:
+            all_distances = np.array(
+                [QueryMatcher.mono_run_functions_pipeline(feature_set_transformed, mesh_in_db,
+                                                          distance_functions, weights)
+                 for mesh_in_db in standardised_features_list_of_list])
+            position_in_rank = np.argsort(all_distances)[:k]
+            values = all_distances[position_in_rank]
 
-        all_distances = np.array(
-            [QueryMatcher.mono_run_functions_pipeline(feature_set_transformed, mesh_in_db, distance_functions, weights)
-             for mesh_in_db in standardised_features_list_of_list])
-        position_in_rank = np.argsort(all_distances)[:k]
         names = [mesh_in_db["name"] for mesh_in_db in np.array(self.features_raw)[position_in_rank]]
-        values = all_distances[position_in_rank]
         labels = [mesh_in_db["label"] for mesh_in_db in np.array(self.features_raw)[position_in_rank]]
-
         print(tuple(zip(names, labels, values)))
         return names, values
 
     @staticmethod
     def standardize(features_list_of_list, feature_set, scaler):
-        '''
+        """
         Standardisation applied over list of lists as well as query.
-        :param features_list_of_list: list of lists of array of all normalised features
-        :param feature_set: query feature
+        :param features_list_of_list: features_list_of_list: list of lists of array of all normalised features
+        :param feature_set: feature_set: query feature
+        :param scaler: any scaler from sklearn.preprocessing
         :return: standardised query and list of lists
-        '''
+        """
         features_arr_of_arr = np.array(features_list_of_list)
         scalars = features_arr_of_arr[:, 0]
         reshaped_scalars = np.array([val for arr in scalars for val in arr]).reshape(-1, 8)
@@ -146,7 +103,7 @@ class QueryMatcher(object):
         :param a_features: First mesh feature set
         :param b_features: Second mesh feature set
         :param dist_funcs: List of distance functions
-        :param weightings: weights for which each distance functions takes part
+        :param weights: weights for which each distance functions takes part
         :return: Returns score for the distance
         """
         weights = [1] * len(dist_funcs) if not weights else weights
@@ -168,40 +125,6 @@ class QueryMatcher(object):
         return scalar_features + distributional_features
 
     @staticmethod
-    def get_top_k(cosine_similarities, k=5):
-        top_k_indices = cosine_similarities.argsort(axis=1)[:, :k]
-        # if not flipped else cosine_similarities.argsort(
-        # axis=1)[:, -k:]
-        taken = np.take(cosine_similarities, top_k_indices, axis=1)
-        row_range = list(range(cosine_similarities.shape[0]))
-        return top_k_indices, taken[row_range, row_range, :]
-
-    @staticmethod
-    def wasserstein_distance(A, B):
-        result = [wasserstein_distance(A.reshape(-1, ), B[r, :].reshape(-1, )) for r in range(B.shape[0])]
-        return np.array(result).reshape(1, -1)
-
-    @staticmethod
-    def cosine_distance(A, B):
-        result = [cosine(A.reshape(1, -1), B[r, :].reshape(1, -1)) for r in range(B.shape[0])]
-        return np.array(result).reshape(1, -1)
-
-    @staticmethod
-    def euclidean_distance(A, B):
-        result = [euclidean(A.reshape(1, -1), B[r, :].reshape(1, -1)) for r in range(B.shape[0])]
-        return np.array(result).reshape(1, -1)
-
-    @staticmethod
-    def sqeuclidean_distance(A, B):
-        result = [sqeuclidean(A.reshape(1, -1), B[r, :].reshape(1, -1)) for r in range(B.shape[0])]
-        return np.array(result).reshape(1, -1)
-
-    @staticmethod
-    def manhattan_distance(A, B):
-        result = [cityblock(A.reshape(1, -1), B[r, :].reshape(1, -1)) for r in range(B.shape[0])]
-        return np.array(result).reshape(1, -1)
-
-    @staticmethod
     def flatten_feature_dict(feature_set):
         singletons = {key: value for key, value in feature_set.items() if type(value) not in [list, np.ndarray]}
         distributional = [{f"{key}_{idx}": val for idx, val in enumerate(dist)} for key, dist in feature_set.items() if
@@ -218,10 +141,6 @@ class QueryMatcher(object):
                 continue
             dict_in_order[col] = float(features.get(col, np.nan))
         return dict_in_order
-
-    @staticmethod
-    def normalise_hist(distribution):
-        return np.sum(distribution)
 
 
 if __name__ == "__main__":
