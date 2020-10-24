@@ -15,4 +15,4 @@ multiprocess~=0.70.10
 pymeshfix~=0.14.1
 pyqtgraph~=0.11.0
 scikit-learn~=0.23.2
-scipy
+scikit-image~=0.17.2

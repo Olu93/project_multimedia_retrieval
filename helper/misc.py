@@ -1,9 +1,11 @@
 import pymeshfix as mf
+import trimesh
 import trimesh.repair as repair
 from scipy.spatial import ConvexHull
 from scipy.spatial.qhull import QhullError
 from pyvista import PolyData
 import numpy as np
+import pyvista as pv
 
 
 def exception_catcher(func):
@@ -33,7 +35,7 @@ def convex_hull_transformation(mesh):
     poly = mesh
     try:
         hull = ConvexHull(mesh.points)
-        poly = PolyData(hull.points).delaunay_2d()
+        poly = PolyData(hull.points).delaunay_3d()
     except QhullError as e:
         print(f"Convex hull operation failed: {str(type(e))} - {str(e)}")
         print("Using fallback!")
@@ -52,9 +54,38 @@ def compactness_computation(mesh):
     return np.power(mesh.area, 3) / ((36 * np.pi) * np.square(mesh.volume))
 
 
-def sphericitiy_compuation_2(mesh): # https://sciencing.com/height-prism-8539712.html
+def sphericitiy_compuation_2(mesh):  # https://sciencing.com/height-prism-8539712.html
     V_sphere = mesh.volume
     radius = np.power((3 * V_sphere * np.pi) / 4, 1 / 3)
     A_sphere = 4 * np.pi * (radius**2)
     A_particle = mesh.area
     return A_sphere / A_particle
+
+
+def _get_cells(mesh):
+    """Returns a list of the cells from this mesh.
+    This properly unpacks the VTK cells array.
+    There are many ways to do this, but this is
+    safe when dealing with mixed cell types."""
+
+    return mesh.faces.reshape(-1, 4)[:, 1:4]
+
+
+def convert_trimesh2pyvista(trimesh):
+    """
+    Converts trimesh objects into pyvista objects 
+    """
+    vertices = trimesh.vertices
+    faces = trimesh.faces
+    faces_with_number_of_faces = [np.hstack([face.shape[0], face]) for face in faces]
+    flattened_faces = np.hstack(faces_with_number_of_faces).flatten()
+    return pv.PolyData(vertices, flattened_faces)
+
+
+def convert_pyvista2trimesh(pvmesh):
+    """
+    Converts pyvista mesh into trimesh objects
+    """
+    polygons = [list(p) for p in _get_cells(pvmesh)]
+    trimesh_obj = trimesh.Trimesh(vertices=np.array(pvmesh.points), faces=polygons)
+    return trimesh_obj
