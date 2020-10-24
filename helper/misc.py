@@ -3,6 +3,11 @@ import trimesh.repair as repair
 from matplotlib.colors import LinearSegmentedColormap
 import colorsys
 import numpy as np
+from scipy.spatial import ConvexHull
+from scipy.spatial.qhull import QhullError
+from pyvista import PolyData
+import numpy as np
+
 
 def exception_catcher(func):
     def new_func(*args, **kwargs):
@@ -26,6 +31,36 @@ def fill_holes_old(mesh):
 def fill_holes(mesh):
     return mesh.fill_holes(1000)
 
+
+def convex_hull_transformation(mesh):
+    poly = mesh
+    try:
+        hull = ConvexHull(mesh.points)
+        poly = PolyData(hull.points).delaunay_2d()
+    except QhullError as e:
+        print(f"Convex hull operation failed: {str(type(e))} - {str(e)}")
+        print("Using fallback!")
+    return poly
+
+
+def __sphericity_test(mesh):
+    return mesh.area < 1 and mesh.volume > 1
+
+
+def sphericity_computation(mesh):
+    return (np.power(np.pi, 1 / 3) * np.power(6 * mesh.volume, 2 / 3)) / mesh.area
+
+
+def compactness_computation(mesh):
+    return np.power(mesh.area, 3) / ((36 * np.pi) * np.square(mesh.volume))
+
+
+def sphericitiy_compuation_2(mesh): # https://sciencing.com/height-prism-8539712.html
+    V_sphere = mesh.volume
+    radius = np.power((3 * V_sphere * np.pi) / 4, 1 / 3)
+    A_sphere = 4 * np.pi * (radius**2)
+    A_particle = mesh.area
+    return A_sphere / A_particle
 
 def rand_cmap(nlabels, type='bright', first_color_black=True, last_color_black=False, verbose=False):
     """
