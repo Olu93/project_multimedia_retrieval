@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pyvista as pv
-from scipy.spatial.distance import cosine, euclidean, cityblock, sqeuclidean
+from scipy.spatial.distance import cosine
 from scipy.stats import wasserstein_distance
 from sklearn.manifold import TSNE
 from sklearn.neighbors import NearestNeighbors
@@ -23,6 +23,8 @@ from reader import DataSet
 
 
 # TODO: k-nearest takes three arguments so it just displays k=5, doesnt update with user chosen k
+# TODO: EMD does not work for scalars
+# TODO: KNN has very weird results, needs improvements
 
 class QueryMatcher(object):
     IGNORE_COLUMNS = ["timestamp", "name", "label"]
@@ -48,9 +50,13 @@ class QueryMatcher(object):
         return init_features_df
 
     @staticmethod
-    def perform_knn(dataset, query, k):
-        neighbors = NearestNeighbors(n_neighbors=k).fit(query)
-        return neighbors.kneighbors(dataset)
+    def perform_knn(query, data_matrix, k):
+        list_of_query = [f.flatten() for f in query]
+        flat_arr = np.concatenate(list_of_query).ravel().reshape(1, -1)
+        matrix_features = data_matrix
+        full_mat = np.vstack((flat_arr, matrix_features))
+        neighbors = NearestNeighbors(n_neighbors=k).fit(full_mat[1:, :])
+        return neighbors.kneighbors(full_mat[0, :].reshape(1,-1))
 
     def compare_features_with_database(self, feature_set,
                                        weights, k=5,
@@ -100,13 +106,6 @@ class QueryMatcher(object):
         names = [s["name"] for s in selected_shapes.reshape(-1, )]
         return names, distance_values
 
-    @staticmethod
-    def get_top_k(cosine_similarities, k=5):
-        top_k_indices = cosine_similarities.argsort(axis=1)[:, :k]
-        taken = np.take(cosine_similarities, top_k_indices, axis=1)
-        row_range = list(range(cosine_similarities.shape[0]))
-        return top_k_indices, taken[row_range, row_range, :]
-
     def match_with_db(self, feature_set, k=5, distance_functions=[], weights=None):
         feature_set_transformed = QueryMatcher.prepare_for_matching(feature_set=feature_set)
         assert len(feature_set_transformed) == len(
@@ -115,12 +114,18 @@ class QueryMatcher(object):
         standardised_features_list_of_list, feature_set_transformed[0] = self.standardize(self.features_list_of_list,
                                                                                           feature_set_transformed,
                                                                                           self.scaler)
-        all_distances = np.array(
-            [QueryMatcher.mono_run_functions_pipeline(feature_set_transformed, mesh_in_db, distance_functions, weights)
-             for mesh_in_db in standardised_features_list_of_list])
-        position_in_rank = np.argsort(all_distances)[:k]
+        if QueryMatcher.perform_knn in distance_functions:
+            values, position_in_rank = self.perform_knn(feature_set_transformed, self.features_df.values, k)
+            position_in_rank = position_in_rank.flatten()
+        else:
+            all_distances = np.array(
+                [QueryMatcher.mono_run_functions_pipeline(feature_set_transformed, mesh_in_db,
+                                                          distance_functions, weights)
+                 for mesh_in_db in standardised_features_list_of_list])
+            position_in_rank = np.argsort(all_distances)[:k]
+            values = all_distances[position_in_rank]
+
         names = [mesh_in_db["name"] for mesh_in_db in np.array(self.features_raw)[position_in_rank]]
-        values = all_distances[position_in_rank]
         labels = [mesh_in_db["label"] for mesh_in_db in np.array(self.features_raw)[position_in_rank]]
         print(tuple(zip(names, labels, values)))
         return names, values
@@ -173,31 +178,6 @@ class QueryMatcher(object):
         return scalar_features + distributional_features
 
     @staticmethod
-    def wasserstein_distance(A, B):
-        result = [wasserstein_distance(A.reshape(-1, ), B[r, :].reshape(-1, )) for r in range(B.shape[0])]
-        return np.array(result)
-
-    @staticmethod
-    def cosine_distance(A, B):
-        result = [cosine(A.reshape(1, -1), B[r, :].reshape(1, -1)) for r in range(B.shape[0])]
-        return np.array(result).reshape(1, -1)
-
-    @staticmethod
-    def euclidean_distance(A, B):
-        result = [euclidean(A.reshape(1, -1), B[r, :].reshape(1, -1)) for r in range(B.shape[0])]
-        return np.array(result).reshape(1, -1)
-
-    @staticmethod
-    def sqeuclidean_distance(A, B):
-        result = [sqeuclidean(A.reshape(1, -1), B[r, :].reshape(1, -1)) for r in range(B.shape[0])]
-        return np.array(result).reshape(1, -1)
-
-    @staticmethod
-    def manhattan_distance(A, B):
-        result = [cityblock(A.reshape(1, -1), B[r, :].reshape(1, -1)) for r in range(B.shape[0])]
-        return np.array(result).reshape(1, -1)
-
-    @staticmethod
     def flatten_feature_dict(feature_set):
         singletons = {key: value for key, value in feature_set.items() if type(value) not in [list, np.ndarray]}
         distributional = [{f"{key}_{idx}": val for idx, val in enumerate(dist)} for key, dist in feature_set.items() if
@@ -215,20 +195,16 @@ class QueryMatcher(object):
             dict_in_order[col] = float(features.get(col, np.nan))
         return dict_in_order
 
-    @staticmethod
-    def normalise_hist(distribution):
-        return np.sum(distribution)
-
 
 class TsneVisualiser:
     def __init__(self, raw_data, full_mat, filename):
         self.raw_data = raw_data
-        self.full_mat = full_mat
+        self.full_mat = full_mat.values
         self.filename = filename
 
     def plot(self):
         labelled_mat = np.hstack(
-            (np.array([dic["label"] for dic in self.raw_data]).reshape(-1, 1), self.full_mat[1:, :]))
+            (np.array([dic["label"] for dic in self.raw_data]).reshape(-1, 1), self.full_mat))
         df = pd.DataFrame(data=labelled_mat[:, 1:],
                           index=labelled_mat[:, 0])
 
@@ -237,8 +213,11 @@ class TsneVisualiser:
         lbl_to_idx_map = dict(zip(lbl_list, range(len(lbl_list))))
         labels = [lbl_to_idx_map[i] for i in lbl_list]
 
+        scaler = StandardScaler()
+        st_values = scaler.fit_transform(df.values)
+
         # Playing around with parameters, this seems like a good fit
-        tsne_results = TSNE(perplexity=50, n_iter=10000, learning_rate=500).fit_transform(df.values)
+        tsne_results = TSNE(perplexity=50, n_iter=10000, learning_rate=500).fit_transform(st_values)
         t_x, t_y = tsne_results[:, 0], tsne_results[:, 1]
         plt.scatter(t_x, t_y, c=labels, cmap=color_map, vmin=0, vmax=len(lbl_list), label=lbl_list, s=10)
         plt.savefig(self.filename, bbox_inches='tight', dpi=200)

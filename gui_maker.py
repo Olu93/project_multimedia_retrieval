@@ -92,7 +92,6 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.setWindowTitle('Similar Meshes Widget')
 
         self.scalarDistancesDict = {
-            "EMD": wasserstein_distance,
             "Cosine": cosine,
             "Manhattan": cityblock,
             "K-Nearest Neighbors": QueryMatcher.perform_knn,
@@ -141,6 +140,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
 
         self.viewTSNEButton = QPushButton('Plot tSNE', self)
         self.viewTSNEButton.clicked.connect(self.plot_tsne)
+        self.viewTSNEButton.setToolTip("tSNE computation can take minutes.")
         self.viewTSNEButton.hide()
 
         self.plotButton = QPushButton('Plot selected mesh', self)
@@ -165,15 +165,9 @@ class SimilarMeshesListWindow(Qt.QWidget):
     def update_similar_meshes_list(self):
         scalarDistFunction = self.scalarDistancesDict[self.scalarDistanceMethodList.currentText()]
         histDistFunction = self.histDistancesDict[self.histDistanceMethodList.currentText()]
-
-        # features_flattened = QueryMatcher.flatten_feature_dict(self.query_mesh_features)
-        # features_df = pd.DataFrame(features_flattened, index=[0])
-        # indices, distance_values = self.query_matcher.compare_features_with_database(features_df,
-        #                                                                            weights=weights,
-        #                                                                            k=self.sliderK.value(),
-        #                                                                            scalar_dist_func=scalarDistFunction,
-        #                                                                            hist_dist_func=histDistFunction)
-        # weights = [1] + ([.1] * (len(self.query_matcher.features_list_of_list[0]) - 1))
+        if (scalarDistFunction or histDistFunction) == QueryMatcher.perform_knn:
+            self.scalarDistanceMethodList.setCurrentText("K-Nearest Neighbors")
+            self.histDistanceMethodList.setCurrentText("K-Nearest Neighbors")
 
         n_distributionals = len(FeatureExtractor.get_pipeline_functions()[1])
 
@@ -223,7 +217,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
 
     def plot_tsne(self):
         tsne_plotter = TsneVisualiser(self.query_matcher.features_raw,
-                                      self.query_matcher.full_mat,
+                                      self.query_matcher.features_df,
                                       "tsne.png")
         if not tsne_plotter.file_exist():
             tsne_plotter.plot()
