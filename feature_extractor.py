@@ -7,7 +7,7 @@ import numpy as np
 from tqdm import tqdm
 
 from helper import diameter_computer
-from helper.misc import exception_catcher, fill_holes
+from helper.misc import compactness_computation, convex_hull_transformation, exception_catcher, fill_holes, sphericity_computation
 from helper.diameter_computer import compute_diameter
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
 from helper.mp_functions import compute_feature_extraction
@@ -28,14 +28,14 @@ import pyvista as pv
 # TODO: [x] D2: distance between 2 random vertices
 # TODO: [x] D3: square root of area of triangle given by 3 random vertices
 # TODO: [x] D4: cube root of volume of tetrahedron formed by 4 random vertices
-# TODO: [ ] Mention m94 removal and m1693 eccentricity stabilisation
-# TODO: [ ] Change fill_holes with convex hull operation 
-# 
+# TODO: [ ] Mention m94, m778 removal and m1693 eccentricity stabilisation
+# TODO: [ ] Change fill_holes with convex hull operation
+#
 # # np.seterr('raise')
 
 
 class FeatureExtractor:
-    number_vertices_sampled = 10000
+    number_vertices_sampled = 100000
     number_bins = 20
 
     def __init__(self, reader=None, target_file="./computed_features.jsonl", append_mode=False):
@@ -100,7 +100,9 @@ class FeatureExtractor:
             FeatureExtractor.aabb_volume: "Bounding Box Volume",
             FeatureExtractor.surface_area: "Surface Area",
             FeatureExtractor.eccentricity: "Eccentricity",
-            FeatureExtractor.diameter: "Diameter"
+            FeatureExtractor.diameter: "Diameter",
+            FeatureExtractor.convex_hull_volume: "Convex Hull Volume",
+            FeatureExtractor.rectangularity: "Rectangularity",
         }
         # if not DEBUG:
         #     singleton_pipeline[FeatureExtractor.diameter] = "Diameter"
@@ -120,34 +122,35 @@ class FeatureExtractor:
 
     @staticmethod
     @exception_catcher
-    def compactness(data):
-        mesh = data["poly_data"]
-        edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
-        if edges.n_faces > 0:
-            mesh = fill_holes(mesh)
+    def convex_hull_volume(data):
+        mesh = convex_hull_transformation(data["poly_data"])
+        convex_hull_volume_result = mesh.volume
+        return {"convex_hull_volume": convex_hull_volume_result}
+
+    @staticmethod
+    @exception_catcher
+    def rectangularity(data):
+        mesh = convex_hull_transformation(data["poly_data"])
         volume = mesh.volume
-        cell_ids = PSBDataset._get_cells(mesh)
-        cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
-        surface_area = sum(cell_areas)
-        if volume == 0:
-            print("Shit")
-            raise Exception
-        compactness = np.power(surface_area, 3) / ((36 * np.pi) * np.square(volume))
-        return {"compactness": compactness}
+        min_max_point = np.array(mesh.bounds).reshape((-1, 2))
+        differences = np.abs(np.diff(min_max_point, axis=1))
+        obb_volume = np.prod(differences)
+        rectangularity_result = volume / obb_volume
+        return {"rectangularity": rectangularity_result}
+
+    @staticmethod
+    @exception_catcher
+    def compactness(data):
+        mesh = convex_hull_transformation(data["poly_data"])
+        compactness_result = compactness_computation(mesh)
+        return {"compactness": compactness_result}
 
     @staticmethod
     @exception_catcher
     def sphericity(data):
-        mesh = data["poly_data"]
-        edges = mesh.extract_feature_edges(feature_edges=False, manifold_edges=False)
-        if edges.n_faces > 0:
-            mesh = fill_holes(mesh)
-        volume = mesh.volume
-        cell_ids = PSBDataset._get_cells(mesh)
-        cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
-        surface_area = sum(cell_areas)
-        sphericity_result = (np.power(np.pi, 1 / 3) * np.power(6 * volume, 2 / 3)) / surface_area
-        return {"sphericity": sphericity_result}
+        mesh = convex_hull_transformation(data["poly_data"])
+        sphericity_result = sphericity_computation(mesh)
+        return {"sphericity": min(sphericity_result, 1.0)}
 
     @staticmethod
     @exception_catcher
@@ -203,20 +206,18 @@ class FeatureExtractor:
     @exception_catcher
     def angle_three_rand_verts(data):
         # This question quite fitted the case (https://bit.ly/3in7MjH)
-        angles_degrees = []
         mesh = data["poly_data"]
         indices_triplets = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 3))
-        verts_triplets = [mesh.points[triplet] for triplet in indices_triplets]
+        verts_triplets = np.array([mesh.points[triplet] for triplet in indices_triplets])
+        o2_1 = verts_triplets[:, 0] - verts_triplets[:, 1]
+        o2_3 = verts_triplets[:, 2] - verts_triplets[:, 1]
+        dot_products = np.einsum("ij,ij->i", o2_1, o2_3)
+        norm_products = np.linalg.norm(o2_1, axis=1) * np.linalg.norm(o2_3, axis=1)
+        cosine_angles = dot_products / norm_products
+        angle_rads = np.arccos(cosine_angles)
+        angles_degs = np.degrees(angle_rads)
 
-        for verts_triplet in verts_triplets:
-            p_1, p_2, p_3 = verts_triplet
-            p2_1 = p_1 - p_2
-            p2_3 = p_3 - p_2
-            cosine_angle = np.dot(p2_1, p2_3) / (np.linalg.norm(p2_1) * np.linalg.norm(p2_3))
-            angle_radians = np.arccos(cosine_angle)
-            angles_degrees.append(np.degrees(angle_radians))
-
-        return {"rand_angle_three_verts": FeatureExtractor.make_bins(angles_degrees, FeatureExtractor.number_bins)}
+        return {"rand_angle_three_verts": FeatureExtractor.make_bins(angles_degs, FeatureExtractor.number_bins)}
 
     @staticmethod
     @exception_catcher
@@ -225,11 +226,7 @@ class FeatureExtractor:
         mesh = data["poly_data"]
         indices_tuples = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 2))
         verts_tuples = [mesh.points[tup] for tup in indices_tuples]
-
-        for verts_tuple in verts_tuples:
-            distance = np.abs(np.diff(verts_tuple, axis=0))
-            distances.append(np.linalg.norm(distance))
-
+        distances = np.linalg.norm(np.abs(np.diff(np.array(verts_tuples), axis=1)).reshape(-1, 3), axis=1)
         return {"rand_dist_two_verts": FeatureExtractor.make_bins(distances, FeatureExtractor.number_bins)}
 
     @staticmethod
@@ -237,12 +234,10 @@ class FeatureExtractor:
     def dist_bar_vert(data):
         distances = []
         mesh = data["poly_data"]
-        bary_center = data["bary_center"]
+        bary_center = mesh.center
         indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 1))
         rand_verts = mesh.points[indices]
-        for vert in rand_verts:
-            distance = np.abs(np.diff(np.vstack((bary_center, vert)), axis=0))
-            distances.append(np.linalg.norm(distance))
+        distances = np.linalg.norm(np.abs(rand_verts.reshape(-1, 3) - bary_center), axis=1)
         return {"dist_bar_vert": FeatureExtractor.make_bins(distances, FeatureExtractor.number_bins)}
 
     @staticmethod
@@ -265,7 +260,20 @@ class FeatureExtractor:
 
     @staticmethod
     def generate_random_ints(min_val, max_val, shape):
-        return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), shape[0], axis=0).reshape(max_val, -1).T])
+        return np.array([np.random.choice(line, shape[1], replace=False) for line in np.repeat(np.arange(min_val, max_val), 10000, axis=0).reshape(max_val, -1).T])
+
+    @staticmethod
+    def generate_random_ints_(min_val, max_val, shape):
+        def sorting(a):
+            b = np.sort(a, axis=1)
+            return (b[:, 1:] != b[:, :-1]).sum(axis=1) + 1
+
+        X = np.arange(0, max_val)
+        X_samples = np.random.choice(X, shape[0], replace=False)
+        X_combinations_raw = np.array(np.meshgrid(*[X_samples] * shape[1])).T.reshape(-1, shape[1])
+        X_unique_counts = sorting(X_combinations_raw)
+        X_combinations_unique = X_combinations_raw[X_unique_counts == shape[1]]
+        return X_combinations_unique
 
 
 if __name__ == "__main__":
