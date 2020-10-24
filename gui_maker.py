@@ -21,6 +21,7 @@ from helper.viz import TableWidget
 from normalizer import Normalizer
 from query_matcher import QueryMatcher, TsneVisualiser
 from reader import DataSet
+from PIL import Image
 
 
 class SimilarMeshWindow(Qt.QWidget):
