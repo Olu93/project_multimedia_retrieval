@@ -16,7 +16,7 @@
 ### Personal tasks
 [] Parallelize normalisation operation 
 [] Histograms for before and after normalisation
-[] Implement rest of the features on the slide (Mesh_Volume (with convex hull), Gravity Point???, Reflective Symmetry, Morphological features)
+[] Implement rest of the features on the slide (Convex hull and non convex hull, Average curvature, Reflective Symmetry, Morphological features)
 
 
 ### Clean Up tasks (For the end)
