@@ -34,14 +34,29 @@ p.add_mesh(mesh, style="wireframe")
 p.show()
 
 # %%
+
+
+def get_grey_scale(img):
+    img_copy = np.ones_like(img)
+    img_copy[np.isnan(img)] = 0
+    return img_copy
+
+
 plt.figure()
 p = pv.Plotter()
-p.camera_position = [(-2, -2, 0), (0, 0, 0), (0, 0, 1.0)]
 p.add_mesh(projected)
-img = p.get_image_depth()
-img_copy = np.ones_like(img)
-img_copy[np.isnan(img)] = 0
-plt.imshow(img_copy, cmap=plt.cm.gray)
+p.camera_position = [(0, -2, 0), (0, 0, 0), (0, 0, 1.0)]
+img1 = get_grey_scale(p.get_image_depth())
+p.camera_position = [(-2, 0, 0), (0, 0, 0), (0, 0, 1.0)]
+img2 = get_grey_scale(p.get_image_depth())
+p.camera_position = [(0, 0, -2), (0, 0, 0), (0, 0, 1.0)]
+img3 = get_grey_scale(p.get_image_depth())
+
+ax = plt.subplot(121)
+ax.imshow(img, cmap=plt.cm.gray)
+ax = plt.subplot(122)
+ax.imshow(img2, cmap=plt.cm.gray)
+
 plt.show()
 
 # %%

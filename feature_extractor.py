@@ -127,6 +127,8 @@ class FeatureExtractor:
         convex_hull_volume_result = mesh.volume
         return {"convex_hull_volume": convex_hull_volume_result}
 
+
+
     @staticmethod
     @exception_catcher
     def rectangularity(data):
@@ -248,6 +250,20 @@ class FeatureExtractor:
         triangle_areas = PSBDataset._get_cell_areas(mesh.points, verts_list)
         sqrt_areas = np.sqrt(triangle_areas)
         return {"sqrt_area_rand_three_verts": FeatureExtractor.make_bins(sqrt_areas, FeatureExtractor.number_bins)}
+
+    @staticmethod
+    @exception_catcher
+    def gaussian_curvature(data):
+        mesh = data["poly_data"]
+        curvatures = mesh.curvature('gaussian')
+        return {"gaussian_curvature": FeatureExtractor.make_bins(curvatures, FeatureExtractor.number_bins)}
+
+    @staticmethod
+    @exception_catcher
+    def mean_curvature(data):
+        mesh = data["poly_data"]
+        curvatures = mesh.curvature('mean')
+        return {"mean_curvature": FeatureExtractor.make_bins(curvatures, FeatureExtractor.number_bins)}
 
     @staticmethod
     def make_bins(data, n_bins):
