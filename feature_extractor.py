@@ -104,8 +104,6 @@ class FeatureExtractor:
             FeatureExtractor.convex_hull_volume: "Convex Hull Volume",
             FeatureExtractor.rectangularity: "Rectangularity",
         }
-        # if not DEBUG:
-        #     singleton_pipeline[FeatureExtractor.diameter] = "Diameter"
         histogram_pipeline = {
             FeatureExtractor.angle_three_rand_verts: "Angl. of sampled vert. triplets",
             FeatureExtractor.dist_bar_vert: "Dist. between sampled vert. & barycenter",

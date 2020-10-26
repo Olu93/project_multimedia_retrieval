@@ -16,7 +16,7 @@ def plot_mesh(mesh, ax):
     X, Y, Z = points[:, 0], points[:, 1], points[:, 2]
     faces = DataSet._get_cells(mesh)
     return ax.plot_trisurf(X, Y, Z=Z, triangles=faces)
-
+0
 
 def visualize_histograms(extractor, functions, item_ids=[0, 1], names=None, plot_titles=None):
     meshes = np.array(extractor.full_data)[item_ids]
@@ -132,7 +132,7 @@ class TsneVisualiser:
         st_values = scaler.fit_transform(df.values)
 
         # Playing around with parameters, this seems like a good fit
-        tsne_results = TSNE(perplexity=50, n_iter=10000, learning_rate=500).fit_transform(st_values)
+        tsne_results = TSNE(perplexity=40, learning_rate=500).fit_transform(st_values)
         t_x, t_y = tsne_results[:, 0], tsne_results[:, 1]
         plt.scatter(t_x, t_y, c=labels, cmap=color_map, vmin=0, vmax=len(lbl_list), label=lbl_list, s=10)
         plt.savefig(self.filename, bbox_inches='tight', dpi=200)

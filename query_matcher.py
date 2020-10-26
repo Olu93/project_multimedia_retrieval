@@ -1,4 +1,5 @@
 import io
+import os
 from collections import ChainMap
 from collections import OrderedDict
 from pathlib import Path
@@ -6,16 +7,11 @@ from pathlib import Path
 import jsonlines
 import numpy as np
 import pandas as pd
-import pyvista as pv
-from scipy.spatial.distance import cosine
-from scipy.stats import wasserstein_distance
-from sklearn.neighbors import NearestNeighbors
+from annoy import AnnoyIndex
 from sklearn.preprocessing import StandardScaler
 
 from feature_extractor import FeatureExtractor
 from helper.config import FEATURE_DATA_FILE
-from normalizer import Normalizer
-from reader import DataSet
 
 
 # TODO: k-nearest takes three arguments so it just displays k=5, doesnt update with user chosen k
@@ -45,25 +41,29 @@ class QueryMatcher(object):
         return init_features_df
 
     @staticmethod
-    def perform_knn(query, data_matrix, k):
-        list_of_query = [f.flatten() for f in query]
-        flat_arr = np.concatenate(list_of_query).ravel().reshape(1, -1)
-        matrix_features = data_matrix
-        full_mat = np.vstack((flat_arr, matrix_features))
-        neighbors = NearestNeighbors(n_neighbors=k).fit(full_mat[1:, :])
-        return neighbors.kneighbors(full_mat[0, :].reshape(1, -1))
+    def perform_knn(data_matrix, query, k):
+        t = AnnoyIndex(len(query), 'angular')
+        if not os.path.isfile('shapes.ann'):
+            [t.add_item(idx, data_matrix[idx, :]) for idx in range(data_matrix.shape[0])]
+            t.build(10)
+            t.save('shapes.ann')
+        else:
+            t.load('shapes.ann')
+        indices, values = t.get_nns_by_vector(query, k, include_distances=True)
+        return values, indices
 
     def match_with_db(self, feature_set, k=5, distance_functions=[], weights=None):
         feature_set_transformed = QueryMatcher.prepare_for_matching(feature_set=feature_set)
         assert len(feature_set_transformed) == len(
             distance_functions), f"Not enough OR too many distance functions supplied!"
 
-        standardised_features_list_of_list, feature_set_transformed[0] = self.standardize(self.features_list_of_list,
-                                                                                          feature_set_transformed,
-                                                                                          self.scaler)
+        standardised_features_list_of_list, feature_set_transformed, full_standardised_mat, flat_standardised_query = self.standardize(
+            self.features_list_of_list,
+            feature_set_transformed,
+            self.scaler)
+
         if QueryMatcher.perform_knn in distance_functions:
-            values, position_in_rank = self.perform_knn(feature_set_transformed, self.features_df.values, k)
-            position_in_rank = position_in_rank.flatten()
+            values, position_in_rank = self.perform_knn(full_standardised_mat, flat_standardised_query, k)
         else:
             all_distances = np.array(
                 [QueryMatcher.mono_run_functions_pipeline(feature_set_transformed, mesh_in_db,
@@ -81,20 +81,34 @@ class QueryMatcher(object):
     def standardize(features_list_of_list, feature_set, scaler):
         """
         Standardisation applied over list of lists as well as query.
+        :param full_normed_mat: if true will return the full normalised matrix as lat element
         :param features_list_of_list: features_list_of_list: list of lists of array of all normalised features
         :param feature_set: feature_set: query feature
         :param scaler: any scaler from sklearn.preprocessing
         :return: standardised query and list of lists
         """
         features_arr_of_arr = np.array(features_list_of_list)
-        scalars = features_arr_of_arr[:, 0]
-        reshaped_scalars = np.array([val for arr in scalars for val in arr]).reshape(-1, 8)
-        list_standardized_scalars = [x for x in scaler.fit_transform(reshaped_scalars)]
+        flat_query = [val for sublist in feature_set for val in sublist]
+        full_mat = np.array([val for sublist in features_arr_of_arr.flatten() for val in sublist]).reshape(-1,
+                                                                                                       len(flat_query))
+        scalars = full_mat[:, :len(FeatureExtractor.get_pipeline_functions()[0])]
+        list_standardized_scalars = [x for x in scaler.fit_transform(scalars)]
         end_df = pd.DataFrame(features_list_of_list)
         end_df[0] = pd.Series(list_standardized_scalars)
         standardised_features_list_of_list = list(end_df.to_numpy())
-        standardised_feature_set = scaler.transform(feature_set[0].reshape(1, -1))
-        return standardised_features_list_of_list, standardised_feature_set
+        standardised_feature_set_scalars = scaler.transform(feature_set[0].reshape(1, -1))
+        feature_set[0] = standardised_feature_set_scalars
+
+        # flat_standardised_feature_set_scalars = [val for sublist in standardised_feature_set for val in sublist]
+        del flat_query[:len(FeatureExtractor.get_pipeline_functions()[0])]
+        flat_standard_query = list(standardised_feature_set_scalars.flatten())
+        flat_standard_query.extend(flat_query)
+
+        standardised_features_arr_of_arr = np.array(standardised_features_list_of_list)
+        full_mat = np.array(
+            [val for sublist in standardised_features_arr_of_arr.flatten() for val in sublist]).reshape(-1,
+                                                                                              len(flat_standard_query))
+        return standardised_features_list_of_list, feature_set, full_mat, flat_standard_query
 
     @staticmethod
     def mono_run_functions_pipeline(a_features, b_features, dist_funcs, weights=None):

@@ -8,7 +8,7 @@ import pyvista as pv
 from PIL import Image
 from PyQt5 import Qt as Qt
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtCore import Qt as QtCore
+from PyQt5.QtCore import Qt as QtCore, QUrl
 from PyQt5.QtWidgets import QPushButton, QFileDialog, QDesktopWidget, QSlider, QListWidget
 from pyvistaqt import QtInteractor
 from scipy.spatial.distance import cosine, euclidean, cityblock, sqeuclidean
@@ -234,14 +234,13 @@ class MainWindow(Qt.QMainWindow):
         self.normalizer = Normalizer()
         self.smlw = None
         self.setWindowTitle('Source Mesh Window')
-
         self.frame = Qt.QFrame()
-        self.QTIplotter = QtInteractor(self.frame)
+        self.QTIplotter = None
         self.vlayout = Qt.QVBoxLayout()
         self.frame.setLayout(self.vlayout)
         self.setCentralWidget(self.frame)
         self.hist_dict = {}
-
+        self.setAcceptDrops(True)
         # Create main menu
         mainMenu = self.menuBar()
         fileMenu = mainMenu.addMenu('File')
@@ -251,9 +250,9 @@ class MainWindow(Qt.QMainWindow):
         fileMenu.addAction(exitButton)
 
         # Create load button and init action
-        load_button = QPushButton("Load Mesh to query")
-        load_button.clicked.connect(lambda: self.load_and_prep_query_mesh(self.open_file_name_dialog()))
-
+        self.load_button = QPushButton("Load or drop mesh to query")
+        self.load_button.clicked.connect(lambda: self.load_and_prep_query_mesh(self.open_file_name_dialog()))
+        self.load_button.setFont(QtGui.QFont("arial", 30))
         # Create Plots widget
         self.graphWidget = pg.PlotWidget()
         self.graphWidget.setBackground('w')
@@ -261,10 +260,8 @@ class MainWindow(Qt.QMainWindow):
         # Create and add widgets to layout
         self.hist_labels = list({**FeatureExtractor.get_pipeline_functions()[1]}.values())
         self.tableWidget = TableWidget(pd.DataFrame(), self, len(self.hist_labels))
-        self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
-        self.vlayout.addWidget(load_button)
-        self.vlayout.addWidget(self.QTIplotter.interactor)
-        self.vlayout.addWidget(self.tableWidget)
+        self.tableWidget.hide()
+        self.vlayout.addWidget(self.load_button)
 
         # Position MainWindow
         screen_topleft = QDesktopWidget().availableGeometry().topLeft()
@@ -275,15 +272,32 @@ class MainWindow(Qt.QMainWindow):
         if show:
             self.show()
 
-    def open_file_name_dialog(self):
-        fileName, _ = QFileDialog.getOpenFileName(self, caption="Choose shape to view.",
-                                                  filter="All Files (*);; Model Files (.obj, .off, .ply, .stl)")
-        if not fileName:
-            return False
-        elif fileName[-4:] not in self.supported_file_types:
+    def dragEnterEvent(self, e):
+        if e.mimeData().hasUrls():
+            e.accept()
+        else:
+            e.ignore()
+
+    def dropEvent(self, e):
+        if len(e.mimeData().urls()) == 1:
+            file = QUrl.toLocalFile(e.mimeData().urls()[0])
+            self.load_and_prep_query_mesh(DataSet._read(file))
+        else:
+            error_dialog = QtWidgets.QErrorMessage(parent=self)
+            error_dialog.showMessage("Please drag only one mesh at the time.")
+
+    @staticmethod
+    def check_file(fileName):
+        if fileName[-4:] not in self.supported_file_types:
             error_dialog = QtWidgets.QErrorMessage(parent=self)
             error_dialog.showMessage(("Selected file not supported."
                                       f"\nPlease select mesh files of type: {self.supported_file_types}"))
+            return False
+
+    def open_file_name_dialog(self):
+        fileName, _ = QFileDialog.getOpenFileName(self, caption="Choose shape to view.",
+                                                  filter="All Files (*);; Model Files (.obj, .off, .ply, .stl)")
+        if not (fileName or self.check_file(fileName)):
             return False
 
         mesh = DataSet._read(fileName)
@@ -291,6 +305,8 @@ class MainWindow(Qt.QMainWindow):
 
     def load_and_prep_query_mesh(self, data):
         if not data: return
+        self.load_button.setFont(QtGui.QFont("arial", 10))
+
         # Normalize query mesh
         normed_data = self.normalizer.mono_run_pipeline(data)
         normed_mesh = pv.PolyData(normed_data["history"][-1]["data"]["vertices"],
@@ -306,11 +322,12 @@ class MainWindow(Qt.QMainWindow):
         # Update plotter & feature table
         # since unfortunately Qtinteractor which plots the mesh cannot be updated (remove and add new mesh)
         # it needs to be removed and newly generated each time a mesh gets loaded
-        self.vlayout.removeWidget(self.tableWidget)
+        self.tableWidget.deleteLater()
         self.vlayout.removeWidget(self.QTIplotter)
         self.QTIplotter = QtInteractor(self.frame)
         self.vlayout.addWidget(self.QTIplotter)
         self.tableWidget = TableWidget(features_df, self, len(self.hist_labels))
+        self.tableWidget.show()
         self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.vlayout.addWidget(self.tableWidget)
         self.QTIplotter.add_mesh(normed_mesh, show_edges=True)
@@ -319,6 +336,7 @@ class MainWindow(Qt.QMainWindow):
         self.vlayout.addWidget(self.graphWidget)
 
         # Compare shapes
+        if self.smlw: self.smlw.deleteLater()
         self.smlw = SimilarMeshesListWindow(features_dict)
         self.smlw.move(self.geometry().topRight())
 
