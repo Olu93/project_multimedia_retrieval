@@ -2,12 +2,15 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtGui import QDoubleValidator, QIcon
 from PyQt5.QtWidgets import QTableWidget, \
     QTableWidgetItem, QItemDelegate, QLineEdit, QPushButton
 from sklearn.manifold import TSNE
+from sklearn.preprocessing import StandardScaler
 
+from helper.misc import rand_cmap
 from reader import DataSet
 
 
@@ -16,7 +19,7 @@ def plot_mesh(mesh, ax):
     X, Y, Z = points[:, 0], points[:, 1], points[:, 2]
     faces = DataSet._get_cells(mesh)
     return ax.plot_trisurf(X, Y, Z=Z, triangles=faces)
-0
+
 
 def visualize_histograms(extractor, functions, item_ids=[0, 1], names=None, plot_titles=None):
     meshes = np.array(extractor.full_data)[item_ids]
@@ -134,6 +137,9 @@ class TsneVisualiser:
         # Playing around with parameters, this seems like a good fit
         tsne_results = TSNE(perplexity=40, learning_rate=500).fit_transform(st_values)
         t_x, t_y = tsne_results[:, 0], tsne_results[:, 1]
+        plt.title("tSNE reduction")
+        plt.xlabel("tSNE 1")
+        plt.ylabel("tSNE 2")
         plt.scatter(t_x, t_y, c=labels, cmap=color_map, vmin=0, vmax=len(lbl_list), label=lbl_list, s=10)
         plt.savefig(self.filename, bbox_inches='tight', dpi=200)
 
