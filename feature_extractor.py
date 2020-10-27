@@ -12,7 +12,7 @@ from helper import diameter_computer
 from helper.misc import compactness_computation, convex_hull_transformation, exception_catcher, fill_holes, jsonify, sphericity_computation
 from helper.diameter_computer import compute_diameter
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
-from helper.mp_functions import compute_feature_extraction, listener
+from helper.mp_functions import compute_feature_extraction
 from reader import PSBDataset
 import jsonlines
 import io
@@ -59,10 +59,8 @@ class FeatureExtractor:
 
         gather_data = [list(func(data).items())[0] for func in [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
 
-        skeleton_features = FeatureExtractor.skeleton_singleton_features(data)
-
         final_dict.update(gather_data)
-        final_dict.update(skeleton_features)
+        # final_dict.update(skeleton_features)
         return final_dict
 
     def run_full_pipeline(self, max_num_items=None):
@@ -122,7 +120,11 @@ class FeatureExtractor:
     def skeleton_singleton_features(data):
         mesh = data["poly_data"]
         silh_skeleton_graph_set = extract_graphical_forms(mesh)
-        x, y, z = silh_skeleton_graph_set
+        return FeatureExtractor.mono_skeleton_features(silh_skeleton_graph_set)
+
+    @staticmethod
+    @exception_catcher
+    def mono_skeleton_features(silh_skeleton_graph_set):
         num_endpoints = [compute_endpoints(grph) for vp, silh, skel, grph in silh_skeleton_graph_set]
         num_conjunctions = [compute_conjunctions(grph) for vp, silh, skel, grph in silh_skeleton_graph_set]
         asymmetries = [compute_asymmetry(silh) for vp, silh, skel, grph in silh_skeleton_graph_set]
@@ -316,4 +318,5 @@ class TsneVisualiser:
 
 if __name__ == "__main__":
     FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE))
-    FE.run_full_pipeline_slow() if DEBUG else FE.run_full_pipeline()
+    # FE.run_full_pipeline_slow()  
+    FE.run_full_pipeline()

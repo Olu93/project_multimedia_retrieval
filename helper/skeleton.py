@@ -50,7 +50,6 @@ def extract_sillhouettes(mesh):
         img = p.get_image_depth()
         p.close()
         images.append(prepare_image(img))
-        time.sleep(.1)
     return images
 
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+from helper.skeleton import extract_graphical_forms
 from helper.misc import jsonify
 import jsonlines
 import numpy as np
@@ -13,22 +14,30 @@ import pandas as pd
 from itertools import product
 from pprint import pprint
 import time
+
+
 # https://stackoverflow.com/a/13530258/4162265
 def compute_feature_extraction(extractor, data):
     manager = mp.Manager()
     q = manager.Queue()
     process_list = []
-    for item in data:
-        q.put(item)
+
     # progress_bar = tqdm(total=len(data))
-    for i in range(math.ceil(mp.cpu_count() * .75)):
+
+    pre_compute = mp.Process(target=pre_compute_sillhouttes, args=(data, q))
+    pre_compute.start()
+
+    num_processes = math.ceil(mp.cpu_count() * .75)
+    for i in range(num_processes):
         p = mp.Process(target=listener, args=(extractor, q, i))
         process_list.append(p)
+        p.start()
 
-    p = mp.Process(target=heart_beat_check, args=(process_list,))
-    for proc in process_list + [p]:
-        proc.start()
 
+    pre_compute.join()
+    for i in range(num_processes + 5):
+        q.put((None, None))
+    
     for p in process_list:
         p.join()
 
@@ -66,15 +75,26 @@ def listener(extractor, q, index):
     file_name = f"stats/tmp/tmp-{index}.jsonl"
 
     with jsonlines.open(file_name, mode="w", flush=True) as writer:
-        while not q.empty():
-            m = q.get(block=True)
+        while 1:
+            m, image_info = q.get()
+            if not m and not image_info:
+                print("PROCESS ENDS HERE!!!")
+                break
             result = extractor.mono_run_pipeline(m)
             result = jsonify(result)
             result = dict(timestamp=timestamp, **result)
+            result.update(extractor.mono_skeleton_features(image_info))
             # pprint({key: type(val) if not type(val) == list else list(set([type(num) for num in val])) for key, val in result.items()})
             writer.write(result)
             print(f"Write {result['name']} into file {file_name}!")
             # tqdm.update(1)
+
+
+def pre_compute_sillhouttes(data, q):
+    for item in tqdm(data, total=len(data)):
+    # for item in data:
+        package = (item, extract_graphical_forms(pv.PolyData(item["data"]["vertices"], item["data"]["faces"])))
+        q.put(package)
 
 
 def heart_beat_check(process_list):
