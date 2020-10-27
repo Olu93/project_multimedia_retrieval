@@ -59,8 +59,11 @@ class SimilarMeshWindow(Qt.QWidget):
         self.vlayout.addWidget(self.graphWidget)
 
         # Position SimilarMeshWindow
+        screen_topleft = QDesktopWidget().availableGeometry().topLeft()
         screen_height = QDesktopWidget().availableGeometry().height()
-        self.resize(self.width(), screen_height - 50)
+        width = (QDesktopWidget().availableGeometry().width() * 0.4)
+        self.move((QDesktopWidget().availableGeometry().width() * 0.4) + ((QDesktopWidget().availableGeometry().width() * 0.2)), 0)
+        self.resize(width, screen_height - 50)
 
         # Set widgets
         self.QTIplotter.add_mesh(self.mesh, show_edges=True)
@@ -84,6 +87,7 @@ class SimilarMeshWindow(Qt.QWidget):
 class SimilarMeshesListWindow(Qt.QWidget):
     def __init__(self, feature_dict):
         super().__init__()
+        self.smw_list = []
         self.query_matcher = QueryMatcher(FEATURE_DATA_FILE)
         self.query_mesh_features = feature_dict
         self.layout = Qt.QVBoxLayout()
@@ -161,6 +165,15 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.layout.addWidget(self.plotButton)
         self.layout.addWidget(self.list)
 
+        # Position MainWindow
+        screen_height = QDesktopWidget().availableGeometry().height()
+        width = (QDesktopWidget().availableGeometry().width() * 0.2)
+        self.move((QDesktopWidget().availableGeometry().width() * 0.4), 0)
+        self.resize(width, screen_height - 50)
+
+    def closeEvent(self, event):
+        self.smw.deleteLater()
+
     def update_similar_meshes_list(self):
         scalarDistFunction = self.scalarDistancesDict[self.scalarDistanceMethodList.currentText()]
         histDistFunction = self.histDistancesDict[self.histDistanceMethodList.currentText()]
@@ -202,7 +215,11 @@ class SimilarMeshesListWindow(Qt.QWidget):
         data = DataSet._load_ply(path_to_mesh[0])
         mesh = pv.PolyData(data["vertices"], data["faces"])
         mesh_features = [d for d in self.query_matcher.features_raw if d["name"] == mesh_name][0]
+        if len(self.smw_list) != 0:
+            self.smw_list[0].deleteLater()
+            self.smw_list.remove(self.smw_list[0])
         self.smw = SimilarMeshWindow(mesh, mesh_features)
+        self.smw_list.append(self.smw)
         self.smw.show()
 
     def update_K_label(self, value):
@@ -266,8 +283,9 @@ class MainWindow(Qt.QMainWindow):
         # Position MainWindow
         screen_topleft = QDesktopWidget().availableGeometry().topLeft()
         screen_height = QDesktopWidget().availableGeometry().height()
+        width = (QDesktopWidget().availableGeometry().width() * 0.4)
         self.move(screen_topleft)
-        self.resize(self.width(), screen_height - 50)
+        self.resize(width, screen_height - 50)
 
         if show:
             self.show()
@@ -336,9 +354,10 @@ class MainWindow(Qt.QMainWindow):
         self.vlayout.addWidget(self.graphWidget)
 
         # Compare shapes
-        if self.smlw: self.smlw.deleteLater()
+        if self.smlw:
+            self.smlw.deleteLater()
+            if len(self.smlw.smw_list) != 0:  self.smlw.smw_list[0].deleteLater()
         self.smlw = SimilarMeshesListWindow(features_dict)
-        self.smlw.move(self.geometry().topRight())
 
         self.hist_dict = features_df.set_index("key").tail().to_dict()
         self.buttons = self.tableWidget.get_buttons_in_table()
