@@ -100,3 +100,8 @@ def convert_pyvista2trimesh(pvmesh):
     polygons = [list(p) for p in _get_cells(pvmesh)]
     trimesh_obj = trimesh.Trimesh(vertices=np.array(pvmesh.points), faces=polygons)
     return trimesh_obj
+
+
+def jsonify(item):
+    result = {key: list(value) if type(value) in [np.ndarray] else value for key, value in item.items()}
+    return result

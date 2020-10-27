@@ -65,25 +65,10 @@ class FeatureExtractor:
         return final_dict
 
     def run_full_pipeline(self, max_num_items=None):
-        manager = mp.Manager()
-        q = manager.Queue()
-        target_file = self.feature_stats_file
 
-        p = mp.Process(target=listener, args=((target_file, q), ))
-        p.start()
         num_full_data = len(self.reader.full_data)
         relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
-        num_data_being_processed = len(relevant_subset_of_data)
-        feature_data_generator = compute_feature_extraction(self, tqdm(relevant_subset_of_data, total=num_data_being_processed))
-        prepared_data = (FeatureExtractor.jsonify(item) for item in feature_data_generator)
-        prepared_data = (dict(timestamp=self.timestamp, **item) for item in prepared_data)
-        for next_feature_set in prepared_data:
-            # features.append(next_feature_set)
-            q.put(next_feature_set)
-
-        q.put('kill')
-        p.join()
-        return None
+        return compute_feature_extraction(self, relevant_subset_of_data)
 
     def run_full_pipeline_slow(self, max_num_items=None):
 
@@ -123,11 +108,6 @@ class FeatureExtractor:
             FeatureExtractor.cube_root_volume_four_rand_verts: "Curt. of sampled tetrahedrons",
         }
         return (singleton_pipeline, histogram_pipeline)
-
-    @staticmethod
-    def jsonify(item):
-        result = {key: list(value) if type(value) in [np.ndarray] else value for key, value in item.items()}
-        return result
 
     @staticmethod
     @exception_catcher
@@ -328,4 +308,4 @@ class TsneVisualiser:
 
 if __name__ == "__main__":
     FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE))
-    FE.run_full_pipeline_slow() if DEBUG else FE.run_full_pipeline()
+    FE.run_full_pipeline_slow() if not DEBUG else FE.run_full_pipeline()

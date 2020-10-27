@@ -1,3 +1,5 @@
+from datetime import datetime
+from helper.misc import jsonify
 import jsonlines
 import numpy as np
 import multiprocess as mp
@@ -13,9 +15,25 @@ from itertools import product
 
 # https://stackoverflow.com/a/13530258/4162265
 def compute_feature_extraction(extractor, data):
+    manager = mp.Manager()
+    q = manager.Queue()
+    timestamp = str(datetime.now())
     pool = mp.Pool(math.ceil(mp.cpu_count() * .75))
-    extractions = pool.imap(extractor.mono_run_pipeline, data, chunksize=1)
-    return extractions
+    p = mp.Process(target=listener, args=(extractor.feature_stats_file, q))
+    p.start()
+    num_data_being_processed = len(data)
+    pipeline = tqdm(data, total=num_data_being_processed)
+    pipeline = pool.imap(extractor.mono_run_pipeline, pipeline, chunksize=5)
+    pipeline = (jsonify(item) for item in pipeline)
+    pipeline = (dict(timestamp=timestamp, **item) for item in pipeline)
+    for item in pipeline:
+        q.put(item)
+
+    q.put('kill')
+    pool.close()
+    pool.join()
+    p.join()
+    return True
 
 
 def compute_normalization(normalizer, data):
@@ -42,11 +60,10 @@ def point_distance(points):
     return np.linalg.norm(p1 - p2)
 
 
-def listener(args):
+def listener(target_file, q):
     '''listens for messages on the q, writes to file. '''
     print("SPINNING UP THE QUEUE!!!")
-    target_file, q = args
-    with jsonlines.open(target_file, "w", flush=True) as writer:
+    with jsonlines.open(target_file, "w") as writer:
         while 1:
             m = q.get()
             if m == 'kill':
