@@ -17,6 +17,7 @@ import skimage
 import sknw
 import cv2
 import networkx as nx
+import pandas as pd
 # %%
 mesh = pv.read("C:\\Users\\ohund\\workspace\\project_multimedia_retrieval\\trash\\m1.ply")
 mesh.plot()
@@ -85,33 +86,68 @@ def compute_asymmetry(original):
 
 
 compute_asymmetry(img)
+
 # %%
+
 
 # average distance to center_point
 def compute_distance_to_center(skeleton):
-    center_point = (np.array(skeleton.shape) // 2).reshape((-1, 2))
-    skeleton_points = np.array(np.where(skeleton == 1)).T
-    print(center_point.shape)
-    print(skeleton_points.shape)
+    center_point = np.flip((np.array(skeleton.shape) // 2)).reshape((-1, 2))
+    skeleton_points = np.flip(np.array(np.where(skeleton == 1))).T
+    # print(center_point.shape)
+    # print(skeleton_points.shape)
     return np.linalg.norm(skeleton_points - center_point, axis=1)
 
 
-compute_distance_to_center(skeletons[0])
+compute_distance_to_center(skeletons[0])[:5]
 # %%
-# cycles: https://stackoverflow.com/questions/15914684/how-can-i-find-cycles-in-a-skeleton-image-with-python-libraries
-r = sillhouettes[1]
+from skimage.draw import line
+import random
+skeleton = random.choice(skeletons)
+image_shape = np.flip((np.array(skeleton.shape))).reshape(2, -1)
+center_point = np.flip((np.array(skeleton.shape) // 2))
+skeleton_points = np.flip(np.array(np.where(skeleton == 1)))
 
-contours = skimage.measure.find_contours(r, .5)
-fig, ax = plt.subplots()
-ax.imshow(r, cmap=plt.cm.gray)
+# skeleton_points = skeleton_points.T[np.random.choice(len(skeleton_points.T), 100)].T
+# skeleton_points = np.array([
+#     [600, 600, 600, 600, 600, 600, 600, 550, 620, 640],
+#     [700, 750, 690, 650, 620, 670, 590, 650, 650, 650],
+# ])
+covariance_matrix = np.cov(skeleton_points)
+eigen_values, eigen_vectors = np.linalg.eig(covariance_matrix)
+canvas = np.zeros_like(skeleton)
+size_matters = np.argsort(eigen_values)
+eigen_values, eigen_vectors = eigen_values[size_matters], eigen_vectors[size_matters]
+print("COV-Matrix: \n", covariance_matrix, "\n")
+print("Eigenvector: \n", eigen_vectors, "\n")
+print("Eigenvalues: \n", eigen_values, "\n")
+eccentiricity = eigen_values[0] / eigen_values[1]
+print(eccentiricity)
 
-for contour in contours:
-    ax.plot(contour[:, 1], contour[:, 0], linewidth=2)
+endpoint_1 = (center_point + (250 * eccentiricity) * eigen_vectors[0]).astype(np.int16)
+endpoint_2 = (center_point + (250) * eigen_vectors[1]).astype(np.int16)
+print(endpoint_1)
+print(endpoint_2)
+rr, cc = line(center_point[0], center_point[1], endpoint_1[0], endpoint_1[1])
+rr2, cc2 = line(center_point[0], center_point[1], endpoint_2[0], endpoint_2[1])
 
-ax.axis('image')
-ax.set_xticks([])
-ax.set_yticks([])
-plt.show()
+plt.imshow(skeleton, cmap="gray")
+plt.plot(rr, cc, color='green')
+plt.plot(rr2, cc2, color='green')
+plt.plot(center_point[0], center_point[1], 'r.')
+plt.plot(endpoint_1[0], endpoint_1[1], 'r.')
+plt.plot(endpoint_2[0], endpoint_2[1], 'r.')
+# plt.plot(skeleton_points.T[:, 0], skeleton_points.T[:, 1], 'b.')
+
 # %%
+def compute_img_eccentricity(skeleton):
+    skeleton_points = np.flip(np.array(np.where(skeleton == 1)))
+    covariance_matrix = np.cov(skeleton_points)
+    eigen_values, eigen_vectors = np.linalg.eig(covariance_matrix)
+    size_matters = np.argsort(eigen_values)
+    eigen_values, eigen_vectors = eigen_values[size_matters], eigen_vectors[size_matters]
+    eccentiricity = eigen_values[0] / eigen_values[1]
+    return eccentiricity
 
+compute_img_eccentricity(skeleton)
 # %%

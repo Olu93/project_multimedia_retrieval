@@ -13,7 +13,7 @@ def exception_catcher(func):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            print(f"ERR_{func.__name__} for shape {args[0]['meta_data']['name']}")
+            print(f"ERR_{func.__name__} for shape {args[0]['meta_data']['name']}: {(str(type(e)), str(e))}")
             return {f"ERR_{func.__name__}": (str(type(e)), str(e))}
 
     return new_func
@@ -31,11 +31,18 @@ def fill_holes(mesh):
     return mesh.fill_holes(1000)
 
 
+def is_flat(mesh):
+    return not np.all(mesh.points.sum(axis=0))
+
+
 def convex_hull_transformation(mesh):
     poly = mesh
+    if is_flat(poly):
+        return poly
     try:
         hull = ConvexHull(mesh.points)
-        poly = PolyData(hull.points).delaunay_3d()
+        faces = np.column_stack((3 * np.ones((len(hull.simplices), 1), dtype=np.int), hull.simplices)).flatten()
+        poly = PolyData(hull.points, faces)
     except QhullError as e:
         print(f"Convex hull operation failed: {str(type(e))} - {str(e)}")
         print("Using fallback!")
@@ -47,10 +54,14 @@ def __sphericity_test(mesh):
 
 
 def sphericity_computation(mesh):
+    if mesh.area == 0:
+        return 0
     return (np.power(np.pi, 1 / 3) * np.power(6 * mesh.volume, 2 / 3)) / mesh.area
 
 
 def compactness_computation(mesh):
+    if mesh.volume == 0:
+        return 0
     return np.power(mesh.area, 3) / ((36 * np.pi) * np.square(mesh.volume))
 
 

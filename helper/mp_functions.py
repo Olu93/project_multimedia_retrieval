@@ -1,3 +1,4 @@
+import jsonlines
 import numpy as np
 import multiprocess as mp
 import math
@@ -10,9 +11,10 @@ import pandas as pd
 from itertools import product
 
 
+# https://stackoverflow.com/a/13530258/4162265
 def compute_feature_extraction(extractor, data):
     pool = mp.Pool(math.ceil(mp.cpu_count() * .75))
-    extractions = pool.imap_unordered(extractor.mono_run_pipeline, data, chunksize=10)
+    extractions = pool.imap(extractor.mono_run_pipeline, data, chunksize=1)
     return extractions
 
 
@@ -40,4 +42,14 @@ def point_distance(points):
     return np.linalg.norm(p1 - p2)
 
 
-
+def listener(args):
+    '''listens for messages on the q, writes to file. '''
+    print("SPINNING UP THE QUEUE!!!")
+    target_file, q = args
+    with jsonlines.open(target_file, "w", flush=True) as writer:
+        while 1:
+            m = q.get()
+            if m == 'kill':
+                break
+            writer.write(m)
+            print(f"Write {m['name']} into file!")

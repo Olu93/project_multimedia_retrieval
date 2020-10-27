@@ -1,5 +1,6 @@
 from collections import Counter
 from datetime import datetime
+from helper.skeleton import compute_conjunctions, compute_distance_to_center, compute_edge_lengths, compute_endpoints, compute_img_eccentricity, extract_graphical_forms, compute_asymmetry
 from pprint import pprint
 
 import jsonlines
@@ -10,13 +11,14 @@ from helper import diameter_computer
 from helper.misc import compactness_computation, convex_hull_transformation, exception_catcher, fill_holes, sphericity_computation
 from helper.diameter_computer import compute_diameter
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
-from helper.mp_functions import compute_feature_extraction
+from helper.mp_functions import compute_feature_extraction, listener
 from reader import PSBDataset
 import jsonlines
 import io
 from os import path
 from datetime import datetime
 import pyvista as pv
+import multiprocessing as mp
 
 # TODO: [x] surface area
 # TODO: [x] compactness (with respect to a sphere)
@@ -31,7 +33,7 @@ import pyvista as pv
 # TODO: [ ] Mention m94, m778 removal and m1693 eccentricity stabilisation
 # TODO: [ ] Change fill_holes with convex hull operation
 #
-# # np.seterr('raise')
+np.seterr('raise')
 
 
 class FeatureExtractor:
@@ -56,25 +58,32 @@ class FeatureExtractor:
 
         gather_data = [list(func(data).items())[0] for func in [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
 
-        final_dict.update(gather_data)
+        skeleton_features = FeatureExtractor.skeleton_singleton_features(data)
 
+        final_dict.update(gather_data)
+        final_dict.update(skeleton_features)
         return final_dict
 
     def run_full_pipeline(self, max_num_items=None):
-
+        manager = mp.Manager()
+        q = manager.Queue()
         target_file = self.feature_stats_file
-        features = []
-        with jsonlines.open(target_file, mode="a" if self.append_mode else "w") as writer:
-            num_full_data = len(self.reader.full_data)
-            relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
-            num_data_being_processed = len(relevant_subset_of_data)
-            feature_data_generator = compute_feature_extraction(self, tqdm(relevant_subset_of_data, total=num_data_being_processed))
-            prepared_data = (FeatureExtractor.jsonify(item) for item in feature_data_generator)
-            prepared_data = (dict(timestamp=self.timestamp, **item) for item in prepared_data)
-            for next_feature_set in prepared_data:
-                features.append(next_feature_set)
-                writer.write(next_feature_set)
-        return features
+
+        p = mp.Process(target=listener, args=((target_file, q), ))
+        p.start()
+        num_full_data = len(self.reader.full_data)
+        relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
+        num_data_being_processed = len(relevant_subset_of_data)
+        feature_data_generator = compute_feature_extraction(self, tqdm(relevant_subset_of_data, total=num_data_being_processed))
+        prepared_data = (FeatureExtractor.jsonify(item) for item in feature_data_generator)
+        prepared_data = (dict(timestamp=self.timestamp, **item) for item in prepared_data)
+        for next_feature_set in prepared_data:
+            # features.append(next_feature_set)
+            q.put(next_feature_set)
+
+        q.put('kill')
+        p.join()
+        return None
 
     def run_full_pipeline_slow(self, max_num_items=None):
 
@@ -84,7 +93,7 @@ class FeatureExtractor:
             num_full_data = len(self.reader.full_data)
             relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
             num_data_being_processed = len(relevant_subset_of_data)
-            feature_data_generator = [FeatureExtractor.mono_run_pipeline(data) for data in tqdm(relevant_subset_of_data, total=num_data_being_processed)]
+            feature_data_generator = (FeatureExtractor.mono_run_pipeline(data) for data in tqdm(relevant_subset_of_data, total=num_data_being_processed))
             prepared_data = (FeatureExtractor.jsonify(item) for item in feature_data_generator)
             prepared_data = (dict(timestamp=self.timestamp, **item) for item in prepared_data)
             for next_feature_set in prepared_data:
@@ -122,12 +131,31 @@ class FeatureExtractor:
 
     @staticmethod
     @exception_catcher
+    def skeleton_singleton_features(data):
+        mesh = data["poly_data"]
+        silh_skeleton_graph_set = extract_graphical_forms(mesh)
+        x, y, z = silh_skeleton_graph_set
+        num_endpoints = [compute_endpoints(grph) for vp, silh, skel, grph in silh_skeleton_graph_set]
+        num_conjunctions = [compute_conjunctions(grph) for vp, silh, skel, grph in silh_skeleton_graph_set]
+        average_edge_lengths = [compute_edge_lengths(grph) for vp, silh, skel, grph in silh_skeleton_graph_set]
+        asymmetries = [compute_asymmetry(silh) for vp, silh, skel, grph in silh_skeleton_graph_set]
+        average_distance_to_center = [compute_distance_to_center(skel) for vp, silh, skel, grph in silh_skeleton_graph_set]
+        img_eccentricity = [compute_img_eccentricity(skel) for vp, silh, skel, grph in silh_skeleton_graph_set]
+        return {
+            "skeleton_num_endpoints": num_endpoints,
+            "skeleton_num_conjunctions": num_conjunctions,
+            "skeleton_asymmetries": asymmetries,
+            "skeleton_avg_distances": average_distance_to_center,
+            "skeleton_avg_edgelength": average_edge_lengths,
+            "skeleton_img_eccentricity": img_eccentricity,
+        }
+
+    @staticmethod
+    @exception_catcher
     def convex_hull_volume(data):
         mesh = convex_hull_transformation(data["poly_data"])
         convex_hull_volume_result = mesh.volume
         return {"convex_hull_volume": convex_hull_volume_result}
-
-
 
     @staticmethod
     @exception_catcher
@@ -137,7 +165,7 @@ class FeatureExtractor:
         min_max_point = np.array(mesh.bounds).reshape((-1, 2))
         differences = np.abs(np.diff(min_max_point, axis=1))
         obb_volume = np.prod(differences)
-        rectangularity_result = volume / obb_volume
+        rectangularity_result = volume / (obb_volume if obb_volume != 0 else 0.000000000001)
         return {"rectangularity": rectangularity_result}
 
     @staticmethod

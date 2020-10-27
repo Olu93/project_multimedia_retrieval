@@ -19,7 +19,7 @@ import sknw
 import networkx as nx
 
 # %%
-mesh = pv.read("C:\\Users\\ohund\\workspace\\project_multimedia_retrieval\\trash\\m1.ply")
+mesh = pv.read("C:\\Users\\ohund\\workspace\\project_multimedia_retrieval\\trash\\m118.ply")
 mesh.plot()
 
 
@@ -113,7 +113,7 @@ def visualize_skeleton_graph_extraction(sillhouette, G, endpoints=True, conjunct
         return ax
 
     num = sum([endpoints, conjuncts, edge_lengths])
-    fig, axes = plt.subplots(1, num + 1)
+    fig, axes = plt.subplots(1, num)
     axes_list = list(axes.ravel()[::-1])
     create_base_image(axes_list.pop(), sillhouette, G)
     if endpoints:
@@ -122,7 +122,7 @@ def visualize_skeleton_graph_extraction(sillhouette, G, endpoints=True, conjunct
         ps = np.array([G.nodes()[i]['o'] for i in nodes])
         ax.plot(ps[:, 1], ps[:, 0], 'r.')
     if conjuncts:
-        nodes = extract_endpoints(G)
+        nodes = extract_conjunctions(G)
         ax = create_base_image(axes_list.pop(), sillhouette, G)
         ps = np.array([G.nodes()[i]['o'] for i in nodes])
         ax.plot(ps[:, 1], ps[:, 0], 'r.')
@@ -140,8 +140,60 @@ def extract_edge_lengths(G):
     return l2_distances
 
 
+print(extract_edge_lengths(extracted_information[which][2])[:5])
+def extract_edge_lengths_fast(G):
+    l2_distances = np.array([G[s][e]['weight'] for s, e in G.edges()])
+    return l2_distances
 
-extract_edge_lengths(extracted_information[which][2])
+print(extract_edge_lengths_fast(extracted_information[which][2])[:5])
 # %%
+import itertools
 
+
+def extract_edge_paths(G):
+    def follow_paths(path_start):
+        if type(path_start) == list:
+            return path_start
+        path_set = []
+        for k, v in path_start.items():
+            path_set.extend(follow_paths(v))
+        return tuple(set(path_set))
+
+    H = G.__class__()
+    H.add_nodes_from(G)
+    H.add_edges_from(G.edges)
+
+    populated_lengths = [node for node in H.nodes() if len(H.adj[node]) == 2]
+    H = H.subgraph(populated_lengths)
+    complexetons = list(set([follow_paths(v) for k, v in nx.shortest_path(H).items()]))
+    complexetons = [keep for keep in complexetons if len(keep) > 1]
+
+    # final_paths =  G.edges(complexetons)
+
+    others = [node for node in G.nodes() if len(G.adj[node]) > 2]
+    simpletons = list(set(G.edges(others)))
+    return complexetons, simpletons
+
+
+grph = extracted_information[which][2]
+# extract_edge_paths(grph)
+
+
+# %%
+def compute_graph_path_lengths(G):
+    complexetons, simpletons = extract_edge_paths(G)
+    return [len(pth) + 2 for pth in complexetons] + [1 for pth in simpletons]
+
+compute_graph_path_lengths(grph)
+# %%
+# Shape average thickness
+
+def compute_average_shape_thickness(G):
+    endpoints = [G.nodes()[node]['o'] for node in extract_endpoints(G)]
+    pairs = np.array(list(itertools.product(endpoints, endpoints)))
+    differences = np.diff(pairs, axis=1).reshape(-1, 2)
+    distances = np.linalg.norm(differences, axis=1)
+    return distances.mean()
+
+print(compute_average_shape_thickness(grph))
 # %%
