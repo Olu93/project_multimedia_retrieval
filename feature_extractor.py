@@ -125,12 +125,12 @@ class FeatureExtractor:
     @staticmethod
     @exception_catcher
     def mono_skeleton_features(silh_skeleton_graph_set):
-        num_endpoints = [compute_endpoints(grph) for vp, silh, skel, grph in silh_skeleton_graph_set]
-        num_conjunctions = [compute_conjunctions(grph) for vp, silh, skel, grph in silh_skeleton_graph_set]
-        asymmetries = [compute_asymmetry(silh) for vp, silh, skel, grph in silh_skeleton_graph_set]
-        img_eccentricity = [compute_img_eccentricity(skel) for vp, silh, skel, grph in silh_skeleton_graph_set]
-        average_edge_lengths = [compute_edge_lengths(grph) for vp, silh, skel, grph in silh_skeleton_graph_set]
-        average_distance_to_center = [compute_distance_to_center(skel) for vp, silh, skel, grph in silh_skeleton_graph_set]
+        num_endpoints = [compute_endpoints(grph) for silh, skel, grph in silh_skeleton_graph_set]
+        num_conjunctions = [compute_conjunctions(grph) for silh, skel, grph in silh_skeleton_graph_set]
+        asymmetries = [compute_asymmetry(silh) for silh, skel, grph in silh_skeleton_graph_set]
+        img_eccentricity = [compute_img_eccentricity(skel) for silh, skel, grph in silh_skeleton_graph_set]
+        average_edge_lengths = [compute_edge_lengths(grph) for silh, skel, grph in silh_skeleton_graph_set]
+        average_distance_to_center = [compute_distance_to_center(skel) for silh, skel, grph in silh_skeleton_graph_set]
         return {
             "skeleton_num_endpoints": num_endpoints,
             "skeleton_num_conjunctions": num_conjunctions,
@@ -318,5 +318,5 @@ class TsneVisualiser:
 
 if __name__ == "__main__":
     FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE))
-    # FE.run_full_pipeline_slow()  
+    # FE.run_full_pipeline_slow()
     FE.run_full_pipeline()

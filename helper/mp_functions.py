@@ -26,6 +26,7 @@ def compute_feature_extraction(extractor, data):
 
     pre_compute = mp.Process(target=pre_compute_sillhouttes, args=(data, q))
     pre_compute.start()
+    pool = mp.Pool(5)
 
     num_processes = math.ceil(mp.cpu_count() * .75)
     for i in range(num_processes):

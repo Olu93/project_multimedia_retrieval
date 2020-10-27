@@ -34,65 +34,51 @@ def prepare_image(img):
     return img_copy
 
 
-def extract_sillhouettes(mesh):
-    images = []
-    normal = np.zeros((3, 1))
-    for i in range(3):
-        p = pv.Plotter(
-            notebook=False,
-            off_screen=True,
-        )
-        normal[:] = 0
-        normal[i] = -1
-        projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
-        p.add_mesh(projected)
-        p.set_position(normal * 2)
-        img = p.get_image_depth()
-        p.close()
-        images.append(prepare_image(img))
-    return images
+def extract_sillhouettes(mesh, normal):
+    p = pv.Plotter(
+        notebook=False,
+        off_screen=True,
+    )
+    projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
+    p.add_mesh(projected)
+    p.set_position(normal * 2)
+    p.render()
+    img = p.get_image_depth()
+    return prepare_image(img)
 
 
-def extract_sillhouettes_fullimage(mesh):
-    images = []
-    normal = np.zeros((3, 1))
-    for i in range(3):
-        normal[:] = 0
-        normal[i] = -1
-        cpos = [normal * 2, (0, 0, 0), (0, 0, 1.0)]
-        projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
-        _, img = pv.plot(
-            projected,
-            cpos=cpos,
-            notebook=False,
-            off_screen=True,
-            screenshot=True,
-            return_img=True,
-            background=[0, 0, 0],
-        )
-        images.append(prepare_image(img))
-    return images
-
-
-
-def extract_skeletons(sillh):
-    return [binary_closing(skeletonize(img_array, method="zhang")).astype(np.uint8) for img_array in sillh]
-
-
-def extract_graphs(skeletons):
-    graphs = [sknw.build_sknw(ske) for ske in skeletons]
-    for G in graphs:
-        G.remove_nodes_from(list(nx.isolates(G)))
-    return graphs
+def extract_sillhouettes_fullimage(mesh, normal):
+    cpos = [normal * 2, (0, 0, 0), (0, 0, 1.0)]
+    projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
+    _, img = pv.plot(
+        projected,
+        cpos=cpos,
+        notebook=False,
+        off_screen=True,
+        screenshot=True,
+        return_img=True,
+        background=[0, 0, 0],
+    )
+    
+    return prepare_image(img)
 
 
 def extract_graphical_forms(mesh):
-    sillhouettes = extract_sillhouettes(mesh)
-    skeletons = extract_skeletons(sillhouettes)
-    graphs = extract_graphs(skeletons)
-    perspectives = "x y z".split()
-    extracted_information = list(zip(perspectives, sillhouettes, skeletons, graphs))
-    return extracted_information
+    normals = np.eye(3) * -1
+    sillhouettes = (extract_sillhouettes(mesh, normal) for normal in normals)
+    skeletons = (extract_skeletons(sillh) for sillh in sillhouettes)
+    sillh_skel_grph = (extract_graphs(sillh_skel) for sillh_skel in skeletons)
+    return list(sillh_skel_grph)
+
+
+def extract_skeletons(sillh):
+    return (sillh, binary_closing(skeletonize(sillh, method="zhang")).astype(np.uint8))
+
+
+def extract_graphs(sillh_skel):
+    G = sknw.build_sknw(sillh_skel[1])
+    G.remove_nodes_from(list(nx.isolates(G)))
+    return (sillh_skel[0], sillh_skel[1], G)
 
 
 def extract_endpoints(G):
@@ -137,7 +123,7 @@ def compute_asymmetry(original):
 @exception_catcher_singletons
 def compute_distance_to_center(skeleton):
     center_point = np.flip((np.array(skeleton.shape) // 2)).reshape((-1, 2))
-    skeleton_points = np.flip(np.array(np.where(skeleton == 1))).T # TODO: Use node points instead
+    skeleton_points = np.flip(np.array(np.where(skeleton == 1))).T  # TODO: Use node points instead
     if not len(skeleton_points):
         return 0
     return np.linalg.norm(skeleton_points - center_point, axis=1).mean()

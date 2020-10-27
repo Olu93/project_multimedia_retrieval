@@ -25,10 +25,10 @@ mesh = pv.read("C:\\Users\\ohund\\workspace\\project_multimedia_retrieval\\trash
 
 
 # %%
-def prepare_image(img):
+def prepare_image(img, proj):
     img_copy = np.ones_like(img)
     img_copy[np.isnan(img)] = 0
-    return img_copy
+    return img_copy, proj
 
 
 def extract_sillhouettes(mesh):
@@ -45,23 +45,9 @@ def extract_sillhouettes(mesh):
         p.add_mesh(projected)
         p.set_position(normal * 2)
         img = p.get_image_depth()
-        images.append(prepare_image(img))
+        images.append(prepare_image(img, projected))
     return images
 
-
-# def extract_sillhouettes(mesh):
-#     images = []
-#     normal = np.zeros((3, 1))
-#     p = pv.Plotter()
-#     for i in range(3):
-#         normal[:] = 0
-#         normal[i] = -1
-#         # cpos = [normal * 2, (0, 0, 0), (0, 0, 1.0)]
-#         projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
-#         p.add_mesh(projected)
-#         p.set_position(normal * 2)
-#         images.append(prepare_image(p.get_image_depth()))
-#     return images
 
 def extract_skeletons(sillh):
     return [binary_closing(skeletonize(img_array, method="zhang")).astype(np.uint8) for img_array in sillh]
@@ -75,10 +61,11 @@ def extract_graphs(skeletons):
 
 
 sillhouettes = extract_sillhouettes(mesh)
-plt.imshow(sillhouettes[2], 'gray')
+plt.imshow(sillhouettes[2][0], 'gray')
 # %%
+projected = sillhouettes[2][1]
 dims = np.array([1024, 724])
-img = proj[0].points
+img = projected.points
 not_null = np.sum(img, axis=0) != 0
 points = img[:, not_null]
 positive_points = points - points.min(axis=0)
