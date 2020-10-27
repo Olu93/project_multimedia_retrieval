@@ -2,13 +2,14 @@ from collections import Counter
 from datetime import datetime
 from helper.skeleton import compute_conjunctions, compute_distance_to_center, compute_edge_lengths, compute_endpoints, compute_img_eccentricity, extract_graphical_forms, compute_asymmetry
 from pprint import pprint
+import glob
 
 import jsonlines
 import numpy as np
 from tqdm import tqdm
 
 from helper import diameter_computer
-from helper.misc import compactness_computation, convex_hull_transformation, exception_catcher, fill_holes, sphericity_computation
+from helper.misc import compactness_computation, convex_hull_transformation, exception_catcher, fill_holes, jsonify, sphericity_computation
 from helper.diameter_computer import compute_diameter
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
 from helper.mp_functions import compute_feature_extraction, listener
@@ -37,7 +38,7 @@ np.seterr('raise')
 
 
 class FeatureExtractor:
-    number_vertices_sampled = 100000
+    number_vertices_sampled = 100 if DEBUG else 100000
     number_bins = 20
 
     def __init__(self, reader=None, target_file="./computed_features.jsonl", append_mode=False):
@@ -68,7 +69,14 @@ class FeatureExtractor:
 
         num_full_data = len(self.reader.full_data)
         relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
-        return compute_feature_extraction(self, relevant_subset_of_data)
+        result = compute_feature_extraction(self, relevant_subset_of_data)
+
+        filenames = glob.glob("stats/tmp/tmp-*.jsonl")
+        with open(self.feature_stats_file, 'w') as outfile:
+            for fname in filenames:
+                with open(fname) as infile:
+                    outfile.write(infile.read())
+        return result
 
     def run_full_pipeline_slow(self, max_num_items=None):
 
@@ -79,7 +87,7 @@ class FeatureExtractor:
             relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
             num_data_being_processed = len(relevant_subset_of_data)
             feature_data_generator = (FeatureExtractor.mono_run_pipeline(data) for data in tqdm(relevant_subset_of_data, total=num_data_being_processed))
-            prepared_data = (FeatureExtractor.jsonify(item) for item in feature_data_generator)
+            prepared_data = (jsonify(item) for item in feature_data_generator)
             prepared_data = (dict(timestamp=self.timestamp, **item) for item in prepared_data)
             for next_feature_set in prepared_data:
                 features.append(next_feature_set)
@@ -117,10 +125,10 @@ class FeatureExtractor:
         x, y, z = silh_skeleton_graph_set
         num_endpoints = [compute_endpoints(grph) for vp, silh, skel, grph in silh_skeleton_graph_set]
         num_conjunctions = [compute_conjunctions(grph) for vp, silh, skel, grph in silh_skeleton_graph_set]
-        average_edge_lengths = [compute_edge_lengths(grph) for vp, silh, skel, grph in silh_skeleton_graph_set]
         asymmetries = [compute_asymmetry(silh) for vp, silh, skel, grph in silh_skeleton_graph_set]
-        average_distance_to_center = [compute_distance_to_center(skel) for vp, silh, skel, grph in silh_skeleton_graph_set]
         img_eccentricity = [compute_img_eccentricity(skel) for vp, silh, skel, grph in silh_skeleton_graph_set]
+        average_edge_lengths = [compute_edge_lengths(grph) for vp, silh, skel, grph in silh_skeleton_graph_set]
+        average_distance_to_center = [compute_distance_to_center(skel) for vp, silh, skel, grph in silh_skeleton_graph_set]
         return {
             "skeleton_num_endpoints": num_endpoints,
             "skeleton_num_conjunctions": num_conjunctions,
@@ -308,4 +316,4 @@ class TsneVisualiser:
 
 if __name__ == "__main__":
     FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE))
-    FE.run_full_pipeline_slow() if not DEBUG else FE.run_full_pipeline()
+    FE.run_full_pipeline_slow() if DEBUG else FE.run_full_pipeline()

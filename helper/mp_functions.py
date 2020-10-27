@@ -11,28 +11,27 @@ import pyvista as pv
 from .diameter_computer import Node, AprxDiamWSPDRecursive
 import pandas as pd
 from itertools import product
-
-
+from pprint import pprint
+import time
 # https://stackoverflow.com/a/13530258/4162265
 def compute_feature_extraction(extractor, data):
     manager = mp.Manager()
     q = manager.Queue()
-    timestamp = str(datetime.now())
-    pool = mp.Pool(math.ceil(mp.cpu_count() * .75))
-    p = mp.Process(target=listener, args=(extractor.feature_stats_file, q))
-    p.start()
-    num_data_being_processed = len(data)
-    pipeline = tqdm(data, total=num_data_being_processed)
-    pipeline = pool.imap(extractor.mono_run_pipeline, pipeline, chunksize=5)
-    pipeline = (jsonify(item) for item in pipeline)
-    pipeline = (dict(timestamp=timestamp, **item) for item in pipeline)
-    for item in pipeline:
+    process_list = []
+    for item in data:
         q.put(item)
+    # progress_bar = tqdm(total=len(data))
+    for i in range(math.ceil(mp.cpu_count() * .75)):
+        p = mp.Process(target=listener, args=(extractor, q, i))
+        process_list.append(p)
 
-    q.put('kill')
-    pool.close()
-    pool.join()
-    p.join()
+    p = mp.Process(target=heart_beat_check, args=(process_list,))
+    for proc in process_list + [p]:
+        proc.start()
+
+    for p in process_list:
+        p.join()
+
     return True
 
 
@@ -60,13 +59,28 @@ def point_distance(points):
     return np.linalg.norm(p1 - p2)
 
 
-def listener(target_file, q):
+def listener(extractor, q, index):
     '''listens for messages on the q, writes to file. '''
-    print("SPINNING UP THE QUEUE!!!")
-    with jsonlines.open(target_file, "w") as writer:
-        while 1:
-            m = q.get()
-            if m == 'kill':
-                break
-            writer.write(m)
-            print(f"Write {m['name']} into file!")
+    print("SPINNING UP THE PROCESS!!!")
+    timestamp = str(datetime.date(datetime.now()))
+    file_name = f"stats/tmp/tmp-{index}.jsonl"
+
+    with jsonlines.open(file_name, mode="w", flush=True) as writer:
+        while not q.empty():
+            m = q.get(block=True)
+            result = extractor.mono_run_pipeline(m)
+            result = jsonify(result)
+            result = dict(timestamp=timestamp, **result)
+            # pprint({key: type(val) if not type(val) == list else list(set([type(num) for num in val])) for key, val in result.items()})
+            writer.write(result)
+            print(f"Write {result['name']} into file {file_name}!")
+            # tqdm.update(1)
+
+
+def heart_beat_check(process_list):
+    num_alive = len(process_list)
+    print(f"Spinning up heart beat check - {num_alive} hearts - Badumm Tzzz....")
+    while num_alive == 0:
+        num_alive = sum([p.is_alive() for p in process_list])
+        print(f"{num_alive} processes sill alive and kicking!")
+        time.sleep(1)

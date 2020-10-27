@@ -27,30 +27,41 @@ mesh = pv.read("C:\\Users\\ohund\\workspace\\project_multimedia_retrieval\\trash
 # %%
 def prepare_image(img):
     img_copy = np.ones_like(img)
-    img_copy[np.where(img != 0)] = 255
-    return img_copy / 255
+    img_copy[np.isnan(img)] = 0
+    return img_copy
 
 
 def extract_sillhouettes(mesh):
     images = []
     normal = np.zeros((3, 1))
+    p = pv.Plotter(
+        notebook=False,
+        off_screen=True,
+    )
     for i in range(3):
         normal[:] = 0
         normal[i] = -1
-        cpos = [normal * 2, (0, 0, 0), (0, 0, 1.0)]
         projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
-        _, img = pv.plot(
-            projected,
-            cpos=cpos,
-            notebook=False,
-            off_screen=True,
-            screenshot=True,
-            return_img=True,
-            background=[0, 0, 0],
-        )
+        p.add_mesh(projected)
+        p.set_position(normal * 2)
+        img = p.get_image_depth()
         images.append(prepare_image(img))
     return images
 
+
+# def extract_sillhouettes(mesh):
+#     images = []
+#     normal = np.zeros((3, 1))
+#     p = pv.Plotter()
+#     for i in range(3):
+#         normal[:] = 0
+#         normal[i] = -1
+#         # cpos = [normal * 2, (0, 0, 0), (0, 0, 1.0)]
+#         projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
+#         p.add_mesh(projected)
+#         p.set_position(normal * 2)
+#         images.append(prepare_image(p.get_image_depth()))
+#     return images
 
 def extract_skeletons(sillh):
     return [binary_closing(skeletonize(img_array, method="zhang")).astype(np.uint8) for img_array in sillh]
@@ -64,7 +75,7 @@ def extract_graphs(skeletons):
 
 
 sillhouettes = extract_sillhouettes(mesh)
-plt.imshow(sillhouettes[0], 'gray')
+plt.imshow(sillhouettes[2], 'gray')
 # %%
 dims = np.array([1024, 724])
 img = proj[0].points

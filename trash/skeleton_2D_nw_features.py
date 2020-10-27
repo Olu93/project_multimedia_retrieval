@@ -70,8 +70,12 @@ def visualize_skeleton_extraction(sillhouettes, skeletons, graphs):
             continue
         ax = fig.add_subplot(3, 3, idx + 1)
         ax.imshow(img_array, cmap=plt.cm.gray)
+        if idx == 0:
+            ax.set_ylabel('Contour', fontsize=15)
         ax = fig.add_subplot(3, 3, 3 + idx + 1)
         ax.imshow(skeleton, cmap=plt.cm.gray)
+        if idx == 0:
+            ax.set_ylabel('Skeleton', fontsize=15)
         ax = fig.add_subplot(3, 3, 6 + idx + 1)
         ax.imshow(img_array, cmap="gray")
         for (s, e) in G.edges():
@@ -80,6 +84,8 @@ def visualize_skeleton_extraction(sillhouettes, skeletons, graphs):
         nodes = [node for node in G.nodes()]
         ps = np.array([G.nodes()[i]['o'] for i in nodes])
         ax.plot(ps[:, 1], ps[:, 0], 'r.')
+        if idx == 0:
+            ax.set_ylabel('Graph', fontsize=15)
 
     plt.tight_layout()
     return plt.show()
@@ -141,9 +147,12 @@ def extract_edge_lengths(G):
 
 
 print(extract_edge_lengths(extracted_information[which][2])[:5])
+
+
 def extract_edge_lengths_fast(G):
     l2_distances = np.array([G[s][e]['weight'] for s, e in G.edges()])
     return l2_distances
+
 
 print(extract_edge_lengths_fast(extracted_information[which][2])[:5])
 # %%
@@ -176,6 +185,7 @@ def extract_edge_paths(G):
 
 
 grph = extracted_information[which][2]
+
 # extract_edge_paths(grph)
 
 
@@ -184,9 +194,11 @@ def compute_graph_path_lengths(G):
     complexetons, simpletons = extract_edge_paths(G)
     return [len(pth) + 2 for pth in complexetons] + [1 for pth in simpletons]
 
+
 compute_graph_path_lengths(grph)
 # %%
 # Shape average thickness
+
 
 def compute_average_shape_thickness(G):
     endpoints = [G.nodes()[node]['o'] for node in extract_endpoints(G)]
@@ -194,6 +206,7 @@ def compute_average_shape_thickness(G):
     differences = np.diff(pairs, axis=1).reshape(-1, 2)
     distances = np.linalg.norm(differences, axis=1)
     return distances.mean()
+
 
 print(compute_average_shape_thickness(grph))
 # %%

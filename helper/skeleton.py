@@ -1,5 +1,5 @@
 import itertools
-
+import time
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -22,13 +22,39 @@ def exception_catcher_singletons(func):
     return new_func
 
 
-def prepare_image(img):
+def prepare_image_fullimage(img):
     img_copy = img.mean(axis=2)
     img_copy[np.where(img_copy != 0)] = 255
     return img_copy / 255
 
 
+def prepare_image(img):
+    img_copy = np.ones_like(img)
+    img_copy[np.isnan(img)] = 0
+    return img_copy
+
+
 def extract_sillhouettes(mesh):
+    images = []
+    normal = np.zeros((3, 1))
+    for i in range(3):
+        p = pv.Plotter(
+            notebook=False,
+            off_screen=True,
+        )
+        normal[:] = 0
+        normal[i] = -1
+        projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
+        p.add_mesh(projected)
+        p.set_position(normal * 2)
+        img = p.get_image_depth()
+        p.close()
+        images.append(prepare_image(img))
+        time.sleep(.1)
+    return images
+
+
+def extract_sillhouettes_fullimage(mesh):
     images = []
     normal = np.zeros((3, 1))
     for i in range(3):
@@ -48,20 +74,6 @@ def extract_sillhouettes(mesh):
         images.append(prepare_image(img))
     return images
 
-
-# def extract_sillhouettes(mesh):
-#     images = []
-#     normal = np.zeros((3, 1))
-#     p = pv.Plotter()
-#     for i in range(3):
-#         normal[:] = 0
-#         normal[i] = -1
-#         # cpos = [normal * 2, (0, 0, 0), (0, 0, 1.0)]
-#         projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
-#         p.add_mesh(projected)
-#         p.set_position(normal * 2)
-#         images.append(prepare_image(p.get_image_depth()))
-#     return images
 
 
 def extract_skeletons(sillh):
@@ -120,13 +132,13 @@ def compute_asymmetry(original):
     v_distance = (original - flip_vertical) * 0.5
     h_norm = np.sqrt(np.square(h_distance).sum())
     v_norm = np.sqrt(np.square(v_distance).sum())
-    return h_norm + v_norm
+    return float(h_norm + v_norm)
 
 
 @exception_catcher_singletons
 def compute_distance_to_center(skeleton):
     center_point = np.flip((np.array(skeleton.shape) // 2)).reshape((-1, 2))
-    skeleton_points = np.flip(np.array(np.where(skeleton == 1))).T
+    skeleton_points = np.flip(np.array(np.where(skeleton == 1))).T # TODO: Use node points instead
     if not len(skeleton_points):
         return 0
     return np.linalg.norm(skeleton_points - center_point, axis=1).mean()
