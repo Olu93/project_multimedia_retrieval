@@ -19,26 +19,24 @@ import time
 # https://stackoverflow.com/a/13530258/4162265
 def compute_feature_extraction(extractor, data):
     manager = mp.Manager()
-    q = manager.Queue()
+    q = manager.Queue(maxsize=4)
     process_list = []
 
     # progress_bar = tqdm(total=len(data))
 
-    pre_compute = mp.Process(target=pre_compute_sillhouttes, args=(data, q))
+    pre_compute = mp.Process(target=pre_compute_sillhouttes, args=(data, q, extractor))
     pre_compute.start()
-    pool = mp.Pool(5)
 
-    num_processes = math.ceil(mp.cpu_count() * .75)
+    num_processes = 3
     for i in range(num_processes):
         p = mp.Process(target=listener, args=(extractor, q, i))
         process_list.append(p)
         p.start()
 
-
     pre_compute.join()
     for i in range(num_processes + 5):
         q.put((None, None))
-    
+
     for p in process_list:
         p.join()
 
@@ -82,19 +80,24 @@ def listener(extractor, q, index):
                 print("PROCESS ENDS HERE!!!")
                 break
             result = extractor.mono_run_pipeline(m)
+            # poly_data = pv.PolyData(m["data"]["vertices"], m["data"]["faces"])
             result = jsonify(result)
             result = dict(timestamp=timestamp, **result)
-            result.update(extractor.mono_skeleton_features(image_info))
+            result.update(image_info)
+            result.update({key: list(val) for key, val in extractor.gaussian_curvature(m).items()})
+            del m
             # pprint({key: type(val) if not type(val) == list else list(set([type(num) for num in val])) for key, val in result.items()})
             writer.write(result)
             print(f"Write {result['name']} into file {file_name}!")
+            del result
             # tqdm.update(1)
 
 
-def pre_compute_sillhouttes(data, q):
+def pre_compute_sillhouttes(data, q, extractor):
     for item in tqdm(data, total=len(data)):
-    # for item in data:
-        package = (item, extract_graphical_forms(pv.PolyData(item["data"]["vertices"], item["data"]["faces"])))
+        # for item in data:
+        image_info = extractor.mono_skeleton_features(extract_graphical_forms(pv.PolyData(item["data"]["vertices"], item["data"]["faces"])))
+        package = (item, image_info)
         q.put(package)
 
 

@@ -63,6 +63,22 @@ class FeatureExtractor:
         # final_dict.update(skeleton_features)
         return final_dict
 
+    @staticmethod
+    def mono_run_pipeline_slow(data):
+        final_dict = {}
+        final_dict["name"] = data["meta_data"]["name"]
+        final_dict["label"] = data["meta_data"]["label"]
+        data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
+        singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
+        histogram_pipeline.update({FeatureExtractor.gaussian_curvature: "Gaussian Curvature"})
+        
+        gather_data = [list(func(data).items())[0] for func in [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
+        skeleton_features = FeatureExtractor.skeleton_singleton_features(data)
+        
+        final_dict.update(gather_data)
+        final_dict.update(skeleton_features)
+        return final_dict
+
     def run_full_pipeline(self, max_num_items=None):
 
         num_full_data = len(self.reader.full_data)
@@ -80,12 +96,12 @@ class FeatureExtractor:
 
         target_file = self.feature_stats_file
         features = []
-        with jsonlines.open(target_file, mode="a" if self.append_mode else "w") as writer:
+        with jsonlines.open(target_file, mode="a" if self.append_mode else "w", flush=True) as writer:
             num_full_data = len(self.reader.full_data)
             relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
             num_data_being_processed = len(relevant_subset_of_data)
-            feature_data_generator = (FeatureExtractor.mono_run_pipeline(data) for data in tqdm(relevant_subset_of_data, total=num_data_being_processed))
-            prepared_data = (jsonify(item) for item in feature_data_generator)
+            prepared_data = (FeatureExtractor.mono_run_pipeline_slow(data) for data in tqdm(relevant_subset_of_data, total=num_data_being_processed))
+            prepared_data = (jsonify(item) for item in prepared_data)
             prepared_data = (dict(timestamp=self.timestamp, **item) for item in prepared_data)
             for next_feature_set in prepared_data:
                 features.append(next_feature_set)
@@ -131,6 +147,7 @@ class FeatureExtractor:
         img_eccentricity = [compute_img_eccentricity(skel) for silh, skel, grph in silh_skeleton_graph_set]
         average_edge_lengths = [compute_edge_lengths(grph) for silh, skel, grph in silh_skeleton_graph_set]
         average_distance_to_center = [compute_distance_to_center(skel) for silh, skel, grph in silh_skeleton_graph_set]
+        del silh_skeleton_graph_set
         return {
             "skeleton_num_endpoints": num_endpoints,
             "skeleton_num_conjunctions": num_conjunctions,
@@ -219,7 +236,7 @@ class FeatureExtractor:
         f_volumes = np.abs(np.einsum("ij,ij -> i", A, B)) / 6
         cube_root = f_volumes**(1 / 3)
         histogram = FeatureExtractor.make_bins(cube_root, FeatureExtractor.number_bins)
-
+        del random_indices
         return {"cube_root_volume_four_rand_verts": histogram}
 
     @staticmethod
@@ -236,7 +253,7 @@ class FeatureExtractor:
         cosine_angles = dot_products / norm_products
         angle_rads = np.arccos(cosine_angles)
         angles_degs = np.degrees(angle_rads)
-
+        del indices_triplets
         return {"rand_angle_three_verts": FeatureExtractor.make_bins(angles_degs, FeatureExtractor.number_bins)}
 
     @staticmethod
@@ -247,6 +264,7 @@ class FeatureExtractor:
         indices_tuples = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 2))
         verts_tuples = [mesh.points[tup] for tup in indices_tuples]
         distances = np.linalg.norm(np.abs(np.diff(np.array(verts_tuples), axis=1)).reshape(-1, 3), axis=1)
+        del indices_tuples
         return {"rand_dist_two_verts": FeatureExtractor.make_bins(distances, FeatureExtractor.number_bins)}
 
     @staticmethod
@@ -258,6 +276,7 @@ class FeatureExtractor:
         indices = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 1))
         rand_verts = mesh.points[indices]
         distances = np.linalg.norm(np.abs(rand_verts.reshape(-1, 3) - bary_center), axis=1)
+        del indices
         return {"dist_bar_vert": FeatureExtractor.make_bins(distances, FeatureExtractor.number_bins)}
 
     @staticmethod
@@ -267,6 +286,7 @@ class FeatureExtractor:
         verts_list = FeatureExtractor.generate_random_ints(0, len(mesh.points) - 1, (FeatureExtractor.number_vertices_sampled, 3))
         triangle_areas = PSBDataset._get_cell_areas(mesh.points, verts_list)
         sqrt_areas = np.sqrt(triangle_areas)
+        del verts_list
         return {"sqrt_area_rand_three_verts": FeatureExtractor.make_bins(sqrt_areas, FeatureExtractor.number_bins)}
 
     @staticmethod
@@ -318,5 +338,5 @@ class TsneVisualiser:
 
 if __name__ == "__main__":
     FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE))
-    # FE.run_full_pipeline_slow()
-    FE.run_full_pipeline()
+    FE.run_full_pipeline_slow()
+    # FE.run_full_pipeline()

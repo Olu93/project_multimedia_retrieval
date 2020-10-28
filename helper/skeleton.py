@@ -44,6 +44,7 @@ def extract_sillhouettes(mesh, normal):
     p.set_position(normal * 2)
     p.render()
     img = p.get_image_depth()
+    time.sleep(.3)
     return prepare_image(img)
 
 
