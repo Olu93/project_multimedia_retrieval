@@ -51,6 +51,54 @@ class QueryMatcher(object):
         indices, values = t.get_nns_by_vector(query, k, include_distances=True)
         return values, indices
 
+    def compare_features_with_database(self, feature_set,
+                                       weights, k=5,
+                                       hist_dist_func=None,
+                                       scalar_dist_func=None,
+                                       n_scalar_features=6):
+
+        scalar_dist_func = QueryMatcher.cosine_distance if not scalar_dist_func else scalar_dist_func
+        hist_dist_func = QueryMatcher.cosine_distance if not hist_dist_func else hist_dist_func
+
+        # Make order consistent with matching features db and flatten its distributional values
+        feature_dict_in_correct_order = self.prepare_single_feature_for_comparison(feature_set,
+                                                                                   list(feature_set.columns))
+        # Make an array of the flattened list and reshape so to be [1,]
+        feature_instance_vector = np.array(list(feature_dict_in_correct_order.values())).reshape(1, -1)
+        # Get processed features from json file
+        feature_database_matrix = self.features_df.values
+        # Create a matrix of query feature plus all other in db
+        self.full_mat = np.vstack((feature_instance_vector, feature_database_matrix))
+
+        # Standardise (zscore)
+        scalar_values = self.full_mat[:, :n_scalar_features]
+        scalars_mean = np.mean(self.full_mat[:, :n_scalar_features], axis=0)
+        scalars_std = np.std(self.full_mat[:, :n_scalar_features], axis=0)
+        scalar_values = (scalar_values - scalars_mean) / scalars_std
+
+        # Extract hist values
+        hist_values = self.full_mat[:, n_scalar_features:]
+
+        if scalar_dist_func == QueryMatcher.perform_knn:
+            # Perform knn and store results
+            distance_values, indices = self.perform_knn(self.full_mat[0, :].reshape(1, -1), self.full_mat[1:, :], k)
+        else:
+            # Get results from distance function providing first row of matrix (query) and all others to match it with
+            scalar_result = scalar_dist_func(scalar_values[0, :].reshape(1, -1), scalar_values[1:, :]) * weights[0]
+
+            hist_result = hist_dist_func(hist_values[0, :].reshape(1, -1), hist_values[1:, :]) * weights[1]
+
+            result = np.sum(np.vstack((scalar_result, hist_result)), axis=0).reshape(-1, 1)
+
+            # Get indices and values, but indices are not of the filename in db (i.e. 'm + index' won't work)
+            indices, distance_values = QueryMatcher.get_top_k(result, k)
+
+        # Retrieve the actual name from indexing the raw dict of shapes
+        selected_shapes = np.array(self.features_raw)[indices]
+        # For each shape selected, append name and return it
+        names = [s["name"] for s in selected_shapes.reshape(-1, )]
+        return names, distance_values
+
     def match_with_db(self, feature_set, k=5, distance_functions=[], weights=None):
         feature_set_transformed = QueryMatcher.prepare_for_matching(feature_set=feature_set)
         assert len(feature_set_transformed) == len(

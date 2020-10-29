@@ -181,6 +181,23 @@ class SimilarMeshesListWindow(Qt.QWidget):
             self.scalarDistanceMethodList.setCurrentText("K-Nearest Neighbors")
             self.histDistanceMethodList.setCurrentText("K-Nearest Neighbors")
 
+        #                       OLDER VERSION
+        # scalarDistanceFunctionText = self.scalarDistanceMethodList.currentText()
+        # scalarDistFunction = self.scalarDistancesDict[scalarDistanceFunctionText]
+        #
+        # histDistanceFunctionText = self.histDistanceMethodList.currentText()
+        # histDistFunction = self.histDistancesDict[histDistanceFunctionText]
+        #
+        # weights = [self.scalarSliderWeights.value()] + [self.histSliderWeights.value()] * 5
+        #
+        # features_flattened = QueryMatcher.flatten_feature_dict(self.query_mesh_features)
+        # features_df = pd.DataFrame(features_flattened, index=[0])
+        # indices, cosine_values = self.query_matcher.compare_features_with_database(features_df,
+        #                                                                            weights=weights,
+        #                                                                            k=self.sliderK.value(),
+        #                                                                            scalar_dist_func=scalarDistFunction,
+        #                                                                            hist_dist_func=histDistFunction)
+
         n_distributionals = len(FeatureExtractor.get_pipeline_functions()[1])
 
         weights = ([self.scalarSliderWeights.value() / 10]) + \
