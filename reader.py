@@ -1,4 +1,5 @@
 import glob
+from helper.skeleton import extract_graphical_forms
 import inspect
 import io
 from collections import Counter
@@ -42,7 +43,6 @@ class DataSet:
         read_data = compute_read(self, tqdm(relevant_subset_of_data, total=num_data_being_processed))
         self.full_data = list(read_data)
         return self.full_data
-
 
     @staticmethod
     def mono_run_pipeline(descriptor):
@@ -114,6 +114,11 @@ class DataSet:
         self.full_data = [item for item in list(full_data_generator) if item["data"]]
         self.has_loaded_data = True
         print(f"Finished {inspect.currentframe().f_code.co_name}")
+
+    def load_image_data(self):
+        print("Load images")
+        len_of_ds = len(self.data_descriptors)
+        self.full_data = [dict(**mesh_data, images=extract_graphical_forms(pv.PolyData(mesh_data["data"]["vertices"], mesh_data["data"]["faces"]))) for mesh_data in tqdm(self.full_data, total=len_of_ds)]
 
     def compute_shape_statistics(self):
         self.all_statistics = pd.DataFrame([mesh_object["statistics"] for mesh_object in self.full_data])

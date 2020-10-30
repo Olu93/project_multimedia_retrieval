@@ -71,18 +71,17 @@ class FeatureExtractor:
         data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
         singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
         histogram_pipeline.update({FeatureExtractor.gaussian_curvature: "Gaussian Curvature"})
-        
+
         gather_data = [list(func(data).items())[0] for func in [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
-        skeleton_features = FeatureExtractor.skeleton_singleton_features(data)
-        
+        skeleton_features = FeatureExtractor.mono_skeleton_features(data["images"])
+
         final_dict.update(gather_data)
         final_dict.update(skeleton_features)
         return final_dict
 
     def run_full_pipeline(self, max_num_items=None):
-
-        num_full_data = len(self.reader.full_data)
-        relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
+        num_full_data = len(self.full_data)
+        relevant_subset_of_data = self.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
         result = compute_feature_extraction(self, relevant_subset_of_data)
 
         filenames = glob.glob("stats/tmp/tmp-*.jsonl")
@@ -93,7 +92,7 @@ class FeatureExtractor:
         return result
 
     def run_full_pipeline_slow(self, max_num_items=None):
-
+        self.full_data = self.reader.load_image_data()
         target_file = self.feature_stats_file
         features = []
         with jsonlines.open(target_file, mode="a" if self.append_mode else "w", flush=True) as writer:
@@ -338,5 +337,5 @@ class TsneVisualiser:
 
 if __name__ == "__main__":
     FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE))
-    FE.run_full_pipeline_slow()
-    # FE.run_full_pipeline()
+    # FE.run_full_pipeline_slow()
+    FE.run_full_pipeline()

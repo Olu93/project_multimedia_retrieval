@@ -17,32 +17,47 @@ from scipy.spatial.qhull import QhullError
 import skimage
 import sknw
 import networkx as nx
-
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figure
+from skimage import data, color
 # %%
 mesh = pv.read("C:\\Users\\ohund\\workspace\\project_multimedia_retrieval\\trash\\m118.ply")
 mesh.plot()
 
 
 # %%
-def prepare_image(img):
-    img_copy = np.ones_like(img)
-    img_copy[np.isnan(img)] = 0
-    return img_copy.astype(np.uint8)
+dims = np.array((128, 96))
+# dims = np.array([5, 5])
+def prepare_image(projected):
+    img = projected.points
+    not_null = np.sum(img, axis=0) != 0
+    points = img[:, not_null]
+
+    positive_points = points - points.min(axis=0)
+    scaled_points = positive_points / positive_points.max(axis=0)
+    retransformed_points = scaled_points * dims
+    points_on_canvas = np.floor(retransformed_points).astype(int)
+
+    fig = Figure()
+    canvas = FigureCanvas(fig)
+    ax = fig.gca()
+
+    ax.scatter(points_on_canvas[:, 0], points_on_canvas[:, 1], c='k')
+    ax.axis('off')
+
+    canvas.draw()
+    buf = canvas.buffer_rgba()
+    X = np.asarray(buf)
+    gray_image = X.mean(axis=2)
+    normalized = (gray_image - gray_image.min()) / (gray_image.max()-gray_image.min())
+    image = 1 - normalized
+    image[image != 0] = 1
+    return image
 
 
 def extract_sillhouettes(mesh, normal):
-    p = pv.Plotter(
-        notebook=False,
-        off_screen=True,
-        window_size=(128, 96),
-    )
     projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
-    p.add_mesh(projected)
-    p.set_position(normal * 2)
-    p.render()
-    img = p.get_image_depth()
-    
-    return prepare_image(img)
+    return prepare_image(projected)
 
 
 
@@ -57,13 +72,14 @@ def extract_graphs(skeletons):
     return graphs
 
 
-sillhouettes = extract_sillhouettes(mesh)
+
+
+sillhouettes = [extract_sillhouettes(mesh, normal) for normal in np.eye(3) * -1]
 skeletons = extract_skeletons(sillhouettes)
 graphs = extract_graphs(skeletons)
 extracted_information = list(zip(sillhouettes, skeletons, graphs))
 
 
-# %%
 def visualize_skeleton_extraction(sillhouettes, skeletons, graphs):
     fig = plt.figure(figsize=(12, 10))
     for idx, (img_array, skeleton, G) in enumerate(zip(sillhouettes, skeletons, graphs)):

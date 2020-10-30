@@ -31,20 +31,21 @@ def prepare_image_fullimage(img):
 def prepare_image(img):
     img_copy = np.ones_like(img)
     img_copy[np.isnan(img)] = 0
-    return img_copy
+    return img_copy.astype(np.uint8)
 
 
 def extract_sillhouettes(mesh, normal):
     p = pv.Plotter(
         notebook=False,
         off_screen=True,
+        window_size=(128, 96),
     )
     projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
     p.add_mesh(projected)
     p.set_position(normal * 2)
     p.render()
     img = p.get_image_depth()
-    time.sleep(.3)
+    
     return prepare_image(img)
 
 
@@ -60,7 +61,7 @@ def extract_sillhouettes_fullimage(mesh, normal):
         return_img=True,
         background=[0, 0, 0],
     )
-    
+    time.sleep(.3)
     return prepare_image(img)
 
 
@@ -69,6 +70,7 @@ def extract_graphical_forms(mesh):
     sillhouettes = (extract_sillhouettes(mesh, normal) for normal in normals)
     skeletons = (extract_skeletons(sillh) for sillh in sillhouettes)
     sillh_skel_grph = (extract_graphs(sillh_skel) for sillh_skel in skeletons)
+    time.sleep(1)
     return list(sillh_skel_grph)
 
 
