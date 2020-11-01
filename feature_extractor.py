@@ -12,7 +12,7 @@ from tqdm import tqdm
 from helper import diameter_computer
 from helper.misc import compactness_computation, convex_hull_transformation, exception_catcher, fill_holes, jsonify, sphericity_computation
 from helper.diameter_computer import compute_diameter
-from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
+from helper.config import CLASS_FILE_COARSE, DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
 from helper.mp_functions import compute_feature_extraction, compute_feature_extraction_old
 from reader import PSBDataset
 import jsonlines
@@ -58,6 +58,7 @@ class FeatureExtractor:
         final_dict = {}
         final_dict["name"] = data["meta_data"]["name"]
         final_dict["label"] = data["meta_data"]["label"]
+        final_dict["label_coarse"] = data["meta_data"]["label_coarse"]
         data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
         singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
 
@@ -73,6 +74,7 @@ class FeatureExtractor:
         final_dict = {}
         final_dict["name"] = data["meta_data"]["name"]
         final_dict["label"] = data["meta_data"]["label"]
+        final_dict["label_coarse"] = data["meta_data"]["label_coarse"]
         data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
         singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
 
@@ -89,6 +91,7 @@ class FeatureExtractor:
         final_dict = {}
         final_dict["name"] = data["meta_data"]["name"]
         final_dict["label"] = data["meta_data"]["label"]
+        final_dict["label_coarse"] = data["meta_data"]["label_coarse"]
         data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
         singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
         # histogram_pipeline.update({FeatureExtractor.gaussian_curvature: "Gaussian Curvature"})
@@ -377,7 +380,7 @@ class FeatureExtractor:
 
 
 if __name__ == "__main__":
-    FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE))
+    FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE, class_file_path_coarse=CLASS_FILE_COARSE))
     # FE.run_full_pipeline_slow()
     FE.run_full_pipeline()
     # FE.run_full_pipeline_old()

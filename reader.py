@@ -118,7 +118,10 @@ class DataSet:
     def load_image_data(self):
         print("Load images")
         len_of_ds = len(self.data_descriptors)
-        self.full_data = [dict(**mesh_data, images=extract_graphical_forms(pv.PolyData(mesh_data["data"]["vertices"], mesh_data["data"]["faces"]))) for mesh_data in tqdm(self.full_data, total=len_of_ds)]
+        self.full_data = [
+            dict(**mesh_data, images=extract_graphical_forms(pv.PolyData(mesh_data["data"]["vertices"], mesh_data["data"]["faces"])))
+            for mesh_data in tqdm(self.full_data, total=len_of_ds)
+        ]
 
     def compute_shape_statistics(self):
         self.all_statistics = pd.DataFrame([mesh_object["statistics"] for mesh_object in self.full_data])
@@ -295,11 +298,9 @@ class PSBDataset(DataSet):
         self.search_path = "data/psb" if not search_path else search_path
         self.search_paths = [Path(self.search_path) / scheme for scheme in self.schemes]
         self.stats_path = Path("data/psb") if not stats_path else Path(stats_path)
-        self.class_file_path = PSBDataset.load_classes(kwargs.get("class_file_path", None))
-        self.class_file_path_coarse = PSBDataset.load_classes(kwargs.get("class_file_path_coarse", None))
-        self.class_member_ships = self.load_classes()
+        self.class_member_ships = PSBDataset.load_classes(kwargs.get("class_file_path", None))
+        self.class_member_ships_coarse = PSBDataset.load_classes(kwargs.get("class_file_path_coarse", None))
         super().__init__(self.search_paths, self.stats_path)
-
 
     @staticmethod
     def load_classes(class_file_path):
@@ -332,8 +333,9 @@ class PSBDataset(DataSet):
         path = Path(file_path)
         file_name = path.stem
         file_type = path.suffix
-        label = self.class_member_ships[file_name] if file_name in self.class_member_ships.keys() else "no_class"
-        return {"label": label, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
+        label = self.class_member_ships.get(file_name, "no_class")
+        label_coarse = self.class_member_ships_coarse.get(file_name, "no_class")
+        return {"label": label, "label_coarse": label_coarse, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
 
 
 class ModelNet40Dataset(DataSet):
