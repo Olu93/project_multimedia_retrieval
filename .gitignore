@@ -4,7 +4,7 @@ processed_data*/**
 !processed_data/.gitkeep
 config.py
 .vscode/settings.json
-# /tmp/**/*.jsonl
+/tmp/**/*.jsonl
 
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,pycharm+all,python,jupyternotebooks
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,pycharm+all,python,jupyternotebooks
