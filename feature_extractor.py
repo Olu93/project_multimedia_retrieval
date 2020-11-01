@@ -22,8 +22,8 @@ import pyvista as pv
 import multiprocessing as mp
 import tracemalloc
 import faulthandler
-faulthandler.enable() 
-tracemalloc.start()
+# faulthandler.enable() 
+# tracemalloc.start()
 # TODO: [x] surface area
 # TODO: [x] compactness (with respect to a sphere)
 # TODO: [x] axis-aligned bounding-box volume
@@ -89,7 +89,7 @@ class FeatureExtractor:
         final_dict["label"] = data["meta_data"]["label"]
         data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
         singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
-        histogram_pipeline.update({FeatureExtractor.gaussian_curvature: "Gaussian Curvature"})
+        # histogram_pipeline.update({FeatureExtractor.gaussian_curvature: "Gaussian Curvature"})
 
         gather_data = [list(func(data).items())[0] for func in [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
         skeleton_features = FeatureExtractor.mono_skeleton_features(data["images"])
@@ -162,6 +162,8 @@ class FeatureExtractor:
             FeatureExtractor.dist_two_rand_verts: "Dist. of sampled vert. pairs",
             FeatureExtractor.dist_sqrt_area_rand_triangle: "Sqrt. of sampled triangles",
             FeatureExtractor.cube_root_volume_four_rand_verts: "Curt. of sampled tetrahedrons",
+            # FeatureExtractor.gaussian_curvature: "Gaussian Curvature",
+            # FeatureExtractor.mean_curvature: "Mean Curvature",
         }
         return (singleton_pipeline, histogram_pipeline)
 

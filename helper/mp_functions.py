@@ -20,12 +20,9 @@ import tracemalloc
 
 # https://stackoverflow.com/a/13530258/4162265
 def compute_feature_extraction(extractor, data):
-    # ctx = mp.get_context('forkserver')
     manager = mp.Manager()
-    q = manager.Queue(maxsize=4)
+    q = manager.Queue(maxsize=8)
     process_list = []
-
-    # progress_bar = tqdm(total=len(data))
 
     pre_compute = mp.Process(target=pre_compute_sillhouttes, args=(data, q, extractor))
     pre_compute.start()
@@ -41,18 +38,11 @@ def compute_feature_extraction(extractor, data):
         p.start()
 
     pre_compute.join()
-    print(pre_compute.exitcode)
     for i in range(num_processes + 5):
         q.put((None, None))
 
-    # while 1:
-    #     running = any(p.is_alive() for p in process_list)
-    #     print(running)
-    #     while not q.empty():
-    #         print("Q not empty")
-    #         continue
-    #     if not running:
-    #         break
+    for p in process_list:
+        p.join()
 
     return True
 
@@ -60,7 +50,7 @@ def compute_feature_extraction(extractor, data):
 def compute_feature_extraction_old(extractor, data):
     # data = list(data)
     pool = mp.Pool(math.ceil(mp.cpu_count() * .75))
-    extractions = pool.imap(extractor.mono_run_pipeline_old, data, chunksize=10)
+    extractions = pool.imap(extractor.mono_run_pipeline_old, data, chunksize=1)
     # extractions = [extractor.mono_run_pipeline_old(item) for item in data]
     return extractions
 
@@ -102,13 +92,11 @@ def listener(extractor, q, index):
                 print("PROCESS ENDS HERE!!!")
                 break
             result = extractor.mono_run_pipeline(m)
-            # poly_data = pv.PolyData(m["data"]["vertices"], m["data"]["faces"])
             result = jsonify(result)
             result = dict(timestamp=timestamp, **result)
             result.update(image_info)
-            # result.update({key: list(val) for key, val in extractor.gaussian_curvature(m).items()})
+            result.update({key: list(val) for key, val in extractor.gaussian_curvature(m).items()})
             del m
-            # pprint({key: type(val) if not type(val) == list else list(set([type(num) for num in val])) for key, val in result.items()})
             writer.write(result)
             print(f"Write {result['name']} into file {file_name}!")
             del result
@@ -119,13 +107,12 @@ def pre_compute_sillhouttes(data, q, extractor):
     logFile = open('mp.txt', 'w')
     for item in tqdm(data, total=len(data)):
         # for item in data:
-        snapshot = tracemalloc.take_snapshot()
-        top_stats = snapshot.statistics('lineno')
-
-        print(item["meta_data"])
-        for stat in top_stats[:10]:
-            print(stat, file=logFile)
-        print("\n", file=logFile)
+        # snapshot = tracemalloc.take_snapshot()
+        # top_stats = snapshot.statistics('lineno')
+        print(item["meta_data"], file=logFile)
+        # for stat in top_stats[:10]:
+        #     print(stat, file=logFile)
+        # print("\n", file=logFile)
         image_info = extractor.mono_skeleton_features(extract_graphical_forms(pv.PolyData(item["data"]["vertices"], item["data"]["faces"])))
         package = (item, image_info)
         q.put(package)

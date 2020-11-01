@@ -11,8 +11,13 @@ import sknw
 from skimage.morphology import skeletonize
 from skimage.morphology.binary import binary_closing
 
-
 # pp = pprint.PrettyPrinter(indent=4, stream=logFile)
+p = pv.Plotter(
+    notebook=False,
+    off_screen=True,
+    window_size=(128, 96),
+)
+
 
 def exception_catcher_singletons(func):
     def new_func(*args, **kwargs):
@@ -52,7 +57,6 @@ def exception_catcher_singletons(func):
 #     image[image != 0] = 1
 #     return image
 
-
 # def extract_sillhouettes(mesh, normal):
 #     mesh = mesh.clean()
 #     projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
@@ -65,33 +69,23 @@ def prepare_image(img):
     return img_copy.astype(np.uint8)
 
 
+
+
 def extract_sillhouettes(mesh, normal):
-    p = pv.Plotter(
-        notebook=False,
-        off_screen=True,
-        window_size=(128, 96),
-    )
     projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
     p.add_mesh(projected)
     p.set_position(normal * 2)
     p.render()
     img = p.get_image_depth()
     p.clear()
-    # we need to remove each actor... 
-    # https://github.com/pyvista/pyvista/issues/482
-    for ren in p.renderers:
-        for actor in list(ren._actors):
-            ren.remove_actor(actor)
-    p.deep_clean()
-    del p
     return prepare_image(img)
+
 
 def extract_graphical_forms(mesh):
     normals = np.eye(3) * -1
     sillhouettes = (extract_sillhouettes(mesh, normal) for normal in normals)
     skeletons = (extract_skeletons(sillh) for sillh in sillhouettes)
     sillh_skel_grph = (extract_graphs(sillh_skel) for sillh_skel in skeletons)
-    # time.sleep(1)
     return list(sillh_skel_grph)
 
 

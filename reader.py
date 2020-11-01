@@ -295,14 +295,17 @@ class PSBDataset(DataSet):
         self.search_path = "data/psb" if not search_path else search_path
         self.search_paths = [Path(self.search_path) / scheme for scheme in self.schemes]
         self.stats_path = Path("data/psb") if not stats_path else Path(stats_path)
-        self.class_file_path = kwargs["class_file_path"] if "class_file_path" in kwargs else None
+        self.class_file_path = PSBDataset.load_classes(kwargs.get("class_file_path", None))
+        self.class_file_path_coarse = PSBDataset.load_classes(kwargs.get("class_file_path_coarse", None))
         self.class_member_ships = self.load_classes()
         super().__init__(self.search_paths, self.stats_path)
 
-    def load_classes(self):
-        if not self.class_file_path:
+
+    @staticmethod
+    def load_classes(class_file_path):
+        if not class_file_path:
             return {}
-        path_to_classes = Path(self.class_file_path)
+        path_to_classes = Path(class_file_path)
         search_pattern = path_to_classes / "*.cla"
         class_files = list(glob.glob(str(search_pattern), recursive=True))
         class_file_handlers = [io.open(cfile, mode="r") for cfile in class_files]
