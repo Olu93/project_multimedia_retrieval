@@ -12,7 +12,7 @@ from helper import diameter_computer
 from helper.misc import compactness_computation, convex_hull_transformation, exception_catcher, fill_holes, jsonify, sphericity_computation
 from helper.diameter_computer import compute_diameter
 from helper.config import DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
-from helper.mp_functions import compute_feature_extraction
+from helper.mp_functions import compute_feature_extraction, compute_feature_extraction_old
 from reader import PSBDataset
 import jsonlines
 import io
@@ -20,7 +20,10 @@ from os import path
 from datetime import datetime
 import pyvista as pv
 import multiprocessing as mp
-
+import tracemalloc
+import faulthandler
+faulthandler.enable() 
+tracemalloc.start()
 # TODO: [x] surface area
 # TODO: [x] compactness (with respect to a sphere)
 # TODO: [x] axis-aligned bounding-box volume
@@ -34,7 +37,7 @@ import multiprocessing as mp
 # TODO: [ ] Mention m94, m778 removal and m1693 eccentricity stabilisation
 # TODO: [ ] Change fill_holes with convex hull operation
 #
-np.seterr('raise')
+# np.seterr('raise')
 
 
 class FeatureExtractor:
@@ -64,6 +67,22 @@ class FeatureExtractor:
         return final_dict
 
     @staticmethod
+    def mono_run_pipeline_old(data):
+        final_dict = {}
+        final_dict["name"] = data["meta_data"]["name"]
+        final_dict["label"] = data["meta_data"]["label"]
+        data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
+        singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
+
+        gather_data = [list(func(data).items())[0] for func in [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
+
+        skeleton_features = FeatureExtractor.skeleton_singleton_features(data)
+
+        final_dict.update(gather_data)
+        final_dict.update(skeleton_features)
+        return final_dict
+
+    @staticmethod
     def mono_run_pipeline_slow(data):
         final_dict = {}
         final_dict["name"] = data["meta_data"]["name"]
@@ -90,6 +109,22 @@ class FeatureExtractor:
                 with open(fname) as infile:
                     outfile.write(infile.read())
         return result
+
+    def run_full_pipeline_old(self, max_num_items=None):
+
+        target_file = self.feature_stats_file
+        features = []
+        with jsonlines.open(target_file, mode="a" if self.append_mode else "w") as writer:
+            num_full_data = len(self.reader.full_data)
+            relevant_subset_of_data = self.reader.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
+            num_data_being_processed = len(relevant_subset_of_data)
+            feature_data_generator = compute_feature_extraction_old(self, tqdm(relevant_subset_of_data, total=num_data_being_processed))
+            prepared_data = (jsonify(item) for item in feature_data_generator)
+            prepared_data = (dict(timestamp=self.timestamp, **item) for item in prepared_data)
+            for next_feature_set in prepared_data:
+                features.append(next_feature_set)
+                writer.write(next_feature_set)
+        return features
 
     def run_full_pipeline_slow(self, max_num_items=None):
         self.full_data = self.reader.load_image_data()
@@ -339,3 +374,4 @@ if __name__ == "__main__":
     FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE))
     # FE.run_full_pipeline_slow()
     FE.run_full_pipeline()
+    # FE.run_full_pipeline_old()

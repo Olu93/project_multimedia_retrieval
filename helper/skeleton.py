@@ -1,5 +1,7 @@
 import itertools
 import time
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -9,6 +11,8 @@ import sknw
 from skimage.morphology import skeletonize
 from skimage.morphology.binary import binary_closing
 
+
+# pp = pprint.PrettyPrinter(indent=4, stream=logFile)
 
 def exception_catcher_singletons(func):
     def new_func(*args, **kwargs):
@@ -22,10 +26,37 @@ def exception_catcher_singletons(func):
     return new_func
 
 
-def prepare_image_fullimage(img):
-    img_copy = img.mean(axis=2)
-    img_copy[np.where(img_copy != 0)] = 255
-    return img_copy / 255
+# def prepare_image(projected):
+#     img = projected.points
+#     not_null = np.sum(img, axis=0) != 0
+#     points = img[:, not_null]
+
+#     positive_points = points - points.min(axis=0)
+#     fig = Figure(dpi=20)
+#     canvas = FigureCanvasAgg(fig)
+#     # print(fig.get_size_inches() * fig.get_dpi())
+#     ax = fig.gca()
+
+#     if positive_points.shape[1] > 1:
+#         ax.scatter(positive_points[:, 0], positive_points[:, 1], c='k')
+#     ax.axis('off')
+
+#     canvas.draw()
+#     buf = canvas.buffer_rgba()
+#     rgba_image = np.asarray(buf)
+#     gray_image = rgba_image.mean(axis=2)
+#     normalized = np.ones_like(gray_image)
+#     if positive_points.shape[1] > 1:
+#         normalized = (gray_image - gray_image.min()) / (gray_image.max() - gray_image.min())
+#     image = 1 - normalized
+#     image[image != 0] = 1
+#     return image
+
+
+# def extract_sillhouettes(mesh, normal):
+#     mesh = mesh.clean()
+#     projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
+#     return prepare_image(projected)
 
 
 def prepare_image(img):
@@ -45,32 +76,22 @@ def extract_sillhouettes(mesh, normal):
     p.set_position(normal * 2)
     p.render()
     img = p.get_image_depth()
-    
+    p.clear()
+    # we need to remove each actor... 
+    # https://github.com/pyvista/pyvista/issues/482
+    for ren in p.renderers:
+        for actor in list(ren._actors):
+            ren.remove_actor(actor)
+    p.deep_clean()
+    del p
     return prepare_image(img)
-
-
-def extract_sillhouettes_fullimage(mesh, normal):
-    cpos = [normal * 2, (0, 0, 0), (0, 0, 1.0)]
-    projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
-    _, img = pv.plot(
-        projected,
-        cpos=cpos,
-        notebook=False,
-        off_screen=True,
-        screenshot=True,
-        return_img=True,
-        background=[0, 0, 0],
-    )
-    time.sleep(.3)
-    return prepare_image(img)
-
 
 def extract_graphical_forms(mesh):
     normals = np.eye(3) * -1
     sillhouettes = (extract_sillhouettes(mesh, normal) for normal in normals)
     skeletons = (extract_skeletons(sillh) for sillh in sillhouettes)
     sillh_skel_grph = (extract_graphs(sillh_skel) for sillh_skel in skeletons)
-    time.sleep(1)
+    # time.sleep(1)
     return list(sillh_skel_grph)
 
 
@@ -139,9 +160,13 @@ def compute_img_eccentricity(skeleton):
         return 0
     skeleton_points = np.flip(skeleton_points)
     covariance_matrix = np.cov(skeleton_points)
+    if np.isnan(covariance_matrix.sum()):
+        return 0
     eigen_values, eigen_vectors = np.linalg.eig(covariance_matrix)
     size_matters = np.argsort(eigen_values)
     eigen_values, eigen_vectors = eigen_values[size_matters], eigen_vectors[size_matters]
+    if eigen_values[1] == 0:
+        return 0
     eccentricity = eigen_values[0] / eigen_values[1]
     return eccentricity
 

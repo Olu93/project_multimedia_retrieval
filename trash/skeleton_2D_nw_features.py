@@ -34,7 +34,7 @@ def extract_sillhouettes(mesh, normal):
     p = pv.Plotter(
         notebook=False,
         off_screen=True,
-        window_size=(128, 96),
+        window_size=(432, 288),
     )
     projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
     p.add_mesh(projected)
@@ -57,13 +57,12 @@ def extract_graphs(skeletons):
     return graphs
 
 
-sillhouettes = extract_sillhouettes(mesh)
+sillhouettes = [extract_sillhouettes(mesh, normal) for normal in np.eye(3) * -1]
 skeletons = extract_skeletons(sillhouettes)
 graphs = extract_graphs(skeletons)
 extracted_information = list(zip(sillhouettes, skeletons, graphs))
 
 
-# %%
 def visualize_skeleton_extraction(sillhouettes, skeletons, graphs):
     fig = plt.figure(figsize=(12, 10))
     for idx, (img_array, skeleton, G) in enumerate(zip(sillhouettes, skeletons, graphs)):

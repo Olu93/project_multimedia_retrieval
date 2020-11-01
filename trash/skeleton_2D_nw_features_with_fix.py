@@ -21,7 +21,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 from skimage import data, color
 # %%
-mesh = pv.read("C:\\Users\\ohund\\workspace\\project_multimedia_retrieval\\trash\\m118.ply")
+mesh = pv.read("C:\\Users\\ohund\\workspace\\project_multimedia_retrieval\\trash\\m1.ply")
 mesh.plot()
 
 
@@ -34,24 +34,21 @@ def prepare_image(projected):
     points = img[:, not_null]
 
     positive_points = points - points.min(axis=0)
-    scaled_points = positive_points / positive_points.max(axis=0)
-    retransformed_points = scaled_points * dims
-    points_on_canvas = np.floor(retransformed_points).astype(int)
-
-    fig = Figure()
+    fig = Figure(dpi=20)
     canvas = FigureCanvas(fig)
     ax = fig.gca()
 
-    ax.scatter(points_on_canvas[:, 0], points_on_canvas[:, 1], c='k')
+    ax.scatter(positive_points[:, 0], positive_points[:, 1], c='k')
     ax.axis('off')
 
     canvas.draw()
     buf = canvas.buffer_rgba()
-    X = np.asarray(buf)
-    gray_image = X.mean(axis=2)
+    rgba_image = np.asarray(buf)
+    gray_image = rgba_image.mean(axis=2)
     normalized = (gray_image - gray_image.min()) / (gray_image.max()-gray_image.min())
     image = 1 - normalized
     image[image != 0] = 1
+    print(fig.get_size_inches() * fig.get_dpi())
     return image
 
 
@@ -226,4 +223,6 @@ def compute_average_shape_thickness(G):
 
 
 print(compute_average_shape_thickness(grph))
+# %%
+
 # %%
