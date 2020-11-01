@@ -5,6 +5,7 @@ processed_data*/**
 config.py
 .vscode/settings.json
 /tmp/**/*.jsonl
+k_all_db_results.csv
 
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,pycharm+all,python,jupyternotebooks
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,pycharm+all,python,jupyternotebooks
