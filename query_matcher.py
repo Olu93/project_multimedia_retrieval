@@ -101,8 +101,9 @@ class QueryMatcher(object):
 
     def match_with_db(self, feature_set, k=5, distance_functions=[], weights=None):
         feature_set_transformed = QueryMatcher.prepare_for_matching(feature_set=feature_set)
-        assert len(feature_set_transformed) == len(
-            distance_functions), f"Not enough OR too many distance functions supplied!"
+        len_fst = len(feature_set_transformed)
+        len_df = len(distance_functions)
+        assert len_fst == len_df, f"Not enough OR too many distance functions supplied! - requires {len_fst} functions and not {len_df}"
 
         standardised_features_list_of_list, feature_set_transformed, full_standardised_mat, flat_standardised_query = self.standardize(
             self.features_list_of_list,
@@ -119,9 +120,10 @@ class QueryMatcher(object):
             position_in_rank = np.argsort(all_distances)[:k]
             values = all_distances[position_in_rank]
 
+        values = list(values)
         names = [mesh_in_db["name"] for mesh_in_db in np.array(self.features_raw)[position_in_rank]]
         labels = [mesh_in_db["label"] for mesh_in_db in np.array(self.features_raw)[position_in_rank]]
-        print(tuple(zip(names, labels, values)))
+        # print(tuple(zip(names, labels, values)))
         return names, values, labels
 
     @staticmethod
