@@ -100,8 +100,12 @@ def listener(extractor, q, index):
             result = extractor.mono_run_pipeline(m)
             result = jsonify(result)
             result = dict(timestamp=timestamp, **result)
-            result.update(image_info)
+            time.sleep(0.1)
             result.update({key: list(val) for key, val in extractor.gaussian_curvature(m).items()})
+            time.sleep(0.1)
+            result.update({key: list(val) for key, val in extractor.mean_curvature(m).items()})
+            time.sleep(0.1)
+            result.update(image_info)
             del m
             writer.write(result)
             print(f"Write {result['name']} into file {file_name}!")

@@ -203,7 +203,7 @@ class FeatureExtractor:
     def convex_hull_volume(data):
         mesh = convex_hull_transformation(data["poly_data"])
         convex_hull_volume_result = mesh.volume
-        return {"convex_hull_volume": convex_hull_volume_result}
+        return {"scalar_convex_hull_volume": convex_hull_volume_result}
 
     @staticmethod
     @exception_catcher
@@ -214,34 +214,34 @@ class FeatureExtractor:
         differences = np.abs(np.diff(min_max_point, axis=1))
         obb_volume = np.prod(differences)
         rectangularity_result = volume / (obb_volume if obb_volume != 0 else 0.000000000001)
-        return {"rectangularity": rectangularity_result}
+        return {"scalar_rectangularity": rectangularity_result}
 
     @staticmethod
     @exception_catcher
     def compactness(data):
         mesh = convex_hull_transformation(data["poly_data"])
         compactness_result = compactness_computation(mesh)
-        return {"compactness": compactness_result}
+        return {"scalar_compactness": compactness_result}
 
     @staticmethod
     @exception_catcher
     def sphericity(data):
         mesh = convex_hull_transformation(data["poly_data"])
         sphericity_result = sphericity_computation(mesh)
-        return {"sphericity": min(sphericity_result, 1.0)}
+        return {"scalar_sphericity": min(sphericity_result, 1.0)}
 
     @staticmethod
     @exception_catcher
     def diameter(data):
         mesh = data["poly_data"]
-        return {"diameter": diameter_computer.compute_diameter(mesh)}
+        return {"scalar_diameter": diameter_computer.compute_diameter(mesh)}
 
     @staticmethod
     @exception_catcher
     def aabb_volume(data):
         mesh = data["poly_data"]
         length_x, length_y, length_z = np.abs(np.diff(np.reshape(mesh.bounds, (3, 2))))
-        return {"aabb_volume": (length_x * length_y * length_z)[0]}
+        return {"scalar_aabb_volume": (length_x * length_y * length_z)[0]}
 
     @staticmethod
     @exception_catcher
@@ -249,7 +249,7 @@ class FeatureExtractor:
         mesh = data["poly_data"]
         cell_ids = PSBDataset._get_cells(mesh)
         cell_areas = PSBDataset._get_cell_areas(mesh.points, cell_ids)
-        return {"surface_area": sum(cell_areas)}
+        return {"scalar_surface_area": sum(cell_areas)}
 
     @staticmethod
     @exception_catcher
@@ -259,7 +259,7 @@ class FeatureExtractor:
         eigenvalues, _ = np.linalg.eig(A_cov)
         eigenvalues = np.sort(eigenvalues)
         return {
-            "eccentricity": np.max(eigenvalues) / np.min(eigenvalues) if np.min(eigenvalues) != 0 else eigenvalues[1]}
+            "scalar_eccentricity": np.max(eigenvalues) / np.min(eigenvalues) if np.min(eigenvalues) != 0 else eigenvalues[1]}
 
     @staticmethod
     @exception_catcher
@@ -280,7 +280,7 @@ class FeatureExtractor:
         cube_root = f_volumes ** (1 / 3)
         histogram = FeatureExtractor.make_bins(cube_root, FeatureExtractor.number_bins)
         del random_indices
-        return {"cube_root_volume_four_rand_verts": histogram}
+        return {"hist_cube_root_volume_four_rand_verts": histogram}
 
     @staticmethod
     @exception_catcher
@@ -298,7 +298,7 @@ class FeatureExtractor:
         angle_rads = np.arccos(cosine_angles)
         angles_degs = np.degrees(angle_rads)
         del indices_triplets
-        return {"rand_angle_three_verts": FeatureExtractor.make_bins(angles_degs, FeatureExtractor.number_bins)}
+        return {"hist_rand_angle_three_verts": FeatureExtractor.make_bins(angles_degs, FeatureExtractor.number_bins)}
 
     @staticmethod
     @exception_catcher
@@ -310,7 +310,7 @@ class FeatureExtractor:
         verts_tuples = [mesh.points[tup] for tup in indices_tuples]
         distances = np.linalg.norm(np.abs(np.diff(np.array(verts_tuples), axis=1)).reshape(-1, 3), axis=1)
         del indices_tuples
-        return {"rand_dist_two_verts": FeatureExtractor.make_bins(distances, FeatureExtractor.number_bins)}
+        return {"hist_rand_dist_two_verts": FeatureExtractor.make_bins(distances, FeatureExtractor.number_bins)}
 
     @staticmethod
     @exception_catcher
@@ -323,7 +323,7 @@ class FeatureExtractor:
         rand_verts = mesh.points[indices]
         distances = np.linalg.norm(np.abs(rand_verts.reshape(-1, 3) - bary_center), axis=1)
         del indices
-        return {"dist_bar_vert": FeatureExtractor.make_bins(distances, FeatureExtractor.number_bins)}
+        return {"hist_dist_bar_vert": FeatureExtractor.make_bins(distances, FeatureExtractor.number_bins)}
 
     @staticmethod
     @exception_catcher
@@ -334,21 +334,21 @@ class FeatureExtractor:
         triangle_areas = PSBDataset._get_cell_areas(mesh.points, verts_list)
         sqrt_areas = np.sqrt(triangle_areas)
         del verts_list
-        return {"sqrt_area_rand_three_verts": FeatureExtractor.make_bins(sqrt_areas, FeatureExtractor.number_bins)}
+        return {"hist_sqrt_area_rand_three_verts": FeatureExtractor.make_bins(sqrt_areas, FeatureExtractor.number_bins)}
 
     @staticmethod
     @exception_catcher
     def gaussian_curvature(data):
         mesh = data["poly_data"]
         curvatures = mesh.curvature('gaussian')
-        return {"gaussian_curvature": FeatureExtractor.make_bins(curvatures, FeatureExtractor.number_bins)}
+        return {"hist_gaussian_curvature": FeatureExtractor.make_bins(curvatures, FeatureExtractor.number_bins)}
 
     @staticmethod
     @exception_catcher
     def mean_curvature(data):
         mesh = data["poly_data"]
         curvatures = mesh.curvature('mean')
-        return {"mean_curvature": FeatureExtractor.make_bins(curvatures, FeatureExtractor.number_bins)}
+        return {"hist_mean_curvature": FeatureExtractor.make_bins(curvatures, FeatureExtractor.number_bins)}
 
     @staticmethod
     def make_bins(data, n_bins):
