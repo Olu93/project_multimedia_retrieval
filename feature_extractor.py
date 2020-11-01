@@ -77,12 +77,13 @@ class FeatureExtractor:
         final_dict["label_coarse"] = data["meta_data"]["label_coarse"]
         data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
         singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
-
         gather_data = [list(func(data).items())[0] for func in [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
 
         skeleton_features = FeatureExtractor.skeleton_singleton_features(data)
 
         final_dict.update(gather_data)
+        final_dict.update({key: list(val) for key, val in FeatureExtractor.gaussian_curvature(data).items()})
+        final_dict.update({key: list(val) for key, val in FeatureExtractor.mean_curvature(data).items()})
         final_dict.update(skeleton_features)
         return final_dict
 

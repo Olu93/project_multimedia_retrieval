@@ -5,6 +5,7 @@ import pandas as pd
 from reader import DataSet
 from query_matcher import QueryMatcher
 from helper.config import FEATURE_DATA_FILE, DATA_PATH_NORMED, DATA_PATH_PSB
+from helper.misc import get_sizes_features
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import cosine, euclidean, cityblock, sqeuclidean
 from scipy.stats import wasserstein_distance
@@ -170,7 +171,7 @@ if __name__ == "__main__":
     F1_result_means_list = []
     overall_mean_list = []
     overall_weighted_mean_list = []
-    n_distributionals = len(FeatureExtractor.get_pipeline_functions()[1])
+    n_distributionals = get_sizes_features()[1]
     weights = ([1]) + ([1] * n_distributionals)
 
     # function_pipeline = [cosine] + ([cityblock] * (n_distributionals + 6))

@@ -1,15 +1,16 @@
-import pymeshfix as mf
-import trimesh
-import trimesh.repair as repair
-from matplotlib.colors import LinearSegmentedColormap
 import colorsys
+import io
+
+import jsonlines
 import numpy as np
+import pymeshfix as mf
+import pyvista as pv
+import trimesh
+from matplotlib.colors import LinearSegmentedColormap
+from pyvista import PolyData
 from scipy.spatial import ConvexHull
 from scipy.spatial.qhull import QhullError
-from pyvista import PolyData
-import numpy as np
-import pyvista as pv
-
+from helper.config import FEATURE_DATA_FILE
 
 def exception_catcher(func):
     def new_func(*args, **kwargs):
@@ -71,7 +72,7 @@ def compactness_computation(mesh):
 def sphericitiy_compuation_2(mesh):  # https://sciencing.com/height-prism-8539712.html
     V_sphere = mesh.volume
     radius = np.power((3 * V_sphere * np.pi) / 4, 1 / 3)
-    A_sphere = 4 * np.pi * (radius**2)
+    A_sphere = 4 * np.pi * (radius ** 2)
     A_particle = mesh.area
     return A_sphere / A_particle
 
@@ -98,7 +99,9 @@ def rand_cmap(nlabels, type='bright', first_color_black=True, last_color_black=F
 
     # Generate color map for bright colors, based on hsv
     if type == 'bright':
-        randHSVcolors = [(np.random.uniform(low=0.0, high=1), np.random.uniform(low=0.2, high=1), np.random.uniform(low=0.9, high=1)) for i in range(nlabels)]
+        randHSVcolors = [
+            (np.random.uniform(low=0.0, high=1), np.random.uniform(low=0.2, high=1), np.random.uniform(low=0.9, high=1))
+            for i in range(nlabels)]
 
         # Convert HSV list to RGB
         randRGBcolors = []
@@ -117,7 +120,8 @@ def rand_cmap(nlabels, type='bright', first_color_black=True, last_color_black=F
     if type == 'soft':
         low = 0.6
         high = 0.95
-        randRGBcolors = [(np.random.uniform(low=low, high=high), np.random.uniform(low=low, high=high), np.random.uniform(low=low, high=high)) for i in range(nlabels)]
+        randRGBcolors = [(np.random.uniform(low=low, high=high), np.random.uniform(low=low, high=high),
+                          np.random.uniform(low=low, high=high)) for i in range(nlabels)]
 
         if first_color_black:
             randRGBcolors[0] = [0, 0, 0]
@@ -172,3 +176,36 @@ def get_feature_type_positions(cols):
         "hist": hist_positions,
         "skeleton": skeleton_positions,
     }
+    
+def get_sizes_features(features_file=FEATURE_DATA_FILE, drop_feat=None, with_labels=False):
+    """
+      Get number of distributionals and scalars features.
+      :param features_file: path to features file, default: FEATURE_DATA_FILE
+      :param drop_feat: features to be dropped in list, default: ["timestamp", "name", "label", "coarse_label"]
+      :param with_labels: if True return list of features labels
+      :return: n_singletons, n_distributionals, sing_labels, dist_labels
+    """
+    if drop_feat is None:
+        drop_feat = ["timestamp", "name", "label", "label_coarse"]
+
+    features_data_single_dict = [data for data in jsonlines.Reader(io.open(features_file))][0]
+
+    cleaned_features_single_dict = {key: value for (key, value) in features_data_single_dict.items()
+                                    if key not in drop_feat}
+
+    singletons = {key: value for key, value in cleaned_features_single_dict.items()
+                  if "scalar" in key}
+
+    distributionals = {key: value for key, value in cleaned_features_single_dict.items()
+                       if "hist" in key or "skeleton" in key}
+
+    dist_labels = [key.replace("_", " ").replace("hist", "").title() for key in distributionals.keys()]
+    sing_labels = [key.replace("_", " ").replace("scalar", "").title() for key in singletons.keys()]
+
+    n_singletons = singletons.__len__()
+    n_distributionals = len(distributionals)
+
+    if with_labels:
+        return n_singletons, n_distributionals, sing_labels, dist_labels
+    else:
+        return n_singletons, n_distributionals
