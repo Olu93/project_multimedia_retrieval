@@ -83,7 +83,7 @@ class TableWidget(QTableWidget):
         self.buttonsInTable = {}
         key = ""
         value = None
-
+        x = ""
         for i in range(self.rowCount()):
             for j in range(self.columnCount()):
                 if i < self.rowCount() - num_hist:
@@ -91,16 +91,22 @@ class TableWidget(QTableWidget):
                     self.setItem(i, j, QTableWidgetItem(x))
                 else:
                     if j == 1:
-                        btn = QPushButton(QIcon('histogramicon.png'), 'Plot Values', self)
-                        btn.setText('Plot Values')
-                        self.setCellWidget(i, j, btn)
-                        value = btn
+                        if "skeleton" not in key.lower():
+                            btn = QPushButton(QIcon('histogramicon.png'), 'Plot Values', self)
+                            btn.setText('Plot Values')
+                            self.setCellWidget(i, j, btn)
+                            value = btn
+                            self.buttonsInTable[key] = value
+
+                        else:
+                            val = f'X: {round(self.df.iloc[i, j][0], 2)}, ' \
+                                  f'Y: {round(self.df.iloc[i, j][1], 2)}, ' \
+                                  f'Z: {round(self.df.iloc[i, j][2], 2)}'
+                            self.setItem(i, j, QTableWidgetItem(val))
                     else:
                         x = f'{self.df.iloc[i, j]}'
                         self.setItem(i, j, QTableWidgetItem(x))
                         key = x
-
-                    self.buttonsInTable[key] = value
 
         self.cellChanged.connect(self.on_cell_changed)
 

@@ -12,13 +12,14 @@ from sklearn.preprocessing import StandardScaler
 
 from feature_extractor import FeatureExtractor
 from helper.config import FEATURE_DATA_FILE
+from helper.misc import get_sizes_features
 
 
 # TODO: EMD does not work for scalars
 
 
 class QueryMatcher(object):
-    IGNORE_COLUMNS = ["timestamp", "name", "label"]
+    IGNORE_COLUMNS = ["timestamp", "name", "label", "label_coarse"]
 
     def __init__(self, extracted_feature_file):
         self.scaler = StandardScaler()
@@ -130,7 +131,6 @@ class QueryMatcher(object):
     def standardize(features_list_of_list, feature_set, scaler):
         """
         Standardisation applied over list of lists as well as query.
-        :param full_normed_mat: if true will return the full normalised matrix as lat element
         :param features_list_of_list: features_list_of_list: list of lists of array of all normalised features
         :param feature_set: feature_set: query feature
         :param scaler: any scaler from sklearn.preprocessing
@@ -138,10 +138,10 @@ class QueryMatcher(object):
         """
         features_arr_of_arr = np.array(features_list_of_list)
         flat_query = [val for sublist in feature_set for val in sublist]
-        full_mat = np.array([val for sublist in features_arr_of_arr.flatten() for val in sublist]).reshape(-1,
-                                                                                                           len(
-                                                                                                               flat_query))
-        scalars = full_mat[:, :len(FeatureExtractor.get_pipeline_functions()[0])]
+        full_mat = np.array([val for sublist in features_arr_of_arr.flatten() for val in sublist]
+                            ).reshape(-1, len(flat_query))
+
+        scalars = full_mat[:, :get_sizes_features()[0]]
         list_standardized_scalars = [x for x in scaler.fit_transform(scalars)]
         end_df = pd.DataFrame(features_list_of_list)
         end_df[0] = pd.Series(list_standardized_scalars)
@@ -150,7 +150,7 @@ class QueryMatcher(object):
         feature_set[0] = standardised_feature_set_scalars
 
         # flat_standardised_feature_set_scalars = [val for sublist in standardised_feature_set for val in sublist]
-        del flat_query[:len(FeatureExtractor.get_pipeline_functions()[0])]
+        del flat_query[:get_sizes_features()[0]]
         flat_standard_query = list(standardised_feature_set_scalars.flatten())
         flat_standard_query.extend(flat_query)
 

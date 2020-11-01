@@ -17,6 +17,7 @@ from scipy.stats import wasserstein_distance
 import reader
 from feature_extractor import FeatureExtractor
 from helper.config import FEATURE_DATA_FILE, DATA_PATH_NORMED, DATA_PATH_PSB
+from helper.misc import get_sizes_features
 from helper.viz import TableWidget, TsneVisualiser
 from normalizer import Normalizer
 from query_matcher import QueryMatcher
@@ -34,21 +35,26 @@ class SimilarMeshWindow(Qt.QWidget):
         self.setLayout(self.vlayout)
 
         # Create and add widgets to layout
-        self.hist_labels = list({**FeatureExtractor.get_pipeline_functions()[1]}.values())
-        labels = [f.replace("_", " ").title() for f in list(self.mesh_features.keys())]
+
+        n_sing, n_hist, lab_sing, lab_hist = get_sizes_features(with_labels=True)
+
+        # self.hist_labels = list({**FeatureExtractor.get_pipeline_functions()[1]}.values())
+        self.hist_labels = lab_hist
+
+        labels = lab_sing + lab_hist # [f.replace("_", " ").title() for f in list(self.mesh_features.keys())]
 
         features_df = pd.DataFrame({'key': list(labels), 'value': list(
-            [list(f) if isinstance(f, np.ndarray) else f for f in self.mesh_features.values()])}).drop(0)
+            [list(f) if isinstance(f, np.ndarray) else f for f in self.mesh_features.values()][4:])})
 
         # Create Table widget
-        self.tableWidget = TableWidget(features_df, self, 5)
+        self.tableWidget = TableWidget(features_df, self, len(self.hist_labels))
         self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
 
         # Create Plots widget
         self.graphWidget = pg.PlotWidget()
         self.graphWidget.setBackground('w')
 
-        self.hist_dict = features_df.set_index("key").tail().to_dict()
+        self.hist_dict = features_df.set_index("key").tail(n=len(self.hist_labels)).to_dict()
         self.buttons = self.tableWidget.get_buttons_in_table()
 
         for key, value in self.buttons.items():
@@ -62,7 +68,8 @@ class SimilarMeshWindow(Qt.QWidget):
         screen_topleft = QDesktopWidget().availableGeometry().topLeft()
         screen_height = QDesktopWidget().availableGeometry().height()
         width = (QDesktopWidget().availableGeometry().width() * 0.4)
-        self.move((QDesktopWidget().availableGeometry().width() * 0.4) + ((QDesktopWidget().availableGeometry().width() * 0.2)), 0)
+        self.move((QDesktopWidget().availableGeometry().width() * 0.4) + (
+            (QDesktopWidget().availableGeometry().width() * 0.2)), 0)
         self.resize(width, screen_height - 50)
 
         # Set widgets
@@ -111,11 +118,18 @@ class SimilarMeshesListWindow(Qt.QWidget):
             "Euclidean": euclidean
         }
 
+        self.skeletonDistancesDict = {
+            "EMD": wasserstein_distance
+        }
+
         self.scalarDistanceMethodList = Qt.QComboBox()
         self.scalarDistanceMethodList.addItems(self.scalarDistancesDict.keys())
 
         self.histDistanceMethodList = Qt.QComboBox()
         self.histDistanceMethodList.addItems(self.histDistancesDict.keys())
+
+        self.skeletonDistancesMethodList = Qt.QComboBox()
+        self.skeletonDistancesMethodList.addItems(self.skeletonDistancesDict.keys())
 
         self.sliderK = QSlider(QtCore.Horizontal)
         self.sliderK.setRange(5, 20)
@@ -133,6 +147,12 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.histSliderWeights.setValue(10)
         self.histSliderWeights.valueChanged.connect(self.update_hist_label)
         self.histLabelWeights = Qt.QLabel("Histogram weight: 1.0", self)
+
+        self.skeletonSliderWeights = QSlider(QtCore.Horizontal)
+        self.skeletonSliderWeights.setRange(0, 10)
+        self.skeletonSliderWeights.setValue(10)
+        self.skeletonSliderWeights.valueChanged.connect(self.update_skel_label)
+        self.skeletonLabelWeights = Qt.QLabel("Skeleton weigh: 1.0", self)
 
         self.list = QListWidget()
         self.list.setViewMode(Qt.QListView.ListMode)
@@ -155,12 +175,16 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.layout.addWidget(self.scalarDistanceMethodList)
         self.layout.addWidget(Qt.QLabel("Histogram Distance Function", self))
         self.layout.addWidget(self.histDistanceMethodList)
+        self.layout.addWidget(Qt.QLabel("Skeleton Distance Function", self))
+        self.layout.addWidget(self.skeletonDistancesMethodList)
         self.layout.addWidget(self.Klabel)
         self.layout.addWidget(self.sliderK)
         self.layout.addWidget(self.scalarLabelWeights)
         self.layout.addWidget(self.scalarSliderWeights)
         self.layout.addWidget(self.histLabelWeights)
         self.layout.addWidget(self.histSliderWeights)
+        self.layout.addWidget(self.skeletonLabelWeights)
+        self.layout.addWidget(self.skeletonSliderWeights)
         self.layout.addWidget(self.matchButton)
         self.layout.addWidget(self.plotButton)
         self.layout.addWidget(self.list)
@@ -177,9 +201,12 @@ class SimilarMeshesListWindow(Qt.QWidget):
     def update_similar_meshes_list(self):
         scalarDistFunction = self.scalarDistancesDict[self.scalarDistanceMethodList.currentText()]
         histDistFunction = self.histDistancesDict[self.histDistanceMethodList.currentText()]
+        skelDistFunction = self.skeletonDistancesDict[self.skeletonDistancesMethodList.currentText()]
+
         if (scalarDistFunction or histDistFunction) == QueryMatcher.perform_knn:
             self.scalarDistanceMethodList.setCurrentText("K-Nearest Neighbors")
             self.histDistanceMethodList.setCurrentText("K-Nearest Neighbors")
+            self.skeletonDistancesMethodList.setCurrentText("K-Nearest Neighbors")
 
         #                       OLDER VERSION
         # scalarDistanceFunctionText = self.scalarDistanceMethodList.currentText()
@@ -198,17 +225,23 @@ class SimilarMeshesListWindow(Qt.QWidget):
         #                                                                            scalar_dist_func=scalarDistFunction,
         #                                                                            hist_dist_func=histDistFunction)
 
-        n_distributionals = len(FeatureExtractor.get_pipeline_functions()[1])
+        n_singletons, n_distributionals, sing_labels, dist_labels = get_sizes_features(with_labels=True)
+
+        n_skeleton = len([el for el in dist_labels if "skeleton" in el.lower()])
+        n_distributionals = n_distributionals - n_skeleton
 
         weights = ([self.scalarSliderWeights.value() / 10]) + \
-                  ([self.histSliderWeights.value() / 10] * n_distributionals)
+                  ([self.histSliderWeights.value() / 10] * n_distributionals) + \
+                  ([self.skeletonSliderWeights.value() / 10] * n_skeleton)
 
-        function_pipeline = [scalarDistFunction] + ([histDistFunction] * n_distributionals)
+        function_pipeline = [scalarDistFunction] + \
+                            ([histDistFunction] * n_distributionals) + \
+                            ([skelDistFunction] * n_skeleton)
 
         indices, distance_values, labels = self.query_matcher.match_with_db(self.query_mesh_features,
-                                                                    k=self.sliderK.value(),
-                                                                    distance_functions=function_pipeline,
-                                                                    weights=weights)
+                                                                            k=self.sliderK.value(),
+                                                                            distance_functions=function_pipeline,
+                                                                            weights=weights)
 
         print(f"Distance values and indices are {list(zip(indices, distance_values))}")
 
@@ -241,13 +274,16 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.smw.show()
 
     def update_K_label(self, value):
-        self.Klabel.setText("KNN: " + str(value))
+        self.Klabel.setText("K: " + str(value))
 
     def update_scalar_label(self, value):
         self.scalarLabelWeights.setText("Scalar weight: " + str(value / 10))
 
     def update_hist_label(self, value):
         self.histLabelWeights.setText("Histogram weight: " + str(value / 10))
+
+    def update_skel_label(self, value):
+        self.skeletonLabelWeights.setText("Skeleton weight: " + str(value / 10))
 
     def plot_tsne(self):
         tsne_plotter = TsneVisualiser(self.query_matcher.features_raw,
@@ -293,7 +329,11 @@ class MainWindow(Qt.QMainWindow):
         self.graphWidget.setBackground('w')
 
         # Create and add widgets to layout
-        self.hist_labels = list({**FeatureExtractor.get_pipeline_functions()[1]}.values())
+
+        n_sing, n_hist, lab_sing, lab_hist = get_sizes_features(with_labels=True)
+
+        # self.hist_labels = list({**FeatureExtractor.get_pipeline_functions()[1]}.values())
+        self.hist_labels = lab_hist
         self.tableWidget = TableWidget(pd.DataFrame(), self, len(self.hist_labels))
         self.tableWidget.hide()
         self.vlayout.addWidget(self.load_button)
@@ -348,12 +388,13 @@ class MainWindow(Qt.QMainWindow):
         normed_mesh = pv.PolyData(normed_data["history"][-1]["data"]["vertices"],
                                   normed_data["history"][-1]["data"]["faces"])
         normed_data['poly_data'] = normed_mesh
-
         # Extract features
-        features_dict = FeatureExtractor.mono_run_pipeline(normed_data)
-        feature_formatted_keys = [form_key.replace("_", " ").title() for form_key in features_dict.keys()]
+        n_singletons, n_distributionals, sing_labels, dist_labels = get_sizes_features(with_labels=True, drop_feat=["timestamp"])
+
+        features_dict = FeatureExtractor.mono_run_pipeline_old(normed_data)
+        feature_formatted_keys = sing_labels + dist_labels
         features_df = pd.DataFrame({'key': list(feature_formatted_keys), 'value': list(
-            [list(f) if isinstance(f, np.ndarray) else f for f in features_dict.values()])})
+            [list(f) if isinstance(f, np.ndarray) else f for f in features_dict.values()])[3:]})
 
         # Update plotter & feature table
         # since unfortunately Qtinteractor which plots the mesh cannot be updated (remove and add new mesh)
@@ -377,7 +418,7 @@ class MainWindow(Qt.QMainWindow):
             if len(self.smlw.smw_list) != 0:  self.smlw.smw_list[0].deleteLater()
         self.smlw = SimilarMeshesListWindow(features_dict)
 
-        self.hist_dict = features_df.set_index("key").tail().to_dict()
+        self.hist_dict = features_df.set_index("key").tail(n=len(self.hist_labels)).to_dict()
         self.buttons = self.tableWidget.get_buttons_in_table()
 
         for key, value in self.buttons.items():

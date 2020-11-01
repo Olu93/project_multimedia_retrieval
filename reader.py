@@ -1,5 +1,4 @@
 import glob
-from helper.skeleton import extract_graphical_forms
 import inspect
 import io
 from collections import Counter
@@ -13,8 +12,9 @@ import pyvista as pv
 from plyfile import PlyData
 from tqdm import tqdm
 
-from helper.config import STAT_PATH, CLASS_FILE, DATA_PATH_DEBUG, DATA_PATH_PSB
+from helper.config import STAT_PATH, CLASS_FILE, DATA_PATH_PSB
 from helper.mp_functions import compute_read
+from helper.skeleton import extract_graphical_forms
 
 
 class DataSet:
@@ -38,7 +38,8 @@ class DataSet:
     def run_full_pipeline(self, max_num_items=None):
         self.read()
         num_full_data = len(self.data_descriptors)
-        relevant_subset_of_data = self.data_descriptors[:min(max_num_items, num_full_data)] if max_num_items else self.data_descriptors
+        relevant_subset_of_data = self.data_descriptors[
+                                  :min(max_num_items, num_full_data)] if max_num_items else self.data_descriptors
         num_data_being_processed = len(relevant_subset_of_data)
         read_data = compute_read(self, tqdm(relevant_subset_of_data, total=num_data_being_processed))
         self.full_data = list(read_data)
@@ -60,7 +61,8 @@ class DataSet:
     @staticmethod
     def get_base_characteristics(item):
         poly_data_object = pv.PolyData(item["data"]["vertices"], item["data"]["faces"])
-        item["statistics"] = {"id": item["meta_data"]["name"], "label": item["meta_data"]["label"], "faces": poly_data_object.n_faces, "vertices": poly_data_object.n_points}
+        item["statistics"] = {"id": item["meta_data"]["name"], "label": item["meta_data"]["label"],
+                              "faces": poly_data_object.n_faces, "vertices": poly_data_object.n_points}
         return item
 
     @staticmethod
@@ -79,7 +81,8 @@ class DataSet:
         if np.sum(cell_areas) == 0:
             print(f'{item["meta_data"]["path"]} has no surface area!')
         item["bary_center"] = np.array(DataSet._compute_center(cell_centers, cell_areas))
-        item["statistics"].update(dict(zip(["bound_" + b for b in "xmin xmax ymin ymax zmin zmax".split()], mesh.bounds)))
+        item["statistics"].update(
+            dict(zip(["bound_" + b for b in "xmin xmax ymin ymax zmin zmax".split()], mesh.bounds)))
         item["statistics"].update({f"center_{dim}": val for dim, val in zip("x y z".split(), item["bary_center"])})
         item["statistics"]["cell_area_mean"] = np.mean(cell_areas)
         item["statistics"]["cell_area_std"] = np.std(cell_areas)
@@ -119,7 +122,8 @@ class DataSet:
         print("Load images")
         len_of_ds = len(self.data_descriptors)
         self.full_data = [
-            dict(**mesh_data, images=extract_graphical_forms(pv.PolyData(mesh_data["data"]["vertices"], mesh_data["data"]["faces"])))
+            dict(**mesh_data,
+                 images=extract_graphical_forms(pv.PolyData(mesh_data["data"]["vertices"], mesh_data["data"]["faces"])))
             for mesh_data in tqdm(self.full_data, total=len_of_ds)
         ]
 
@@ -131,11 +135,14 @@ class DataSet:
     def save_statistics(self, stats_path=None, stats_filename=None):
         path_for_statistics = stats_path if stats_path else self.stats_path
         assert path_for_statistics, "No path for statistics given. Either set it for specific class or provide it as param!"
-        self.all_statistics.to_csv(str(path_for_statistics) + f"/{stats_filename if stats_filename else 'statistics.csv'}", index=False)
+        self.all_statistics.to_csv(
+            str(path_for_statistics) + f"/{stats_filename if stats_filename else 'statistics.csv'}", index=False)
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
     def convert_all_to_polydata(self):
-        self.full_data = [dict(**mesh_data, poly_data=pv.PolyData(mesh_data["data"]["vertices"], mesh_data["data"]["faces"])) for mesh_data in self.full_data]
+        self.full_data = [
+            dict(**mesh_data, poly_data=pv.PolyData(mesh_data["data"]["vertices"], mesh_data["data"]["faces"])) for
+            mesh_data in self.full_data]
         self.has_poly_data = True
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
@@ -152,15 +159,19 @@ class DataSet:
 
         self.faces_mean, self.faces_std = all_faces_counts.mean(), all_faces_counts.std()
         self.vertices_mean, self.vertices_std = all_vertices_counts.mean(), all_vertices_counts.std()
-        self.face_area_mean, self.face_area_std = self.all_statistics["cell_area_mean"].mean(), self.all_statistics["cell_area_std"].mean()
+        self.face_area_mean, self.face_area_std = self.all_statistics["cell_area_mean"].mean(), self.all_statistics[
+            "cell_area_std"].mean()
 
         init_pipe = (mesh_object for mesh_object in self.full_data)
-        faces_pipe = (dict(**mesh_object, faces_outlier=True if np.abs(mesh_object["statistics"]["faces"] - self.faces_mean) > 2 * self.faces_std else False)
+        faces_pipe = (dict(**mesh_object, faces_outlier=True if np.abs(
+            mesh_object["statistics"]["faces"] - self.faces_mean) > 2 * self.faces_std else False)
                       for mesh_object in init_pipe)
-        vertices_pipe = (dict(**mesh_object, vertices_outlier=True if np.abs(mesh_object["statistics"]["vertices"] - self.vertices_mean) > 2 * self.vertices_std else False)
+        vertices_pipe = (dict(**mesh_object, vertices_outlier=True if np.abs(
+            mesh_object["statistics"]["vertices"] - self.vertices_mean) > 2 * self.vertices_std else False)
                          for mesh_object in faces_pipe)
         face_area_pipe = (dict(**mesh_object,
-                               face_area_outlier=True if np.abs(mesh_object["statistics"]["cell_area_mean"] - self.face_area_mean) > 2 * self.face_area_std else False)
+                               face_area_outlier=True if np.abs(mesh_object["statistics"][
+                                                                    "cell_area_mean"] - self.face_area_mean) > 2 * self.face_area_std else False)
                           for mesh_object in vertices_pipe)
 
         add_to_stats_pipe = (add_to_stats(mesh_object) for mesh_object in face_area_pipe)
@@ -175,7 +186,9 @@ class DataSet:
         file_name = path.stem
         file_type = path.suffix
         label = "no_class"
-        meta_data = {"label": label, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
+        coarse_label = "no_coarse_class"
+        meta_data = {"label": label, "label_coarse": coarse_label, "name": file_name, "type": file_type,
+                     "path": path.resolve().as_posix()}
         data = DataSet._load_mesh(meta_data["path"])
         poly_data = pv.PolyData(data["vertices"], data["faces"])
         curr_data = dict(meta_data=meta_data, data=data, poly_data=poly_data)
@@ -188,8 +201,10 @@ class DataSet:
         poly_data_object = mesh["poly_data"]
         triangulized_poly_data_object = poly_data_object.triangulate()
         mesh["poly_data"] = triangulized_poly_data_object
-        statistics = {"id": mesh["meta_data"]["name"], "label": mesh["meta_data"]["label"], "faces": poly_data_object.n_faces, "vertices": poly_data_object.n_points}
-        statistics.update(dict(zip(["bound_" + b for b in "xmin xmax ymin ymax zmin zmax".split()], poly_data_object.bounds)))
+        statistics = {"id": mesh["meta_data"]["name"], "label": mesh["meta_data"]["label"],
+                      "faces": poly_data_object.n_faces, "vertices": poly_data_object.n_points}
+        statistics.update(
+            dict(zip(["bound_" + b for b in "xmin xmax ymin ymax zmin zmax".split()], poly_data_object.bounds)))
         cell_ids = DataSet._get_cells(mesh["poly_data"])
         cell_point_counts = [len(cell) for cell in cell_ids]
         cell_counter = Counter(cell_point_counts)
@@ -208,7 +223,8 @@ class DataSet:
     def _get_cell_areas(mesh_vertices, mesh_cells):
         cell_combinations = mesh_vertices[mesh_cells, :]
         cell_areas_fast = np.abs(np.linalg.norm(np.cross((cell_combinations[:, 0] - cell_combinations[:, 1]),
-                                                         (cell_combinations[:, 0] - cell_combinations[:, 2])), axis=1)) / 2  # https://math.stackexchange.com/a/128999
+                                                         (cell_combinations[:, 0] - cell_combinations[:, 2])),
+                                                axis=1)) / 2  # https://math.stackexchange.com/a/128999
 
         return cell_areas_fast
 
@@ -335,7 +351,8 @@ class PSBDataset(DataSet):
         file_type = path.suffix
         label = self.class_member_ships.get(file_name, "no_class")
         label_coarse = self.class_member_ships_coarse.get(file_name, "no_class")
-        return {"label": label, "label_coarse": label_coarse, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
+        return {"label": label, "label_coarse": label_coarse, "name": file_name, "type": file_type,
+                "path": path.resolve().as_posix()}
 
 
 class ModelNet40Dataset(DataSet):
