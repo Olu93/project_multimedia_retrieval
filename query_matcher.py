@@ -1,3 +1,4 @@
+from helper.misc import get_feature_type_positions
 import io
 import os
 from collections import ChainMap
@@ -9,28 +10,32 @@ import numpy as np
 import pandas as pd
 from annoy import AnnoyIndex
 from sklearn.preprocessing import StandardScaler
-
+import itertools
 from feature_extractor import FeatureExtractor
 from helper.config import FEATURE_DATA_FILE
-
 
 # TODO: EMD does not work for scalars
 
 
 class QueryMatcher(object):
-    IGNORE_COLUMNS = ["timestamp", "name", "label"]
+    IGNORE_COLUMNS = ["timestamp", "name", "label", "label_coarse"]
 
     def __init__(self, extracted_feature_file):
         self.scaler = StandardScaler()
         self.path_to_features = Path(extracted_feature_file)
         assert self.path_to_features.exists(), f"Feature file does not exist in {self.path_to_features.absolute().as_posix()}"
         self.features_raw = [data for data in jsonlines.Reader(io.open(self.path_to_features))]
+
+        list_of_list_df = pd.DataFrame([QueryMatcher.prepare_for_matching(feature_set) for feature_set in self.features_raw])
+        features_list_of_list, scalers = QueryMatcher.scale_data(list_of_list_df)
         self.features_flattened = [QueryMatcher.flatten_feature_dict(feature_set) for feature_set in self.features_raw]
-        self.features_df = pd.DataFrame(self.features_flattened).set_index('name').drop(columns="timestamp").drop(
-            columns="label")
+        self.features_df = pd.DataFrame(self.features_flattened).set_index('name').drop(columns=QueryMatcher.IGNORE_COLUMNS)
         self.features_column_names = list(self.features_df.columns)
-        self.features_list_of_list = [QueryMatcher.prepare_for_matching(feature_set) for feature_set in
-                                      self.features_raw]
+
+    @staticmethod
+    def scale_data(data):
+        columns = data.columns
+        
 
     @staticmethod
     def init_from_query_mesh_features(feature_dict):
@@ -51,18 +56,13 @@ class QueryMatcher(object):
         indices, values = t.get_nns_by_vector(query, k, include_distances=True)
         return values, indices
 
-    def compare_features_with_database(self, feature_set,
-                                       weights, k=5,
-                                       hist_dist_func=None,
-                                       scalar_dist_func=None,
-                                       n_scalar_features=6):
+    def compare_features_with_database(self, feature_set, weights, k=5, hist_dist_func=None, scalar_dist_func=None, n_scalar_features=6):
 
         scalar_dist_func = QueryMatcher.cosine_distance if not scalar_dist_func else scalar_dist_func
         hist_dist_func = QueryMatcher.cosine_distance if not hist_dist_func else hist_dist_func
 
         # Make order consistent with matching features db and flatten its distributional values
-        feature_dict_in_correct_order = self.prepare_single_feature_for_comparison(feature_set,
-                                                                                   list(feature_set.columns))
+        feature_dict_in_correct_order = self.prepare_single_feature_for_comparison(feature_set, list(feature_set.columns))
         # Make an array of the flattened list and reshape so to be [1,]
         feature_instance_vector = np.array(list(feature_dict_in_correct_order.values())).reshape(1, -1)
         # Get processed features from json file
@@ -106,17 +106,13 @@ class QueryMatcher(object):
         assert len_fst == len_df, f"Not enough OR too many distance functions supplied! - requires {len_fst} functions and not {len_df}"
 
         standardised_features_list_of_list, feature_set_transformed, full_standardised_mat, flat_standardised_query = self.standardize(
-            self.features_list_of_list,
-            feature_set_transformed,
-            self.scaler)
+            self.features_list_of_list, feature_set_transformed, self.scaler)
 
         if QueryMatcher.perform_knn in distance_functions:
             values, position_in_rank = self.perform_knn(full_standardised_mat, flat_standardised_query, k)
         else:
             all_distances = np.array(
-                [QueryMatcher.mono_run_functions_pipeline(feature_set_transformed, mesh_in_db,
-                                                          distance_functions, weights)
-                 for mesh_in_db in standardised_features_list_of_list])
+                [QueryMatcher.mono_run_functions_pipeline(feature_set_transformed, mesh_in_db, distance_functions, weights) for mesh_in_db in standardised_features_list_of_list])
             position_in_rank = np.argsort(all_distances)[:k]
             values = all_distances[position_in_rank]
 
@@ -138,9 +134,7 @@ class QueryMatcher(object):
         """
         features_arr_of_arr = np.array(features_list_of_list)
         flat_query = [val for sublist in feature_set for val in sublist]
-        full_mat = np.array([val for sublist in features_arr_of_arr.flatten() for val in sublist]).reshape(-1,
-                                                                                                           len(
-                                                                                                               flat_query))
+        full_mat = np.array([val for sublist in features_arr_of_arr.flatten() for val in sublist]).reshape(-1, len(flat_query))
         scalars = full_mat[:, :len(FeatureExtractor.get_pipeline_functions()[0])]
         list_standardized_scalars = [x for x in scaler.fit_transform(scalars)]
         end_df = pd.DataFrame(features_list_of_list)
@@ -155,10 +149,7 @@ class QueryMatcher(object):
         flat_standard_query.extend(flat_query)
 
         standardised_features_arr_of_arr = np.array(standardised_features_list_of_list)
-        full_mat = np.array(
-            [val for sublist in standardised_features_arr_of_arr.flatten() for val in sublist]).reshape(-1,
-                                                                                                        len(
-                                                                                                            flat_standard_query))
+        full_mat = np.array([val for sublist in standardised_features_arr_of_arr.flatten() for val in sublist]).reshape(-1, len(flat_standard_query))
         return standardised_features_list_of_list, feature_set, full_mat, flat_standard_query
 
     @staticmethod
@@ -184,16 +175,21 @@ class QueryMatcher(object):
         Every distributional feature will be a single list. 
         In the all lists are combined into list of lists. 
         """
-        scalar_features = [np.array([v for k, v in feature_set.items() if
-                                     type(v) not in [np.ndarray, list] and k not in QueryMatcher.IGNORE_COLUMNS])]
-        distributional_features = [np.array(v) for v in feature_set.values() if type(v) in [np.ndarray, list]]
-        return scalar_features + distributional_features
+        mapping_of_indices = get_feature_type_positions(list(feature_set.keys()))
+        f_items = list(feature_set.items())
+        prepared = {}
+        prepared["all_scalars"] = np.array([f_items[position] for position in mapping_of_indices["scalar"]])
+
+        distributional_features = {f_items[position][0]:f_items[position][1] for position in mapping_of_indices["hist"]} 
+        skeleton_features = {f_items[position][0]:f_items[position][1] for position in mapping_of_indices["skeleton"]}
+        prepared.update(distributional_features)
+        prepared.update(skeleton_features)
+        return prepared
 
     @staticmethod
     def flatten_feature_dict(feature_set):
         singletons = {key: value for key, value in feature_set.items() if type(value) not in [list, np.ndarray]}
-        distributional = [{f"{key}_{idx}": val for idx, val in enumerate(dist)} for key, dist in feature_set.items() if
-                          type(dist) in [list, np.ndarray]]
+        distributional = [{f"{key}_{idx}": val for idx, val in enumerate(dist)} for key, dist in feature_set.items() if type(dist) in [list, np.ndarray]]
         flattened_feature_set = dict(ChainMap(*distributional, singletons))
         return flattened_feature_set
 
@@ -211,22 +207,18 @@ class QueryMatcher(object):
 if __name__ == "__main__":
     qm = QueryMatcher(FEATURE_DATA_FILE)
     sampled_mesh = qm.features_flattened[0]
-    close_meshes, computed_values = qm.compare_features_with_database(pd.DataFrame(sampled_mesh, index=[0]), 5,
-                                                                      QueryMatcher.cosine_distance)
+    close_meshes, computed_values = qm.compare_features_with_database(pd.DataFrame(sampled_mesh, index=[0]), 5, QueryMatcher.cosine_distance)
     assert sampled_mesh["name"] in close_meshes
     function_pipeline = [cosine] + ([wasserstein_distance] * (len(qm.features_list_of_list[0]) - 1))
-    print(QueryMatcher.mono_run_functions_pipeline(qm.features_list_of_list[0], qm.features_list_of_list[1],
-                                                   function_pipeline))
+    print(QueryMatcher.mono_run_functions_pipeline(qm.features_list_of_list[0], qm.features_list_of_list[1], function_pipeline))
     print(qm.match_with_db(qm.features_raw[0], 5, function_pipeline))
     print("Everything worked!")
 
     data = DataSet.mono_run_pipeline(DataSet._extract_descr('./processed_data_bkp/bicycle/m1475.ply'))
     normed_data = Normalizer.mono_run_pipeline(data)
-    normed_mesh = pv.PolyData(normed_data["history"][-1]["data"]["vertices"],
-                              normed_data["history"][-1]["data"]["faces"])
+    normed_mesh = pv.PolyData(normed_data["history"][-1]["data"]["vertices"], normed_data["history"][-1]["data"]["faces"])
     normed_data['poly_data'] = normed_mesh
     features_dict = FeatureExtractor.mono_run_pipeline(normed_data)
     feature_formatted_keys = [form_key.replace("_", " ").title() for form_key in features_dict.keys()]
-    features_df = pd.DataFrame({'key': list(feature_formatted_keys), 'value': list(
-        [list(f) if isinstance(f, np.ndarray) else f for f in features_dict.values()])})
+    features_df = pd.DataFrame({'key': list(feature_formatted_keys), 'value': list([list(f) if isinstance(f, np.ndarray) else f for f in features_dict.values()])})
     print(qm.match_with_db(features_dict, 5, function_pipeline))

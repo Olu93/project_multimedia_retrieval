@@ -161,3 +161,14 @@ def convert_pyvista2trimesh(pvmesh):
 def jsonify(item):
     result = {key: list(value) if type(value) in [np.ndarray] else value for key, value in item.items()}
     return result
+
+
+def get_feature_type_positions(cols):
+    scalar_positions = [idx for idx, header_name in enumerate(cols) if header_name.startswith("scalar_")]
+    hist_positions = [idx for idx, header_name in enumerate(cols) if header_name.startswith("hist_")]
+    skeleton_positions = [idx for idx, header_name in enumerate(cols) if header_name.startswith("skeleton_")]
+    return {
+        "scalar": scalar_positions,
+        "hist": hist_positions,
+        "skeleton": skeleton_positions,
+    }
