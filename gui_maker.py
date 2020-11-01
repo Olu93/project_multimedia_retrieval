@@ -205,7 +205,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
 
         function_pipeline = [scalarDistFunction] + ([histDistFunction] * n_distributionals)
 
-        indices, distance_values = self.query_matcher.match_with_db(self.query_mesh_features,
+        indices, distance_values, labels = self.query_matcher.match_with_db(self.query_mesh_features,
                                                                     k=self.sliderK.value(),
                                                                     distance_functions=function_pipeline,
                                                                     weights=weights)
@@ -213,21 +213,22 @@ class SimilarMeshesListWindow(Qt.QWidget):
         print(f"Distance values and indices are {list(zip(indices, distance_values))}")
 
         self.list.clear()
-        for ind in indices:
+        for i, ind in enumerate(indices):
             item = Qt.QListWidgetItem()
             icon = Qt.QIcon()
             filename = str(ind) + "_thumb.jpg"
             path_to_thumb = glob.glob(DATA_PATH_PSB + "\\**\\" + filename, recursive=True)
             icon.addPixmap(Qt.QPixmap(path_to_thumb[0]), QtGui.QIcon.Normal, QtGui.QIcon.Off)
             item.setIcon(icon)
-            item.setText(str(ind))
+            item.setText("ID: " + str(ind) + "\nDistance: " + str("{:.2f}".format(distance_values[i])))
+            item.setToolTip(str(ind))
             self.list.addItem(item)
 
         self.viewTSNEButton.show()
         self.layout.addWidget(self.viewTSNEButton)
 
     def plot_selected_mesh(self):
-        mesh_name = self.list.selectedItems()[0].text()
+        mesh_name = self.list.selectedItems()[0].toolTip()
         path_to_mesh = glob.glob(DATA_PATH_NORMED + "\\**\\" + mesh_name + ".*", recursive=True)
         data = DataSet._load_ply(path_to_mesh[0])
         mesh = pv.PolyData(data["vertices"], data["faces"])

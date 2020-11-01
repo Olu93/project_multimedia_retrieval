@@ -122,7 +122,7 @@ class QueryMatcher(object):
         names = [mesh_in_db["name"] for mesh_in_db in np.array(self.features_raw)[position_in_rank]]
         labels = [mesh_in_db["label"] for mesh_in_db in np.array(self.features_raw)[position_in_rank]]
         print(tuple(zip(names, labels, values)))
-        return names, values
+        return names, values, labels
 
     @staticmethod
     def standardize(features_list_of_list, feature_set, scaler):
