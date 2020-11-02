@@ -188,7 +188,7 @@ class FeatureExtractor:
             FeatureExtractor.dist_two_rand_verts: "Dist. of sampled vert. pairs",
             FeatureExtractor.dist_sqrt_area_rand_triangle: "Sqrt. of sampled triangles",
             FeatureExtractor.cube_root_volume_four_rand_verts: "Curt. of sampled tetrahedrons",
-            # FeatureExtractor.gaussian_curvature: "Gaussian Curvature",
+            FeatureExtractor.gaussian_curvature: "Gaussian Curvature",
             FeatureExtractor.mean_curvature: "Mean Curvature",
         }
         return (singleton_pipeline, histogram_pipeline)

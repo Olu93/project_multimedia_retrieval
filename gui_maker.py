@@ -44,7 +44,7 @@ class SimilarMeshWindow(Qt.QWidget):
         labels = lab_sing + lab_hist # [f.replace("_", " ").title() for f in list(self.mesh_features.keys())]
 
         features_df = pd.DataFrame({'key': list(labels), 'value': list(
-            [list(f) if isinstance(f, np.ndarray) else f for f in self.mesh_features.values()][4:])})
+            [list(f) if isinstance(f, np.ndarray) else f for f in self.mesh_features.values()][3:])})
 
         # Create Table widget
         self.tableWidget = TableWidget(features_df, self, len(self.hist_labels))

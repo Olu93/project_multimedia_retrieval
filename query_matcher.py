@@ -43,7 +43,7 @@ class QueryMatcher(object):
         self.features_list_names = feature_list_names
         self.features_list_of_list = features_list_of_list
         self.features_flattened = [QueryMatcher.flatten_feature_dict(feature_set) for feature_set in self.features_raw]
-        self.features_df = pd.DataFrame(self.features_flattened).set_index('name').drop(columns=QueryMatcher.IGNORE_COLUMNS)
+        self.features_df = pd.DataFrame(self.features_flattened).set_index('name').drop(columns=QueryMatcher.IGNORE_COLUMNS, errors='ignore')
         self.features_column_names = list(self.features_df.columns)
 
     @staticmethod
