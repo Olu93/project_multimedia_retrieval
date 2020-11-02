@@ -119,7 +119,12 @@ class SimilarMeshesListWindow(Qt.QWidget):
         }
 
         self.skeletonDistancesDict = {
-            "EMD": wasserstein_distance
+            "EMD": wasserstein_distance,
+            "Cosine": cosine,
+            "Manhattan": cityblock,
+            "K-Nearest Neighbors": QueryMatcher.perform_knn,
+            "Squared Euclidian": sqeuclidean,
+            "Euclidean": euclidean
         }
 
         self.scalarDistanceMethodList = Qt.QComboBox()
