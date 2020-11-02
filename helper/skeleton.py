@@ -15,7 +15,7 @@ from skimage.morphology.binary import binary_closing
 p = pv.Plotter(
     notebook=False,
     off_screen=True,
-    window_size=(128, 96),
+    window_size=(256, 192),
 )
 
 

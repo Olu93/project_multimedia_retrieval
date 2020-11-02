@@ -1,5 +1,6 @@
 from collections import Counter
 from datetime import datetime
+import itertools
 from helper.skeleton import compute_conjunctions, compute_distance_to_center, compute_edge_lengths, compute_endpoints, compute_img_eccentricity, extract_graphical_forms, compute_asymmetry
 from pprint import pprint
 import glob
@@ -58,7 +59,7 @@ class FeatureExtractor:
         final_dict = {}
         final_dict["name"] = data["meta_data"]["name"]
         final_dict["label"] = data["meta_data"]["label"]
-        final_dict["label_coarse"] = data["meta_data"]["label_coarse"]
+        final_dict["label_coarse"] = data["meta_data"].get("label_coarse", None)
         data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
         singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
 
@@ -74,7 +75,7 @@ class FeatureExtractor:
         final_dict = {}
         final_dict["name"] = data["meta_data"]["name"]
         final_dict["label"] = data["meta_data"]["label"]
-        final_dict["label_coarse"] = data["meta_data"]["label_coarse"]
+        final_dict["label_coarse"] = data["meta_data"].get("label_coarse", None)
         data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
         singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
         gather_data = [list(func(data).items())[0] for func in [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
@@ -82,8 +83,8 @@ class FeatureExtractor:
         skeleton_features = FeatureExtractor.skeleton_singleton_features(data)
 
         final_dict.update(gather_data)
-        final_dict.update({key: list(val) for key, val in FeatureExtractor.gaussian_curvature(data).items()})
-        final_dict.update({key: list(val) for key, val in FeatureExtractor.mean_curvature(data).items()})
+        # final_dict.update({key: list(val) for key, val in FeatureExtractor.gaussian_curvature(data).items()})
+        # final_dict.update({key: list(val) for key, val in FeatureExtractor.mean_curvature(data).items()})
         final_dict.update(skeleton_features)
         return final_dict
 
@@ -103,6 +104,25 @@ class FeatureExtractor:
         final_dict.update(gather_data)
         final_dict.update(skeleton_features)
         return final_dict
+
+    @staticmethod
+    def mono_run_pipeline_debug(params):
+        data, pipeline = params
+        final_dict = {}
+        final_dict["name"] = data["meta_data"]["name"]
+        final_dict["label"] = data["meta_data"]["label"]
+        final_dict["label_coarse"] = data["meta_data"].get("label_coarse", None)
+        data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
+        # print(pipeline)
+        gather_data = list(itertools.chain(*[list(func(data).items()) for func in pipeline]))
+        # print(gather_data)
+        # skeleton_features = FeatureExtractor.skeleton_singleton_features(data)
+
+        final_dict.update(gather_data)
+        # final_dict.update({key: list(val) for key, val in FeatureExtractor.gaussian_curvature(data).items()})
+        # final_dict.update({key: list(val) for key, val in FeatureExtractor.mean_curvature(data).items()})
+        # final_dict.update(skeleton_features)
+        return jsonify(final_dict)
 
     def run_full_pipeline(self, max_num_items=None):
         num_full_data = len(self.full_data)
@@ -169,7 +189,7 @@ class FeatureExtractor:
             FeatureExtractor.dist_sqrt_area_rand_triangle: "Sqrt. of sampled triangles",
             FeatureExtractor.cube_root_volume_four_rand_verts: "Curt. of sampled tetrahedrons",
             # FeatureExtractor.gaussian_curvature: "Gaussian Curvature",
-            # FeatureExtractor.mean_curvature: "Mean Curvature",
+            FeatureExtractor.mean_curvature: "Mean Curvature",
         }
         return (singleton_pipeline, histogram_pipeline)
 
@@ -181,7 +201,6 @@ class FeatureExtractor:
         return FeatureExtractor.mono_skeleton_features(silh_skeleton_graph_set)
 
     @staticmethod
-    @exception_catcher
     def mono_skeleton_features(silh_skeleton_graph_set):
         num_endpoints = [compute_endpoints(grph) for silh, skel, grph in silh_skeleton_graph_set]
         num_conjunctions = [compute_conjunctions(grph) for silh, skel, grph in silh_skeleton_graph_set]
