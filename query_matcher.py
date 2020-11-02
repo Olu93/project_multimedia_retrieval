@@ -12,7 +12,7 @@ from sklearn.preprocessing import StandardScaler
 import itertools
 from feature_extractor import FeatureExtractor
 from helper.config import FEATURE_DATA_FILE
-from helper.misc import get_sizes_features
+from helper.misc import get_feature_type_positions, get_sizes_features
 
 # TODO: EMD does not work for scalars
 
@@ -21,11 +21,15 @@ class QueryMatcher(object):
     IGNORE_COLUMNS = ["timestamp", "label", "label_coarse"]
     CONST_SCALAR_ALL_COL = "scalar_all"
 
-    def __init__(self, extracted_feature_file):
+    def __init__(self, extracted_feature_file, label_coarse=False):
         self.scaler = StandardScaler()
         self.path_to_features = Path(extracted_feature_file)
         assert self.path_to_features.exists(), f"Feature file does not exist in {self.path_to_features.absolute().as_posix()}"
-        self.features_raw = [data for data in jsonlines.Reader(io.open(self.path_to_features))]
+        self.features_raw_init = [data for data in jsonlines.Reader(io.open(self.path_to_features))]
+        self.features_raw = [dict(data) for data in self.features_raw_init]
+        if label_coarse:
+            for data in self.features_raw:
+                data.update(label=data["label_coarse"])
         list_of_list_df = pd.DataFrame(self.features_raw)
         self.list_of_list_cols = np.array(list_of_list_df.columns)
         self.col_mapping = get_feature_type_positions(list(list_of_list_df.columns))

@@ -15,18 +15,41 @@ from pprint import pprint
 import jsonlines
 # np.seterr('raise')
 
+
 class Evaluator:
-    def __init__(self):
+    def __init__(self, feature_data_file=FEATURE_DATA_FILE, label_coarse=False):
+        self.label_coarse = label_coarse
         self.reader = DataSet("")
-        self.query_matcher = QueryMatcher(FEATURE_DATA_FILE)
+        self.query_matcher = QueryMatcher(feature_data_file, label_coarse=label_coarse)
         self.feature_db_flattened = self.query_matcher.features_flattened
         self.feature_db_raw = self.query_matcher.features_raw
-        self.features_df_flat = pd.DataFrame(self.feature_db_flattened).set_index('name').drop(columns="timestamp")
-        self.features_df_raw = pd.DataFrame(self.feature_db_raw).set_index('name').drop(columns="timestamp")
+        self.features_df_flat = pd.DataFrame(self.feature_db_flattened).set_index('name').drop(columns="timestamp", errors="ignore")
+        self.features_df_raw = pd.DataFrame(self.feature_db_raw).set_index('name').drop(columns="timestamp", errors="ignore")
         self.mesh_classes_count = self.features_df_flat['label'].value_counts()
+        if self.label_coarse:
+            self.mesh_classes_count = self.features_df_flat['label_coarse'].value_counts().rename("label")
+            # self.mesh_classes_count.
+        # print(self.mesh_classes_count_coarse.name)
         # Exclude classes which have only one member
         # self.mesh_classes_count = self.mesh_classes_count[self.mesh_classes_count > 1]
 
+    def perform_matching_on_subset(self, subset, function_pipeline, weights, k_full_db_switch=False):
+        param_list = []
+        for row in subset:
+            row["label"] = row['label_coarse'] if self.label_coarse else row["label"]
+            k = np.sum(self.mesh_classes_count.values) if k_full_db_switch else (int(self.mesh_classes_count.get(row['label' if self.label_coarse else 'label_coarse'])))
+            param_list.append((row, k, self.query_matcher, function_pipeline, weights))
+        match_results = pd.DataFrame(list(compute_matchings(self, param_list)), columns=['name', 'class', 'matches', 'distances', 'matches_class'])
+        return match_results
+
+    def perform_matching_on_subset_slow(self, subset, function_pipeline, weights, k_full_db_switch=False):
+        param_list = []
+        for row in subset:
+            row["label"] = row['label_coarse'] if self.label_coarse else row["label"]
+            k = np.sum(self.mesh_classes_count.values) if k_full_db_switch else (int(self.mesh_classes_count.get(row['label'])))
+            param_list.append((row, k, self.query_matcher, function_pipeline, weights))
+        match_results = pd.DataFrame(list([self.mono_compute_match(param) for param in tqdm(param_list)]), columns=['name', 'class', 'matches', 'distances', 'matches_class'])
+        return match_results
 
     @staticmethod
     def mono_compute_match(params):
@@ -41,7 +64,7 @@ class Evaluator:
         for row in self.feature_db_raw:
             k = np.sum(self.mesh_classes_count.values) if k_full_db_switch else (int(self.mesh_classes_count.get(row['label'])))
             param_list.append((row, k, self.query_matcher, function_pipeline, weights))
-        match_results = pd.DataFrame(list(compute_matchings(self, param_list)), columns=['name', 'class', 'matches', 'distances','matches_class'])
+        match_results = pd.DataFrame(list(compute_matchings(self, param_list)), columns=['name', 'class', 'matches', 'distances', 'matches_class'])
         return match_results
 
     # Uses flattened version with same dist func for all features
@@ -58,22 +81,22 @@ class Evaluator:
         for row in self.feature_db_flattened:
             k = np.sum(self.mesh_classes_count.values) if k_full_db_switch else (int(self.mesh_classes_count.get(row['label'])))
             param_list.append((row, k, self.query_matcher, sfunc, hfunc, weights))
-        match_results = pd.DataFrame(list(compute_matchings_old(self, param_list)), columns=['name', 'class', 'matches', 'distances','matches_class'])
+        match_results = pd.DataFrame(list(compute_matchings_old(self, param_list)), columns=['name', 'class', 'matches', 'distances', 'matches_class'])
         return match_results
-
 
     @staticmethod
     def metric_F1(k_all_db_result, all_class_counts_list, k=10, use_class_k=True):
         def prepare_params(name, class_label, ids, distance_values, clabels):
             use_k = all_class_counts_list.get(class_label) if use_class_k else k
             return Evaluator.confusion_matrix_vals(name, class_label, ids[:use_k], distance_values[:use_k], clabels[:use_k], all_class_counts_list)
+
         cm_vals_and_label = [(prepare_params(*params), params[1]) for params in tqdm(k_all_db_result.to_numpy())]
         cm_vals = np.array([results for results, _ in cm_vals_and_label])
         TP, FP, TN, FN = cm_vals[:, 0], cm_vals[:, 1], cm_vals[:, 2], cm_vals[:, 3]
 
         # precision = proportion of returned class from all returned items
         # recall = proportion of returned class from all class members in database
-        with np.errstate(divide='ignore'):
+        with np.errstate(divide='ignore', invalid='ignore'):
             precision = np.nan_to_num(TP / (TP + FP))
             recall = np.nan_to_num(TP / (TP + FN))
             F1scores = np.nan_to_num(2 * ((precision * recall) / (precision + recall)))
@@ -101,8 +124,9 @@ class Evaluator:
         # Calc confusion matrix values
         TP = int(clabels.count(class_label))
         # Meshes of the class that were not matched
-        print(class_label)
-        print(TP)
+        # print(class_label)
+        if False:
+            print(f"{class_label} - {name} - {TP} hits!")
         FN = (all_class_counts_list.get(class_label) - 1) - TP
         # Matched meshes that have wrong class
         FP = int(len(clabels)) - TP
@@ -126,15 +150,15 @@ class Evaluator:
         plt.show()
 
     @staticmethod
-    def calc_weighted_metric(dataframe_with_metrics, metric, descr):
+    def calc_weighted_metric(dataframe_with_metrics, metric="F1score", descr=None):
         mean_per_class = dataframe_with_metrics[['class', metric]].groupby('class').mean()
         overall_metric = np.mean(dataframe_with_metrics['F1score'].values)
-        print(descr, overall_metric)
+        if descr:
+            print(descr, overall_metric)
         return mean_per_class.sort_values(by='class', ascending=True)[metric].values, overall_metric
 
-
     @staticmethod
-    def generate_class_dists_heatmap(k_all_results, slice = False, descr = "heatmap1", div_classes_len=4):
+    def generate_class_dists_heatmap(k_all_results, slice=False, descr="heatmap1", div_classes_len=4):
         massive_list = []
         for row in (k_all_results.iterrows()):
             massive_list.extend(list(zip(([row[1].get('class')] * len(eval(row[1].get('matches_class')))), eval(row[1].get('matches_class')), eval(row[1].get('distances')))))
@@ -222,9 +246,4 @@ if __name__ == "__main__":
     # k_all_db_results_coci = evaluator.metric_F1(k_all_db_results_coci, evaluator.mesh_classes_count, k=10, use_class_k= True)
     # evaluator.calc_weighted_metric(k_all_db_results_coci, "F1score", "F1")
 
-
     # evaluator.generate_class_dists_heatmap(k_all_db_results_cociwa, True, "lowlvl_classes", 4)
-
-
-
-
