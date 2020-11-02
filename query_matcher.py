@@ -1,10 +1,3 @@
-from normalizer import Normalizer
-from reader import DataSet
-from numba.core.types import scalars
-from scipy.spatial.distance import cityblock, cosine
-from scipy.stats.stats import wasserstein_distance
-import pyvista as pv
-from helper.misc import get_feature_type_positions
 import io
 import os
 from collections import ChainMap
@@ -131,7 +124,8 @@ class QueryMatcher(object):
         selected_shapes = np.array(self.features_raw)[indices]
         # For each shape selected, append name and return it
         names = [s["name"] for s in selected_shapes.reshape(-1, )]
-        return names, distance_values
+        labels = [mesh_in_db["label"] for mesh_in_db in np.array(self.features_raw)[indices]]
+        return names, distance_values, labels
 
     def match_with_db(self, feature_set, k=5, distance_functions=[], weights=None):
         # feature_set_transformed = QueryMatcher.prepare_for_matching(feature_set=feature_set)
