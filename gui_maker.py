@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import glob
 import sys
 
@@ -36,29 +37,26 @@ class SimilarMeshWindow(Qt.QWidget):
 
         # Create and add widgets to layout
 
-        n_sing, n_hist, lab_sing, lab_hist = get_sizes_features(with_labels=True)
-
-        # self.hist_labels = list({**FeatureExtractor.get_pipeline_functions()[1]}.values())
-        self.hist_labels = lab_hist
-
-        labels = lab_sing + lab_hist # [f.replace("_", " ").title() for f in list(self.mesh_features.keys())]
-
-        features_df = pd.DataFrame({'key': list(labels), 'value': list(
-            [list(f) if isinstance(f, np.ndarray) else f for f in self.mesh_features.values()][3:])})
-
+        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True, drop_feat=["timestamp"])
+        mapping_of_labels_reversed = {val: key for key, val in mapping_of_labels.items()}
+        features_dict_carefully_selected = OrderedDict(sorted({mapping_of_labels.get(key): val for key, val in self.mesh_features.items() if key in mapping_of_labels}.items(), key=lambda t: t[0]))
+        features_df = pd.DataFrame([features_dict_carefully_selected]).T.reset_index()
+        self.hist_labels = [val for key, val in mapping_of_labels.items() if "hist_" in key]
         # Create Table widget
-        self.tableWidget = TableWidget(features_df, self, len(self.hist_labels))
+        self.tableWidget = TableWidget(features_dict_carefully_selected, self, mapping_of_labels_reversed)
         self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
 
         # Create Plots widget
         self.graphWidget = pg.PlotWidget()
         self.graphWidget.setBackground('w')
 
-        self.hist_dict = features_df.set_index("key").tail(n=len(self.hist_labels)).to_dict()
+        self.hist_dict = features_df.set_index("index").tail(n=len(self.hist_labels)).to_dict()
         self.buttons = self.tableWidget.get_buttons_in_table()
 
+        tmp = {row.get("index"): row.get(0) for index, row in features_df.iterrows() if "hist_" in mapping_of_labels_reversed[row.get("index")]}
         for key, value in self.buttons.items():
-            value.clicked.connect(lambda state, x=key, y=self.hist_dict["value"][key]: self.plot_selected_hist(x, y))
+            value.clicked.connect(lambda state, x=key, y=features_dict_carefully_selected[key]: self.plot_selected_hist(x, y))
+
 
         self.vlayout.addWidget(self.QTIplotter.interactor)
         self.vlayout.addWidget(self.tableWidget)
@@ -142,22 +140,22 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.Klabel = Qt.QLabel("K: 5", self)
 
         self.scalarSliderWeights = QSlider(QtCore.Horizontal)
-        self.scalarSliderWeights.setRange(0, 10)
-        self.scalarSliderWeights.setValue(10)
+        self.scalarSliderWeights.setRange(0, 100)
+        self.scalarSliderWeights.setValue(3)
         self.scalarSliderWeights.valueChanged.connect(self.update_scalar_label)
-        self.scalarLabelWeights = Qt.QLabel("Scalars weigh: 1.0", self)
+        self.scalarLabelWeights = Qt.QLabel(f"Scalars weight: {self.scalarSliderWeights.value()}", self)
 
         self.histSliderWeights = QSlider(QtCore.Horizontal)
-        self.histSliderWeights.setRange(0, 10)
-        self.histSliderWeights.setValue(10)
+        self.histSliderWeights.setRange(0, 100)
+        self.histSliderWeights.setValue(100)
         self.histSliderWeights.valueChanged.connect(self.update_hist_label)
-        self.histLabelWeights = Qt.QLabel("Histogram weight: 1.0", self)
+        self.histLabelWeights = Qt.QLabel(f"Histogram weight: {self.histSliderWeights.value()}", self)
 
         self.skeletonSliderWeights = QSlider(QtCore.Horizontal)
-        self.skeletonSliderWeights.setRange(0, 10)
-        self.skeletonSliderWeights.setValue(10)
+        self.skeletonSliderWeights.setRange(0, 100)
+        self.skeletonSliderWeights.setValue(1)
         self.skeletonSliderWeights.valueChanged.connect(self.update_skel_label)
-        self.skeletonLabelWeights = Qt.QLabel("Skeleton weigh: 1.0", self)
+        self.skeletonLabelWeights = Qt.QLabel(f"Skeleton weight: {self.skeletonSliderWeights.value()}", self)
 
         self.list = QListWidget()
         self.list.setViewMode(Qt.QListView.ListMode)
@@ -230,17 +228,18 @@ class SimilarMeshesListWindow(Qt.QWidget):
         #                                                                            scalar_dist_func=scalarDistFunction,
         #                                                                            hist_dist_func=histDistFunction)
 
-        n_singletons, n_distributionals, sing_labels, dist_labels = get_sizes_features(with_labels=True)
+        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True)
 
-        n_skeleton = len([el for el in dist_labels if "skeleton" in el.lower()])
+        n_hist = len([key for key, val in mapping_of_labels.items() if "hist_" in key])
+        n_skeleton = len([key for key, val in mapping_of_labels.items() if "skeleton_" in key])
         n_distributionals = n_distributionals - n_skeleton
 
-        weights = ([self.scalarSliderWeights.value() / 10]) + \
-                  ([self.histSliderWeights.value() / 10] * n_distributionals) + \
-                  ([self.skeletonSliderWeights.value() / 10] * n_skeleton)
+        weights = ([self.scalarSliderWeights.value()]) + \
+                  ([self.histSliderWeights.value()] * n_hist) + \
+                  ([self.skeletonSliderWeights.value()] * n_skeleton)
 
         function_pipeline = [scalarDistFunction] + \
-                            ([histDistFunction] * n_distributionals) + \
+                            ([histDistFunction] * n_hist) + \
                             ([skelDistFunction] * n_skeleton)
 
         indices, distance_values, labels = self.query_matcher.match_with_db(self.query_mesh_features,
@@ -270,7 +269,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
         path_to_mesh = glob.glob(DATA_PATH_NORMED + "\\**\\" + mesh_name + ".*", recursive=True)
         data = DataSet._load_ply(path_to_mesh[0])
         mesh = pv.PolyData(data["vertices"], data["faces"])
-        mesh_features = [d for d in self.query_matcher.features_raw if d["name"] == mesh_name][0]
+        mesh_features = [d for d in self.query_matcher.features_raw_init if d["name"] == mesh_name][0]
         if len(self.smw_list) != 0:
             self.smw_list[0].deleteLater()
             self.smw_list.remove(self.smw_list[0])
@@ -282,13 +281,13 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.Klabel.setText("K: " + str(value))
 
     def update_scalar_label(self, value):
-        self.scalarLabelWeights.setText("Scalar weight: " + str(value / 10))
+        self.scalarLabelWeights.setText("Scalar weight: " + str(value))
 
     def update_hist_label(self, value):
-        self.histLabelWeights.setText("Histogram weight: " + str(value / 10))
+        self.histLabelWeights.setText("Histogram weight: " + str(value))
 
     def update_skel_label(self, value):
-        self.skeletonLabelWeights.setText("Skeleton weight: " + str(value / 10))
+        self.skeletonLabelWeights.setText("Skeleton weight: " + str(value))
 
     def plot_tsne(self):
         tsne_plotter = TsneVisualiser(self.query_matcher.features_raw,
@@ -335,11 +334,11 @@ class MainWindow(Qt.QMainWindow):
 
         # Create and add widgets to layout
 
-        n_sing, n_hist, lab_sing, lab_hist = get_sizes_features(with_labels=True)
+        n_sing, n_hist, mapping_of_labels = get_sizes_features(with_labels=True)
 
         # self.hist_labels = list({**FeatureExtractor.get_pipeline_functions()[1]}.values())
-        self.hist_labels = lab_hist
-        self.tableWidget = TableWidget(pd.DataFrame(), self, len(self.hist_labels))
+        self.hist_labels = [val for key, val in mapping_of_labels.items() if "hist_" in key]
+        self.tableWidget = TableWidget({}, self, {})
         self.tableWidget.hide()
         self.vlayout.addWidget(self.load_button)
 
@@ -394,12 +393,17 @@ class MainWindow(Qt.QMainWindow):
                                   normed_data["history"][-1]["data"]["faces"])
         normed_data['poly_data'] = normed_mesh
         # Extract features
-        n_singletons, n_distributionals, sing_labels, dist_labels = get_sizes_features(with_labels=True, drop_feat=["timestamp"])
-
+        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True, drop_feat=["timestamp"])
+        mapping_of_labels_reversed = {val: key for key, val in mapping_of_labels.items()}
         features_dict = FeatureExtractor.mono_run_pipeline_old(normed_data)
-        feature_formatted_keys = sing_labels + dist_labels
-        features_df = pd.DataFrame({'key': list(feature_formatted_keys), 'value': list(
-            [list(f) if isinstance(f, np.ndarray) else f for f in features_dict.values()])[3:]})
+        features_dict_carefully_selected = OrderedDict(sorted({mapping_of_labels.get(key): val for key, val in features_dict.items() if key in mapping_of_labels}.items(), key=lambda t: t[0]))
+        features_df = pd.DataFrame([features_dict_carefully_selected]).T.reset_index()
+        self.hist_labels = [val for key, val in mapping_of_labels.items() if "hist_" in key]
+        self.skeleton_labels = [val for key, val in mapping_of_labels.items() if "skeleton_" in key]
+        
+        # feature_formatted_keys = sing_labels + dist_labels
+        # features_df = pd.DataFrame({'key': list(feature_formatted_keys), 'value': list(
+        #     [list(f) if isinstance(f, np.ndarray) else f for f in list(features_dict.values())[3:]])})
 
         # Update plotter & feature table
         # since unfortunately Qtinteractor which plots the mesh cannot be updated (remove and add new mesh)
@@ -408,7 +412,7 @@ class MainWindow(Qt.QMainWindow):
         self.vlayout.removeWidget(self.QTIplotter)
         self.QTIplotter = QtInteractor(self.frame)
         self.vlayout.addWidget(self.QTIplotter)
-        self.tableWidget = TableWidget(features_df, self, len(self.hist_labels))
+        self.tableWidget = TableWidget(features_dict_carefully_selected, self, mapping_of_labels_reversed)
         self.tableWidget.show()
         self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.vlayout.addWidget(self.tableWidget)
@@ -423,12 +427,11 @@ class MainWindow(Qt.QMainWindow):
             if len(self.smlw.smw_list) != 0:  self.smlw.smw_list[0].deleteLater()
         self.smlw = SimilarMeshesListWindow(features_dict)
 
-        self.hist_dict = features_df.set_index("key").tail(n=len(self.hist_labels)).to_dict()
         self.buttons = self.tableWidget.get_buttons_in_table()
-
+        self.hist_dict = features_df.set_index("index").tail(n=len(self.hist_labels)).to_dict()
+        tmp = {row.get("index"): row.get(0) for index, row in features_df.iterrows() if "hist_" in mapping_of_labels_reversed[row.get("index")]}
         for key, value in self.buttons.items():
-            value.clicked.connect(lambda state, x=key, y=self.hist_dict["value"][key]: self.plot_selected_hist(x, y))
-
+            value.clicked.connect(lambda state, x=key, y=features_dict_carefully_selected[key]: self.plot_selected_hist(x, y))
         self.smlw.show()
 
     def plot_selected_hist(self, hist_title, hist_data):

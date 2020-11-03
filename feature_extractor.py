@@ -173,21 +173,21 @@ class FeatureExtractor:
     @staticmethod
     def get_pipeline_functions():
         singleton_pipeline = {
+            FeatureExtractor.convex_hull_volume: "Convex Hull Volume",
+            FeatureExtractor.rectangularity: "Rectangularity",
             FeatureExtractor.compactness: "Compactness",
             FeatureExtractor.sphericity: "Sphericity",
+            FeatureExtractor.diameter: "Diameter",
             FeatureExtractor.aabb_volume: "Bounding Box Volume",
             FeatureExtractor.surface_area: "Surface Area",
             FeatureExtractor.eccentricity: "Eccentricity",
-            FeatureExtractor.diameter: "Diameter",
-            FeatureExtractor.convex_hull_volume: "Convex Hull Volume",
-            FeatureExtractor.rectangularity: "Rectangularity",
         }
         histogram_pipeline = {
-            FeatureExtractor.angle_three_rand_verts: "Angl. of sampled vert. triplets",
-            FeatureExtractor.dist_bar_vert: "Dist. between sampled vert. & barycenter",
-            FeatureExtractor.dist_two_rand_verts: "Dist. of sampled vert. pairs",
-            FeatureExtractor.dist_sqrt_area_rand_triangle: "Sqrt. of sampled triangles",
             FeatureExtractor.cube_root_volume_four_rand_verts: "Curt. of sampled tetrahedrons",
+            FeatureExtractor.angle_three_rand_verts: "Angl. of sampled vert. triplets",
+            FeatureExtractor.dist_two_rand_verts: "Dist. of sampled vert. pairs",
+            FeatureExtractor.dist_bar_vert: "Dist. between sampled vert. & barycenter",
+            FeatureExtractor.dist_sqrt_area_rand_triangle: "Sqrt. of sampled triangles",
             FeatureExtractor.gaussian_curvature: "Gaussian Curvature",
             FeatureExtractor.mean_curvature: "Mean Curvature",
         }

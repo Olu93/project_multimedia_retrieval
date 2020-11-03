@@ -3,6 +3,7 @@ import os
 from collections import ChainMap
 from collections import OrderedDict
 from pathlib import Path
+from pprint import pprint
 
 import jsonlines
 import numpy as np
@@ -11,10 +12,12 @@ from annoy import AnnoyIndex
 from sklearn.preprocessing import StandardScaler
 import itertools
 from feature_extractor import FeatureExtractor
-from helper.config import FEATURE_DATA_FILE
+from helper.config import DEBUG, FEATURE_DATA_FILE
 from helper.misc import get_feature_type_positions, get_sizes_features
 
 # TODO: EMD does not work for scalars
+# if DEBUG:
+#     debug_file = io.open("analysis.txt", mode="w")
 
 
 class QueryMatcher(object):
@@ -30,11 +33,11 @@ class QueryMatcher(object):
         if label_coarse:
             for data in self.features_raw:
                 data.update(label=data["label_coarse"])
-        list_of_list_df = pd.DataFrame(self.features_raw)
-        self.list_of_list_cols = np.array(list_of_list_df.columns)
-        self.col_mapping = get_feature_type_positions(list(list_of_list_df.columns))
+        self.list_of_list_df = pd.DataFrame(self.features_raw)
+        self.list_of_list_cols = np.array(self.list_of_list_df.columns)
+        self.col_mapping = get_feature_type_positions(list(self.list_of_list_df.columns))
         self.scalar_cols = self.list_of_list_cols[list(self.col_mapping["scalar"].values())]
-        scalers, features_list_of_list_df = QueryMatcher.scale_data(list_of_list_df, self.col_mapping)
+        scalers, features_list_of_list_df = QueryMatcher.scale_data(self.list_of_list_df, self.col_mapping)
         feature_list_names, features_list_of_list = list(features_list_of_list_df.columns), features_list_of_list_df.values
         self.scalers = scalers
         self.features_list_names = feature_list_names
@@ -134,6 +137,8 @@ class QueryMatcher(object):
     def match_with_db(self, feature_set, k=5, distance_functions=[], weights=None):
         # feature_set_transformed = QueryMatcher.prepare_for_matching(feature_set=feature_set)
         standardised_item = QueryMatcher.prepare_for_matching(feature_set, self.scalers, self.col_mapping, self.features_list_names)
+        # print(weights)
+        # print(standardised_item[-1])
         len_fst = len(standardised_item)
         len_df = len(distance_functions)
         assert len_fst == len_df, f"Not enough OR too many distance functions supplied! - requires {len_fst} functions and not {len_df}"
@@ -168,6 +173,7 @@ class QueryMatcher(object):
 
         # Making sure that the order is correct
         all_combined = OrderedDict(**standardized_scalar_features, **standardized_hist_features, **standardized_skeleton_features)
+        
         pre_output = OrderedDict([(col, None) for col in final_col_order_mapping])
         for col_name, val in all_combined.items():
             pre_output[col_name] = val
@@ -185,8 +191,10 @@ class QueryMatcher(object):
         :return: Returns score for the distance
         """
         weights = [1] * len(dist_funcs) if not weights else weights
-
-        return sum([w * fn(a, b) for a, b, fn, w in zip(a_features, b_features, dist_funcs, weights)])
+        results = {f"{fn.__name__}_{idx}": {"distance": w * fn(a, b), "input": (a, b, w)} for idx, (a, b, fn, w) in enumerate(zip(a_features, b_features, dist_funcs, weights))}
+        # if DEBUG:
+        #     pprint({key: val["distance"] for key, val in results.items()}, stream=debug_file)
+        return sum([val["distance"] for _, val in results.items()])
 
     # @staticmethod
     # def prepare_for_matching(feature_set):

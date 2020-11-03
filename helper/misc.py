@@ -192,17 +192,14 @@ def get_sizes_features(features_file=FEATURE_DATA_FILE, drop_feat=None, with_lab
 
     cleaned_features_single_dict = {key: value for (key, value) in features_data_single_dict.items() if key not in drop_feat}
 
-    singletons = {key: value for key, value in cleaned_features_single_dict.items() if "scalar" in key}
+    singletons = {key: key.replace("_", " ").replace("scalar", "Scalar:").title() for key, _ in cleaned_features_single_dict.items() if "scalar" in key}
 
-    distributionals = {key: value for key, value in cleaned_features_single_dict.items() if "hist" in key or "skeleton" in key}
-
-    dist_labels = [key.replace("_", " ").replace("hist", "").title() for key in distributionals.keys()]
-    sing_labels = [key.replace("_", " ").replace("scalar", "").title() for key in singletons.keys()]
+    distributionals = {key: key.replace("_", " ").replace("hist", "Histogram:").replace("skeleton", "Skeleton:").title() for key, _ in cleaned_features_single_dict.items() if "hist" in key or "skeleton" in key}
 
     n_singletons = singletons.__len__()
     n_distributionals = len(distributionals)
 
     if with_labels:
-        return n_singletons, n_distributionals, sing_labels, dist_labels
+        return n_singletons, n_distributionals, dict(**singletons, **distributionals)
     else:
         return n_singletons, n_distributionals

@@ -70,43 +70,33 @@ class FloatDelegate(QItemDelegate):
 
 
 class TableWidget(QTableWidget):
-    def __init__(self, df, parent, num_hist):
+    def __init__(self, feature_dict, parent, mapping):
+        
         QTableWidget.__init__(self, parent)
         self.setEditTriggers(self.NoEditTriggers)
-        self.df = df
-        nRows = len(self.df.index)
-        nColumns = len(self.df.columns)
-        self.setRowCount(nRows)
-        self.setColumnCount(nColumns)
-        self.setItemDelegate(FloatDelegate())
+        self.feature_dict = feature_dict
         self.setFixedHeight(250)
+        self.setRowCount(len(mapping))
+        self.setItemDelegate(FloatDelegate())
+        self.setColumnCount(2)
         self.buttonsInTable = {}
-        key = ""
-        value = None
-        x = ""
-        for i in range(self.rowCount()):
-            for j in range(self.columnCount()):
-                if i < self.rowCount() - num_hist:
-                    x = f'{self.df.iloc[i, j]}'
-                    self.setItem(i, j, QTableWidgetItem(x))
-                else:
-                    if j == 1:
-                        if "skeleton" not in key.lower():
-                            btn = QPushButton(QIcon('histogramicon.png'), 'Plot Values', self)
-                            btn.setText('Plot Values')
-                            self.setCellWidget(i, j, btn)
-                            value = btn
-                            self.buttonsInTable[key] = value
+        for idx, (key, values) in enumerate(feature_dict.items()):
+            if "hist_" in mapping.get(key, key):
+                self.setItem(idx, 0, QTableWidgetItem(key))
+                btn = QPushButton(QIcon('histogramicon.png'), 'Plot Values', self)
+                btn.setText('Plot Values')
 
-                        else:
-                            val = f'X: {round(self.df.iloc[i, j][0], 2)}, ' \
-                                  f'Y: {round(self.df.iloc[i, j][1], 2)}, ' \
-                                  f'Z: {round(self.df.iloc[i, j][2], 2)}'
-                            self.setItem(i, j, QTableWidgetItem(val))
-                    else:
-                        x = f'{self.df.iloc[i, j]}'
-                        self.setItem(i, j, QTableWidgetItem(x))
-                        key = x
+                self.setCellWidget(idx, 1, btn)
+                self.buttonsInTable[key] = btn
+            if "skeleton_" in mapping.get(key, key):
+                self.setItem(idx, 0, QTableWidgetItem(key))
+                val = f'X: {round(values[0], 2)}, ' \
+                    f'Y: {round(values[1], 2)}, ' \
+                    f'Z: {round(values[2], 2)}'
+                self.setItem(idx, 1, QTableWidgetItem(val))
+            if "scalar_" in mapping.get(key, key):
+                self.setItem(idx, 0, QTableWidgetItem(key))
+                self.setItem(idx, 1, QTableWidgetItem(str(values)))
 
         self.cellChanged.connect(self.on_cell_changed)
 
@@ -114,7 +104,7 @@ class TableWidget(QTableWidget):
     def on_cell_changed(self, row, column):
         text = self.item(row, column).text()
         number = float(text)
-        self.df.set_value(row, column, number)
+        self.feature_dict.set_value(row, column, number)
 
     def get_buttons_in_table(self):
         return self.buttonsInTable
@@ -127,10 +117,8 @@ class TsneVisualiser:
         self.filename = filename
 
     def plot(self):
-        labelled_mat = np.hstack(
-            (np.array([dic["label"] for dic in self.raw_data]).reshape(-1, 1), self.full_mat))
-        df = pd.DataFrame(data=labelled_mat[:, 1:],
-                          index=labelled_mat[:, 0])
+        labelled_mat = np.hstack((np.array([dic["label"] for dic in self.raw_data]).reshape(-1, 1), self.full_mat))
+        df = pd.DataFrame(data=labelled_mat[:, 1:], index=labelled_mat[:, 0])
 
         lbl_list = list(df.index)
         color_map = rand_cmap(len(lbl_list), first_color_black=False, last_color_black=True)
