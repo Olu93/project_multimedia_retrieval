@@ -13,8 +13,13 @@
 ### 
 [] Mention in paper: Rectangularity
 
+### Queriying
+[] Explain how the query occurs procedurally. With algorithm.
+[] For the full feature variant use Mahabolis distance d(x,y) = sqrt((x-y).T * C^-1 * (x-y)) where C is the data covariance matrix
+
 ### Personal tasks
-[] Parallelize normalisation operation 
+[x] Parallelize normalisation operation 
+[] For all vector query use the right weighting
 [] Histograms for before and after normalisation
 [] Implement rest of the features on the slide (Convex hull and non convex hull, Average curvature, Reflective Symmetry, Morphological features)
 

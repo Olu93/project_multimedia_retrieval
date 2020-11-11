@@ -19,7 +19,7 @@ import sknw
 import networkx as nx
 
 # %%
-mesh = pv.read("C:\\Users\\ohund\\workspace\\project_multimedia_retrieval\\trash\\m118.ply")
+mesh = pv.read("C:\\Users\\ohund\\workspace\\project_multimedia_retrieval\\trash\\m338.ply")
 mesh.plot()
 
 
@@ -34,7 +34,7 @@ def extract_sillhouettes(mesh, normal):
     p = pv.Plotter(
         notebook=False,
         off_screen=True,
-        window_size=(432, 288),
+        # window_size=(432, 288),
     )
     projected = mesh.project_points_to_plane((0, 0, 0), normal=normal)
     p.add_mesh(projected)
@@ -65,27 +65,29 @@ extracted_information = list(zip(sillhouettes, skeletons, graphs))
 
 def visualize_skeleton_extraction(sillhouettes, skeletons, graphs):
     fig = plt.figure(figsize=(12, 10))
+    fig.suptitle("2D Contours and Skeleton-Graph")
     for idx, (img_array, skeleton, G) in enumerate(zip(sillhouettes, skeletons, graphs)):
-        if not len(G.nodes()):
-            continue
-        ax = fig.add_subplot(3, 3, idx + 1)
+        # if not len(G.nodes()):
+        #     continue
+        ax = fig.add_subplot(1, 3, idx + 1)
         ax.imshow(img_array, cmap=plt.cm.gray)
-        if idx == 0:
-            ax.set_ylabel('Contour', fontsize=15)
-        ax = fig.add_subplot(3, 3, 3 + idx + 1)
-        ax.imshow(skeleton, cmap=plt.cm.gray)
-        if idx == 0:
-            ax.set_ylabel('Skeleton', fontsize=15)
-        ax = fig.add_subplot(3, 3, 6 + idx + 1)
-        ax.imshow(img_array, cmap="gray")
+        # if idx == 0:
+        #     ax.set_ylabel('Contour', fontsize=15)
+        # ax = fig.add_subplot(3, 3, 3 + idx + 1)
+        # ax.imshow(skeleton, cmap=plt.cm.gray)
+        # if idx == 0:
+        #     ax.set_ylabel('Skeleton', fontsize=15)
+        # ax = fig.add_subplot(3, 3, 6 + idx + 1)
+        # ax.imshow(img_array, cmap="gray")
         for (s, e) in G.edges():
             ps = G[s][e]['pts']
             ax.plot(ps[:, 1], ps[:, 0], 'green')
         nodes = [node for node in G.nodes()]
         ps = np.array([G.nodes()[i]['o'] for i in nodes])
         ax.plot(ps[:, 1], ps[:, 0], 'r.')
-        if idx == 0:
-            ax.set_ylabel('Graph', fontsize=15)
+        # if idx == 0:
+        #     # ax.set_ylabel('Graph', fontsize=15)
+        
 
     plt.tight_layout()
     return plt.show()
