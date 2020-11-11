@@ -1,6 +1,6 @@
-from collections import OrderedDict
 import glob
 import sys
+from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
@@ -37,14 +37,17 @@ class SimilarMeshWindow(Qt.QWidget):
 
         # Create and add widgets to layout
 
-        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True, drop_feat=["timestamp"])
+        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True,
+                                                                                drop_feat=["timestamp"])
         mapping_of_labels_reversed = {val: key for key, val in mapping_of_labels.items()}
-        features_dict_carefully_selected = OrderedDict(sorted({mapping_of_labels.get(key): val for key, val in self.mesh_features.items() if key in mapping_of_labels}.items(), key=lambda t: t[0]))
+        features_dict_carefully_selected = OrderedDict(sorted(
+            {mapping_of_labels.get(key): val for key, val in self.mesh_features.items() if
+             key in mapping_of_labels}.items(), key=lambda t: t[0]))
         features_df = pd.DataFrame([features_dict_carefully_selected]).T.reset_index()
         self.hist_labels = [val for key, val in mapping_of_labels.items() if "hist_" in key]
         # Create Table widget
         self.tableWidget = TableWidget(features_dict_carefully_selected, self, mapping_of_labels_reversed)
-        self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.tableWidget.horizontalHeader().setSctionResizeMode(QtWidgets.QHeaderView.Stretch)
 
         # Create Plots widget
         self.graphWidget = pg.PlotWidget()
@@ -53,10 +56,11 @@ class SimilarMeshWindow(Qt.QWidget):
         self.hist_dict = features_df.set_index("index").tail(n=len(self.hist_labels)).to_dict()
         self.buttons = self.tableWidget.get_buttons_in_table()
 
-        tmp = {row.get("index"): row.get(0) for index, row in features_df.iterrows() if "hist_" in mapping_of_labels_reversed[row.get("index")]}
+        tmp = {row.get("index"): row.get(0) for index, row in features_df.iterrows() if
+               "hist_" in mapping_of_labels_reversed[row.get("index")]}
         for key, value in self.buttons.items():
-            value.clicked.connect(lambda state, x=key, y=features_dict_carefully_selected[key]: self.plot_selected_hist(x, y))
-
+            value.clicked.connect(
+                lambda state, x=key, y=features_dict_carefully_selected[key]: self.plot_selected_hist(x, y))
 
         self.vlayout.addWidget(self.QTIplotter.interactor)
         self.vlayout.addWidget(self.tableWidget)
@@ -98,7 +102,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.layout = Qt.QVBoxLayout()
         self.setLayout(self.layout)
         self.setWindowTitle('Similar Meshes Widget')
-
+        self.smw = None
         self.scalarDistancesDict = {
             "Cosine": cosine,
             "Manhattan": cityblock,
@@ -199,7 +203,8 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.resize(width, screen_height - 50)
 
     def closeEvent(self, event):
-        self.smw.deleteLater()
+        if self.smw:
+            self.smw.deleteLater()
 
     def update_similar_meshes_list(self):
         scalarDistFunction = self.scalarDistancesDict[self.scalarDistanceMethodList.currentText()]
@@ -290,13 +295,17 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.skeletonLabelWeights.setText("Skeleton weight: " + str(value))
 
     def plot_tsne(self):
-        tsne_plotter = TsneVisualiser(self.query_matcher.features_raw,
-                                      self.query_matcher.features_df,
-                                      "tsne.png")
-        if not tsne_plotter.file_exist():
-            tsne_plotter.plot()
-        img = Image.open(open("tsne.png", 'rb'))
-        img.show()
+        labels = [dic["label"].replace("_", " ").title() for dic in self.query_matcher.features_raw]
+        filename = "tsne.html"
+
+        # labels = [dic["label_coarse"].replace("_", " ").title() for dic in self.query_matcher.features_raw]
+        # filename = "tsne_coarsed.html"
+
+        tsne_plotter = TsneVisualiser(labels,
+                                      self.query_matcher.features_list_of_list,
+                                      filename)
+        tsne_plotter.plot()
+
 
 
 class MainWindow(Qt.QMainWindow):
@@ -393,14 +402,17 @@ class MainWindow(Qt.QMainWindow):
                                   normed_data["history"][-1]["data"]["faces"])
         normed_data['poly_data'] = normed_mesh
         # Extract features
-        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True, drop_feat=["timestamp"])
+        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True,
+                                                                                drop_feat=["timestamp"])
         mapping_of_labels_reversed = {val: key for key, val in mapping_of_labels.items()}
         features_dict = FeatureExtractor.mono_run_pipeline_old(normed_data)
-        features_dict_carefully_selected = OrderedDict(sorted({mapping_of_labels.get(key): val for key, val in features_dict.items() if key in mapping_of_labels}.items(), key=lambda t: t[0]))
+        features_dict_carefully_selected = OrderedDict(sorted(
+            {mapping_of_labels.get(key): val for key, val in features_dict.items() if key in mapping_of_labels}.items(),
+            key=lambda t: t[0]))
         features_df = pd.DataFrame([features_dict_carefully_selected]).T.reset_index()
         self.hist_labels = [val for key, val in mapping_of_labels.items() if "hist_" in key]
         self.skeleton_labels = [val for key, val in mapping_of_labels.items() if "skeleton_" in key]
-        
+
         # feature_formatted_keys = sing_labels + dist_labels
         # features_df = pd.DataFrame({'key': list(feature_formatted_keys), 'value': list(
         #     [list(f) if isinstance(f, np.ndarray) else f for f in list(features_dict.values())[3:]])})
@@ -429,9 +441,11 @@ class MainWindow(Qt.QMainWindow):
 
         self.buttons = self.tableWidget.get_buttons_in_table()
         self.hist_dict = features_df.set_index("index").tail(n=len(self.hist_labels)).to_dict()
-        tmp = {row.get("index"): row.get(0) for index, row in features_df.iterrows() if "hist_" in mapping_of_labels_reversed[row.get("index")]}
+        tmp = {row.get("index"): row.get(0) for index, row in features_df.iterrows() if
+               "hist_" in mapping_of_labels_reversed[row.get("index")]}
         for key, value in self.buttons.items():
-            value.clicked.connect(lambda state, x=key, y=features_dict_carefully_selected[key]: self.plot_selected_hist(x, y))
+            value.clicked.connect(
+                lambda state, x=key, y=features_dict_carefully_selected[key]: self.plot_selected_hist(x, y))
         self.smlw.show()
 
     def plot_selected_hist(self, hist_title, hist_data):
