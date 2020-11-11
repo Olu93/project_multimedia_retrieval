@@ -1,5 +1,8 @@
 import os
+import webbrowser
+from collections import Counter
 
+import colorcet as cc
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -7,10 +10,11 @@ from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtGui import QDoubleValidator, QIcon
 from PyQt5.QtWidgets import QTableWidget, \
     QTableWidgetItem, QItemDelegate, QLineEdit, QPushButton
+from bokeh.models import ColumnDataSource, HoverTool
+from bokeh.plotting import figure, output_file, save
+from scipy.stats import entropy
 from sklearn.manifold import TSNE
-from sklearn.preprocessing import StandardScaler
 
-from helper.misc import rand_cmap
 from reader import DataSet
 
 
@@ -71,7 +75,7 @@ class FloatDelegate(QItemDelegate):
 
 class TableWidget(QTableWidget):
     def __init__(self, feature_dict, parent, mapping):
-        
+
         QTableWidget.__init__(self, parent)
         self.setEditTriggers(self.NoEditTriggers)
         self.feature_dict = feature_dict
@@ -91,8 +95,8 @@ class TableWidget(QTableWidget):
             if "skeleton_" in mapping.get(key, key):
                 self.setItem(idx, 0, QTableWidgetItem(key))
                 val = f'X: {round(values[0], 2)}, ' \
-                    f'Y: {round(values[1], 2)}, ' \
-                    f'Z: {round(values[2], 2)}'
+                      f'Y: {round(values[1], 2)}, ' \
+                      f'Z: {round(values[2], 2)}'
                 self.setItem(idx, 1, QTableWidgetItem(val))
             if "scalar_" in mapping.get(key, key):
                 self.setItem(idx, 0, QTableWidgetItem(key))
@@ -111,31 +115,44 @@ class TableWidget(QTableWidget):
 
 
 class TsneVisualiser:
-    def __init__(self, raw_data, full_mat, filename):
-        self.raw_data = raw_data
-        self.full_mat = full_mat.values
+    def __init__(self, labels, values, filename):
+        self.labels = labels
+        self.values = values
         self.filename = filename
 
     def plot(self):
-        labelled_mat = np.hstack((np.array([dic["label"] for dic in self.raw_data]).reshape(-1, 1), self.full_mat))
-        df = pd.DataFrame(data=labelled_mat[:, 1:], index=labelled_mat[:, 0])
+        # If the file exists just show and return
+        if self.file_exist():
+            webbrowser.open('file://' + os.path.realpath(self.filename))
+            return
 
-        lbl_list = list(df.index)
-        color_map = rand_cmap(len(lbl_list), first_color_black=False, last_color_black=True)
-        lbl_to_idx_map = dict(zip(lbl_list, range(len(lbl_list))))
-        labels = [lbl_to_idx_map[i] for i in lbl_list]
+        # Calculate perplexity
+        counts = Counter(self.labels).values()
+        probabilities = [prob / len(counts) for prob in counts]
+        perplexity = 2 ** (entropy(probabilities))
 
-        scaler = StandardScaler()
-        st_values = scaler.fit_transform(df.values)
-
-        # Playing around with parameters, this seems like a good fit
-        tsne_results = TSNE(perplexity=40, learning_rate=500).fit_transform(st_values)
+        # Evaluate TSNE and create dataframe |labels|tsne_x|tsne_y|
+        flat_data = [[val for sublist in row for val in sublist] for row in self.values]
+        tsne_results = TSNE(perplexity=perplexity).fit_transform(flat_data)
         t_x, t_y = tsne_results[:, 0], tsne_results[:, 1]
-        plt.title("tSNE reduction")
-        plt.xlabel("tSNE 1")
-        plt.ylabel("tSNE 2")
-        plt.scatter(t_x, t_y, c=labels, cmap=color_map, vmin=0, vmax=len(lbl_list), label=lbl_list, s=10)
-        plt.savefig(self.filename, bbox_inches='tight', dpi=200)
+        df = pd.DataFrame(np.hstack((t_x.reshape(-1, 1), t_y.reshape(-1, 1))), index=self.labels)
+        df.reset_index(level=0, inplace=True)
+        df.columns = ["labels", "x", "y"]
+
+        # Plotting, saving and displaying
+        unique_classes = sorted(list(set(df['labels'])))
+        classification_indexes = [unique_classes.index(x) for x in df['labels']]
+        colors = cc.b_glasbey_bw[0:len(unique_classes)]
+        draw_colors = [colors[classification_indexes[x]] for x in range(df.shape[0])]
+        TOOLS = ["pan", "wheel_zoom", "zoom_in", "zoom_out", "box_zoom", "undo", "redo", "reset", "tap", "save",
+                 "box_select", "poly_select", "lasso_select", HoverTool(tooltips='@labels')]
+        source = ColumnDataSource(data={'x': df["x"], 'y': df["y"], 'labels': df["labels"], 'colors': draw_colors})
+        p = figure(title='tSNE', x_axis_label='tSNE 1', y_axis_label='tSNE 2',
+                   tools=TOOLS, plot_width=900, plot_height=900)
+        p.circle(x='x', y='y', source=source, color="colors", alpha=255)
+        output_file(self.filename, title="tSNE reduction.")
+        save(p)
+        webbrowser.open('file://' + os.path.realpath(self.filename))
 
     def file_exist(self):
         if os.path.isfile(self.filename):

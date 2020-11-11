@@ -239,9 +239,9 @@ class DataSet:
         mesh = None
         if not file_name:
             return mesh
-        if str(file_name).split(".")[1] != "off":
+        if str(file_name)[::-1].split(".")[0][::-1] != "off":
             mesh = DataSet._load_ply(file_name)
-        elif str(file_name).split(".")[1] == "off":
+        elif str(file_name)[::-1].split(".")[0][::-1] == "off":
             mesh = DataSet._load_off(file_name)
         else:
             raise Exception("File type not yet supported.")
