@@ -168,10 +168,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.matchButton = QPushButton('Match with Database', self)
         self.matchButton.clicked.connect(self.update_similar_meshes_list)
 
-        self.viewTSNEButton = QPushButton('Plot tSNE', self)
-        self.viewTSNEButton.clicked.connect(self.plot_tsne)
-        self.viewTSNEButton.setToolTip("tSNE computation can take minutes.")
-        self.viewTSNEButton.hide()
+
 
         self.plotButton = QPushButton('Plot selected mesh', self)
         self.plotButton.clicked.connect(self.plot_selected_mesh)
@@ -266,8 +263,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
             item.setToolTip(str(ind))
             self.list.addItem(item)
 
-        self.viewTSNEButton.show()
-        self.layout.addWidget(self.viewTSNEButton)
+
 
     def plot_selected_mesh(self):
         mesh_name = self.list.selectedItems()[0].toolTip()
@@ -294,23 +290,13 @@ class SimilarMeshesListWindow(Qt.QWidget):
     def update_skel_label(self, value):
         self.skeletonLabelWeights.setText("Skeleton weight: " + str(value))
 
-    def plot_tsne(self):
-        labels = [dic["label"].replace("_", " ").title() for dic in self.query_matcher.features_raw]
-        filename = "tsne.html"
-
-        # labels = [dic["label_coarse"].replace("_", " ").title() for dic in self.query_matcher.features_raw]
-        # filename = "tsne_coarsed.html"
-
-        tsne_plotter = TsneVisualiser(labels,
-                                      self.query_matcher.features_list_of_list,
-                                      filename)
-        tsne_plotter.plot()
 
 
 
 class MainWindow(Qt.QMainWindow):
     def __init__(self, parent=None, show=True):
         Qt.QMainWindow.__init__(self, parent)
+        self.query_matcher = QueryMatcher(FEATURE_DATA_FILE)
         self.supported_file_types = [".ply", ".off"]
         self.buttons = {}
         self.ds = reader.DataSet("")
@@ -332,6 +318,11 @@ class MainWindow(Qt.QMainWindow):
         exitButton.setShortcut('Ctrl+Q')
         exitButton.triggered.connect(self.close)
         fileMenu.addAction(exitButton)
+
+        viewMenu = mainMenu.addMenu('View')
+        exitButton = Qt.QAction('Plot tSNE', self)
+        exitButton.triggered.connect(self.plot_tsne)
+        viewMenu.addAction(exitButton)
 
         # Create load button and init action
         self.load_button = QPushButton("Load or drop mesh to query")
@@ -461,6 +452,16 @@ class MainWindow(Qt.QMainWindow):
         self.graphWidget.setYRange(min(hist_data), max(hist_data))
         self.graphWidget.plot(np.arange(0, len(hist_data)), hist_data, pen=pen)
 
+
+    def plot_tsne(self):
+        labels = [dic["label"].replace("_", " ").title() for dic in self.query_matcher.features_raw]
+        labels_coarse = [dic["label_coarse"].replace("_", " ").title() for dic in self.query_matcher.features_raw]
+        filename = "tsne.html"
+
+        tsne_plotter = TsneVisualiser(labels, # labels_coarse,
+                                      self.query_matcher.features_list_of_list,
+                                      filename)
+        tsne_plotter.plot()
 
 if __name__ == '__main__':
     app = Qt.QApplication(sys.argv)

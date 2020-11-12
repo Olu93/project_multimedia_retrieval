@@ -2,7 +2,6 @@ import os
 import webbrowser
 from collections import Counter
 
-import colorcet as cc
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -15,6 +14,7 @@ from bokeh.plotting import figure, output_file, save
 from scipy.stats import entropy
 from sklearn.manifold import TSNE
 
+from helper.misc import rand_cmap
 from reader import DataSet
 
 
@@ -142,7 +142,7 @@ class TsneVisualiser:
         # Plotting, saving and displaying
         unique_classes = sorted(list(set(df['labels'])))
         classification_indexes = [unique_classes.index(x) for x in df['labels']]
-        colors = cc.b_glasbey_bw[0:len(unique_classes)]
+        colors = rand_cmap(len(unique_classes), return_hex=True)  # cc.b_glasbey_bw[0:len(unique_classes)]
         draw_colors = [colors[classification_indexes[x]] for x in range(df.shape[0])]
         TOOLS = ["pan", "wheel_zoom", "zoom_in", "zoom_out", "box_zoom", "undo", "redo", "reset", "tap", "save",
                  "box_select", "poly_select", "lasso_select", HoverTool(tooltips='@labels')]
@@ -158,3 +158,36 @@ class TsneVisualiser:
         if os.path.isfile(self.filename):
             return True
         return False
+
+
+        # # Calculate perplexity
+        # counts = Counter(self.labels).values()
+        # probabilities = [prob / len(counts) for prob in counts]
+        # perplexity = 2 ** (entropy(probabilities))
+        #
+        # # Evaluate TSNE and create dataframe |labels|tsne_x|tsne_y|
+        # flat_data = [[val for sublist in row for val in sublist] for row in self.values]
+        # tsne_results = TSNE(perplexity=perplexity).fit_transform(flat_data)
+        # t_x, t_y = tsne_results[:, 0], tsne_results[:, 1]
+        # df = pd.DataFrame(np.hstack((np.array(self.labels).reshape(-1, 1),
+        #                              np.array(self.labels_coarse).reshape(-1, 1),
+        #                              t_x.reshape(-1, 1),
+        #                              t_y.reshape(-1, 1))))
+        # df.columns = ["labels", "labels_coarse", "x", "y"]
+        #
+        # # Plotting, saving and displaying
+        # unique_classes = sorted(list(set(df['labels_coarse'])))
+        # classification_indexes = [unique_classes.index(x) for x in df['labels']]
+        # colors = rand_cmap(len(unique_classes), return_hex=True)  # cc.b_glasbey_bw[0:len(unique_classes)]
+        # draw_colors = [colors[classification_indexes[x]] for x in range(df.shape[0])]
+        # TOOLS = ["pan", "wheel_zoom", "zoom_in", "zoom_out", "box_zoom", "undo", "redo", "reset", "tap", "save",
+        #          "box_select", "poly_select", "lasso_select", HoverTool(tooltips=['@labels', '@labels_coarse'])]
+        # source = ColumnDataSource(
+        #     data={'x': df["x"], 'y': df["y"], 'labels': df["labels"], 'labels_coarse': df["labels_coarse"],
+        #           'colors': draw_colors})
+        # p = figure(title='tSNE', x_axis_label='tSNE 1', y_axis_label='tSNE 2',
+        #            tools=TOOLS, plot_width=900, plot_height=900)
+        # p.circle(x='x', y='y', source=source, color="colors", alpha=255)
+        # output_file(self.filename, title="tSNE reduction.")
+        # save(p)
+        # webbrowser.open('file://' + os.path.realpath(self.filename))

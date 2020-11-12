@@ -79,7 +79,7 @@ def sphericitiy_compuation_2(mesh):  # https://sciencing.com/height-prism-853971
     return A_sphere / A_particle
 
 
-def rand_cmap(nlabels, type='bright', first_color_black=True, last_color_black=False, verbose=False):
+def rand_cmap(nlabels, return_hex=False, type='bright', first_color_black=True, last_color_black=False, verbose=False):
     """
     Creates a random colormap to be used together with matplotlib. Useful for segmentation tasks
     :param nlabels: Number of labels (size of colormap)
@@ -101,7 +101,7 @@ def rand_cmap(nlabels, type='bright', first_color_black=True, last_color_black=F
 
     # Generate color map for bright colors, based on hsv
     if type == 'bright':
-        randHSVcolors = [(np.random.uniform(low=0.0, high=1), np.random.uniform(low=0.2, high=1), np.random.uniform(low=0.9, high=1)) for i in range(nlabels)]
+        randHSVcolors = [(np.random.uniform(low=0.0, high=1), np.random.uniform(low=0.4, high=1), np.random.uniform(low=0.9, high=1)) for i in range(nlabels)]
 
         # Convert HSV list to RGB
         randRGBcolors = []
@@ -129,6 +129,8 @@ def rand_cmap(nlabels, type='bright', first_color_black=True, last_color_black=F
             randRGBcolors[-1] = [0, 0, 0]
         random_colormap = LinearSegmentedColormap.from_list('new_map', randRGBcolors, N=nlabels)
 
+    if return_hex:
+        return ['#%02x%02x%02x' % tuple([round(i*255) for i in color]) for color in randRGBcolors]
     return random_colormap
 
 
