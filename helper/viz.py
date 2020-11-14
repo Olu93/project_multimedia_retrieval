@@ -115,10 +115,11 @@ class TableWidget(QTableWidget):
 
 
 class TsneVisualiser:
-    def __init__(self, labels, values, filename):
+    def __init__(self, labels, values, filename, recompute=True):
         self.labels = labels
         self.values = values
         self.filename = filename
+        self.recompute = recompute
 
     def plot(self):
         # If the file exists just show and return
@@ -129,11 +130,11 @@ class TsneVisualiser:
         # Calculate perplexity
         counts = Counter(self.labels).values()
         probabilities = [prob / len(counts) for prob in counts]
-        perplexity = 2 ** (entropy(probabilities))
+        perplexity = 2**(entropy(probabilities))
 
         # Evaluate TSNE and create dataframe |labels|tsne_x|tsne_y|
         flat_data = [[val for sublist in row for val in sublist] for row in self.values]
-        tsne_results = TSNE(perplexity=perplexity).fit_transform(flat_data)
+        tsne_results = TSNE(perplexity=1).fit_transform(flat_data)
         t_x, t_y = tsne_results[:, 0], tsne_results[:, 1]
         df = pd.DataFrame(np.hstack((t_x.reshape(-1, 1), t_y.reshape(-1, 1))), index=self.labels)
         df.reset_index(level=0, inplace=True)
@@ -144,21 +145,24 @@ class TsneVisualiser:
         classification_indexes = [unique_classes.index(x) for x in df['labels']]
         colors = rand_cmap(len(unique_classes), return_hex=True)  # cc.b_glasbey_bw[0:len(unique_classes)]
         draw_colors = [colors[classification_indexes[x]] for x in range(df.shape[0])]
-        TOOLS = ["pan", "wheel_zoom", "zoom_in", "zoom_out", "box_zoom", "undo", "redo", "reset", "tap", "save",
-                 "box_select", "poly_select", "lasso_select", HoverTool(tooltips='@labels')]
+        TOOLS = [
+            "pan", "wheel_zoom", "zoom_in", "zoom_out", "box_zoom", "undo", "redo", "reset", "tap", "save", "box_select", "poly_select", "lasso_select",
+            HoverTool(tooltips='@labels')
+        ]
         source = ColumnDataSource(data={'x': df["x"], 'y': df["y"], 'labels': df["labels"], 'colors': draw_colors})
-        p = figure(title='tSNE', x_axis_label='tSNE 1', y_axis_label='tSNE 2',
-                   tools=TOOLS, plot_width=900, plot_height=900)
+        p = figure(title='tSNE', x_axis_label='tSNE 1', y_axis_label='tSNE 2', tools=TOOLS, plot_width=900, plot_height=900)
         p.circle(x='x', y='y', source=source, color="colors", alpha=255)
-        output_file(self.filename, title="tSNE reduction.")
+        output_file(self.filename, title="tSNE Hell.")
         save(p)
         webbrowser.open('file://' + os.path.realpath(self.filename))
 
     def file_exist(self):
         if os.path.isfile(self.filename):
+            if self.recompute:
+                os.remove(self.filename)
+                return False
             return True
         return False
-
 
         # # Calculate perplexity
         # counts = Counter(self.labels).values()

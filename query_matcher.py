@@ -30,6 +30,7 @@ class QueryMatcher(object):
         assert self.path_to_features.exists(), f"Feature file does not exist in {self.path_to_features.absolute().as_posix()}"
         self.features_raw_init = [data for data in jsonlines.Reader(io.open(self.path_to_features))]
         self.features_raw = [dict(data) for data in self.features_raw_init]
+        self.class_mapping = {item["name"]: {"label": item["label"], "label_coarse": item["label_coarse"]} for item in self.features_raw}
         if label_coarse:
             for data in self.features_raw:
                 data.update(label=data["label_coarse"])
@@ -42,8 +43,23 @@ class QueryMatcher(object):
         self.scalers = scalers
         self.features_list_names = feature_list_names
         self.features_list_of_list = features_list_of_list
-        self.features_flattened = [QueryMatcher.flatten_feature_dict(feature_set) for feature_set in self.features_raw]
+        self.features_flattened = [QueryMatcher.flatten_feature_dict(feature_set, self.list_of_list_cols) for feature_set in self.features_raw]
         self.features_df = pd.DataFrame(self.features_flattened).set_index('name').drop(columns=QueryMatcher.IGNORE_COLUMNS, errors='ignore')
+        self.features_df_all_scaled = pd.DataFrame(StandardScaler().fit_transform(self.features_df), columns=self.features_df.columns, index=self.features_df.index)
+
+        self.features_df_subset_scalar = self.features_df.filter(regex="^scalar_", axis=1)
+        self.features_df_subset_hist = self.features_df.filter(regex="^hist_", axis=1)
+        self.features_df_subset_skeleton = self.features_df.filter(regex="^skeleton_", axis=1)
+        self.features_df_properly_scaled = pd.DataFrame(
+            np.hstack([
+                StandardScaler().fit_transform(self.features_df_subset_scalar),
+                self.features_df_subset_hist.values,
+                StandardScaler().fit_transform(self.features_df_subset_skeleton),
+            ]),
+            columns=self.features_df.columns,
+            index=self.features_df.index,
+        )
+
         self.features_column_names = list(self.features_df.columns)
 
     @staticmethod
@@ -89,6 +105,9 @@ class QueryMatcher(object):
             t.load('shapes.ann')
         indices, values = t.get_nns_by_vector(query, k, include_distances=True)
         return values, indices
+
+    def map_to_label(self, name, is_coarse):
+        return self.class_mapping[name].get("label" if not is_coarse else "label_coarse", None)
 
     def compare_features_with_database(self, feature_set, weights, k=5, hist_dist_func=None, scalar_dist_func=None, n_scalar_features=6):
 
@@ -173,7 +192,7 @@ class QueryMatcher(object):
 
         # Making sure that the order is correct
         all_combined = OrderedDict(**standardized_scalar_features, **standardized_hist_features, **standardized_skeleton_features)
-        
+
         pre_output = OrderedDict([(col, None) for col in final_col_order_mapping])
         for col_name, val in all_combined.items():
             pre_output[col_name] = val
@@ -217,11 +236,23 @@ class QueryMatcher(object):
     #     return prepared
 
     @staticmethod
-    def flatten_feature_dict(feature_set):
-        singletons = {key: value for key, value in feature_set.items() if type(value) not in [list, np.ndarray]}
-        distributional = [{f"{key}_{idx}": val for idx, val in enumerate(dist)} for key, dist in feature_set.items() if type(dist) in [list, np.ndarray]]
-        flattened_feature_set = dict(ChainMap(*distributional, singletons))
+    def flatten_feature_dict(feature_set, l_ordered_feat: list = None):
+        if l_ordered_feat is None:
+            # for compatibility
+            singletons = {key: value for key, value in feature_set.items() if type(value) not in [list, np.ndarray]}
+            distributional = [{f"{key}_{idx}": val for idx, val in enumerate(dist)} for key, dist in feature_set.items() if type(dist) in [list, np.ndarray]]
+            flattened_feature_set = dict(ChainMap(*distributional, singletons))
+            return flattened_feature_set
+
+        flattened_feature_set = {}
+        for fname in l_ordered_feat:
+            if isinstance(feature_set[fname], (list, np.ndarray)):
+                flattened_feature_set.update({f"{fname}_{idx}": val for idx, val in enumerate(feature_set[fname])})
+            if not isinstance(feature_set[fname], (list, np.ndarray)):
+                flattened_feature_set[fname] = feature_set[fname]
         return flattened_feature_set
+        # for feature_name in ordered_list:
+        #     flattened_feature_set.extend()
 
     @staticmethod
     def prepare_single_feature_for_comparison(feature_set, columns_in_order):
