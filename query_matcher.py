@@ -1,14 +1,18 @@
 import io
+from normalizer import Normalizer
 import os
 from collections import ChainMap
 from collections import OrderedDict
 from pathlib import Path
 from pprint import pprint
+from reader import DataSet
 
 import jsonlines
 import numpy as np
 import pandas as pd
 from annoy import AnnoyIndex
+from scipy.spatial.distance import cityblock, cosine
+from scipy.stats.stats import wasserstein_distance
 from sklearn.preprocessing import StandardScaler
 import itertools
 from feature_extractor import FeatureExtractor
@@ -186,7 +190,7 @@ class QueryMatcher(object):
         :return: standardised query and list of lists
         """
         scalar_features = np.array([feature_set[col_name] for col_name in col_mapping["scalar"].keys()]).reshape(1, -1)
-        standardized_scalar_features = {QueryMatcher.CONST_SCALAR_ALL_COL: list(scalers[QueryMatcher.CONST_SCALAR_ALL_COL].transform(scalar_features))}
+        standardized_scalar_features = {QueryMatcher.CONST_SCALAR_ALL_COL: list(scalers[QueryMatcher.CONST_SCALAR_ALL_COL].transform(scalar_features))[0]}
         standardized_hist_features = {col: np.array(feature_set[col]) for col in col_mapping["hist"].keys()}
         standardized_skeleton_features = {col: scalers[col].transform(np.array(feature_set[col]).reshape(-1, 1)).flatten() for col in col_mapping["skeleton"].keys()}
 
@@ -209,7 +213,9 @@ class QueryMatcher(object):
         :param weights: weights for which each distance functions takes part
         :return: Returns score for the distance
         """
+        # a_features, b_features = np.array(a_features[0]).flatten().reshape(1,-1), np.array(b_features[0]).reshape(1,-1)
         weights = [1] * len(dist_funcs) if not weights else weights
+        # print(f" =>{a_features[0]} - {b_features[0]} - {weights}")
         results = {f"{fn.__name__}_{idx}": {"distance": w * fn(a, b), "input": (a, b, w)} for idx, (a, b, fn, w) in enumerate(zip(a_features, b_features, dist_funcs, weights))}
         # if DEBUG:
         #     pprint({key: val["distance"] for key, val in results.items()}, stream=debug_file)

@@ -22,7 +22,6 @@ def calc_F1(evaluator, function_pipeline, weights):
     return F1
 
 
-# %%
 if __name__ == "__main__":
     evaluator = Evaluator(FEATURE_DATA_FILE, label_coarse=False)
     features_df_raw = pd.DataFrame([data for data in jsonlines.Reader(io.open(FEATURE_DATA_FILE))])

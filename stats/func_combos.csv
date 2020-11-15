@@ -30,4 +30,14 @@ cityblock,wasserstein_distance,cosine,0.14652266792618893
 cityblock,cosine,euclidean,0.18092417384337303
 cityblock,cosine,cityblock,0.1906346802045805
 cityblock,cosine,wasserstein_distance,0.1456861860014144
-cityblock,cosine,cosine,0.15543932575280517f1,f2,f3,F1
+
+f1,f2,f3,F1
+cityblock,cosine,cosine,0.15543932575280517
+f1,f2,f3,F1
+f1,f2,f3,F1
+f1,f2,f3,F1
+f1,f2,f3,F1
+f1,f2,f3,F1
+f1,f2,f3,F1
+f1,f2,f3,F1
+f1,f2,f3,F1
