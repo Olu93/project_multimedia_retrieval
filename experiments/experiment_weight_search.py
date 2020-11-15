@@ -18,15 +18,12 @@ def run_experiment(query_class, function_pipeline, weights, label_coarse):
     mapping = {item["label"]: item["label_coarse"] for item in evaluator.query_matcher.features_raw_init}
 
     all_data = evaluator.query_matcher.features_raw
-    # print(evaluator.mesh_classes_count.keys())
-    # print(evaluator.mesh_classes_count[evaluator.mesh_classes_count==10])
     my_subset = [item for item in all_data if item["label"] == (mapping[query_class] if evaluator.label_coarse else query_class)]
     k_all_db_results_cociwa = evaluator.perform_matching_on_subset_slow(my_subset, function_pipeline, weights, k_full_db_switch=True)
     k_all_db_results_cociwa = evaluator.metric_F1(k_all_db_results_cociwa, evaluator.mesh_classes_count, k=10, use_class_k=True)
 
     k_all_db_results_cociwa[["matches_class"]] = [Counter(tuple(row[["matches_class"]][0])) for index, row in k_all_db_results_cociwa.iterrows()]
     results = k_all_db_results_cociwa[["name", "class", "matches_class"]]
-    # print(results.head(10))
     print("")
     results.head(10)
     my_result = evaluator.calc_weighted_metric(k_all_db_results_cociwa)[1]
@@ -37,17 +34,12 @@ def run_experiment(query_class, function_pipeline, weights, label_coarse):
 def run_experiment_single(query_mesh, function_pipeline, weights, label_coarse):
     evaluator = Evaluator(FEATURE_DATA_FILE, label_coarse=label_coarse)
     mapping = {item["label"]: item["label_coarse"] for item in evaluator.query_matcher.features_raw_init}
-
     all_data = evaluator.query_matcher.features_raw
-    # print(evaluator.mesh_classes_count.keys())
-    # print(evaluator.mesh_classes_count[evaluator.mesh_classes_count==10])
     my_subset = [item for item in all_data if item["name"] == query_mesh]
     k_all_db_results_cociwa = evaluator.perform_matching_on_subset_slow(my_subset, function_pipeline, weights, k_full_db_switch=True)
     k_all_db_results_cociwa = evaluator.metric_F1(k_all_db_results_cociwa, evaluator.mesh_classes_count, k=10, use_class_k=True)
-
     k_all_db_results_cociwa[["matches_class"]] = [Counter(tuple(row[["matches_class"]][0])) for index, row in k_all_db_results_cociwa.iterrows()]
     results = k_all_db_results_cociwa[["name", "class", "matches_class"]]
-    # print(results.head(10))
     print("")
     results.head(10)
     print(evaluator.calc_weighted_metric(k_all_db_results_cociwa)[1])
@@ -56,25 +48,15 @@ def run_experiment_single(query_mesh, function_pipeline, weights, label_coarse):
 def run_experiment_single_tmp(query_class, function_pipeline, weights, label_coarse):
     evaluator = Evaluator(FEATURE_DATA_FILE, label_coarse=label_coarse)
     mapping = {item["label"]: item["label_coarse"] for item in evaluator.query_matcher.features_raw_init}
-
     all_data = evaluator.query_matcher.features_raw
-    # print(evaluator.mesh_classes_count.keys())
-    # print(evaluator.mesh_classes_count[evaluator.mesh_classes_count==10])
     my_subset = [item for item in all_data if item["label"] == (mapping[query_class] if evaluator.label_coarse else query_class)]
     k_all_db_results_cociwa = evaluator.perform_matching_on_subset_slow(my_subset, function_pipeline, weights, k_full_db_switch=True)
     k_all_db_results_cociwa = evaluator.metric_F1(k_all_db_results_cociwa, evaluator.mesh_classes_count, k=10, use_class_k=True)
-
-    # k_all_db_results_cociwa[["matches_class"]] = [Counter(tuple(row[["matches_class"]][0])) for index, row in k_all_db_results_cociwa.iterrows()]
-    # k_all_db_results_cociwa[["matches_class"]] = [Counter(tuple(row[["matches_class"]][0])) for index, row in k_all_db_results_cociwa.iterrows()]
     results = k_all_db_results_cociwa[["name", "class", "matches"]]
-    # print(results.head(10))
-    # print("")
     results.head(10)
-    # print(k_all_db_results_cociwa)
     return k_all_db_results_cociwa[k_all_db_results_cociwa["class"] == query_class][["name", "class", "matches", "matches_class"]]
 
 
-# %%
 if __name__ == "__main__":
     features_df_raw = pd.DataFrame([data for data in jsonlines.Reader(io.open(FEATURE_DATA_FILE))])
     count_hists = sum([1 for header_name in features_df_raw.columns if "hist_" in header_name])
@@ -87,10 +69,6 @@ if __name__ == "__main__":
     weights_w_strong = ([2.9]) + ([134] * count_hists) + ([1.58] * count_skeletons)
     function_pipeline = [cosine] + ([wasserstein_distance] * count_hists) + ([euclidean] * count_skeletons)
 
-    # variables = run_experiment_single_tmp("ant", function_pipeline, weights_w_strong, False)
-
-    # function_pipeline = [cosine] + ([wasserstein_distance] * count_hists) + ([cityblock] * count_skeletons)
-    # %%
     scalar_range = np.linspace(1, 5, 20)
     hist_range = np.linspace(50, 250, 20)
     skeleton_range = np.linspace(0, 5, 20)
@@ -120,8 +98,7 @@ if __name__ == "__main__":
                 writer.writerow({"sr": combi[0], "hr": combi[1], "skr": combi[2], "class_label": class_label, "val": value})
 
     # all_results_df = pd.DataFrame([combi + (val,) for combi, val in all_results.items()], columns=cols)
-    all_results_df = pd.read_csv("stats/hyper_params.csv")
-    # %%
+    # all_results_df = pd.read_csv("stats/hyper_params.csv")
 
     #     for idx in range(10):
     #         print(f"============== {idx} ==============")
@@ -198,35 +175,32 @@ if __name__ == "__main__":
     # - Values improve for scalar weights 3
     # - Values improve for scalar weights 3
 
-    # %%
-    best_weight_combos_data = pd.read_csv('feature_combinations.csv')
+    # best_weight_combos_data = pd.read_csv('feature_combinations.csv')
 
-    def get_top_weights(df, class_label):
-        top_ant_val = df[df.class_label == class_label].val.max()
-        top_features = df[df.val > .90 * top_ant_val]
-        top_features_counts = top_features.sum()
-        top_weights = top_features_counts.iloc[:-2].values
-        weights_w_strong = ([2.9]) + ([134] * count_hists) + ([1.58] * count_skeletons)
-        return tuple(top_weights * weights_w_strong)
+    # def get_top_weights(df, class_label):
+    #     top_ant_val = df[df.class_label == class_label].val.max()
+    #     top_features = df[df.val > .90 * top_ant_val]
+    #     top_features_counts = top_features.sum()
+    #     top_weights = top_features_counts.iloc[:-2].values
+    #     weights_w_strong = ([2.9]) + ([134] * count_hists) + ([1.58] * count_skeletons)
+    #     return tuple(top_weights * weights_w_strong)
 
-    top_ant_weights = get_top_weights(best_weight_combos_data, "ant")
-    top_helmet_weights = get_top_weights(best_weight_combos_data, "helmet")
+    # top_ant_weights = get_top_weights(best_weight_combos_data, "ant")
+    # top_helmet_weights = get_top_weights(best_weight_combos_data, "helmet")
 
-    print(f"===" * 10)
-    run_experiment("ant", function_pipeline, top_ant_weights, False)
-    run_experiment("helmet", function_pipeline, top_ant_weights, False)
-    run_experiment("bridge", function_pipeline, top_ant_weights, False)
-    print(f"===" * 10)
-    run_experiment("ant", function_pipeline, top_helmet_weights, False)
-    run_experiment("helmet", function_pipeline, top_helmet_weights, False)
-    run_experiment("bridge", function_pipeline, top_helmet_weights, False)
+    # print(f"===" * 10)
+    # run_experiment("ant", function_pipeline, top_ant_weights, False)
+    # run_experiment("helmet", function_pipeline, top_ant_weights, False)
+    # run_experiment("bridge", function_pipeline, top_ant_weights, False)
+    # print(f"===" * 10)
+    # run_experiment("ant", function_pipeline, top_helmet_weights, False)
+    # run_experiment("helmet", function_pipeline, top_helmet_weights, False)
+    # run_experiment("bridge", function_pipeline, top_helmet_weights, False)
 
+    # # %%
+    # run_experiment("ant", function_pipeline, top_ant_weights, False)
+    # run_experiment("spider", function_pipeline, top_ant_weights, False)
 
-    # %%
-    run_experiment("ant", function_pipeline, top_ant_weights, False)
-    run_experiment("spider", function_pipeline, top_ant_weights, False)
-
-
-    # %%
-    result1 = run_experiment_single_tmp("ant", function_pipeline, top_ant_weights, False)
-    result2 = run_experiment_single_tmp("ant", function_pipeline, weights_w_strong, False)
+    # # %%
+    # result1 = run_experiment_single_tmp("ant", function_pipeline, top_ant_weights, False)
+    # result2 = run_experiment_single_tmp("ant", function_pipeline, weights_w_strong, False)
