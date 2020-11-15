@@ -145,19 +145,19 @@ class SimilarMeshesListWindow(Qt.QWidget):
 
         self.scalarSliderWeights = QSlider(QtCore.Horizontal)
         self.scalarSliderWeights.setRange(0, 100)
-        self.scalarSliderWeights.setValue(3)
+        self.scalarSliderWeights.setValue(4.15)
         self.scalarSliderWeights.valueChanged.connect(self.update_scalar_label)
         self.scalarLabelWeights = Qt.QLabel(f"Scalars weight: {self.scalarSliderWeights.value()}", self)
 
         self.histSliderWeights = QSlider(QtCore.Horizontal)
         self.histSliderWeights.setRange(0, 100)
-        self.histSliderWeights.setValue(100)
+        self.histSliderWeights.setValue(197.4)
         self.histSliderWeights.valueChanged.connect(self.update_hist_label)
         self.histLabelWeights = Qt.QLabel(f"Histogram weight: {self.histSliderWeights.value()}", self)
 
         self.skeletonSliderWeights = QSlider(QtCore.Horizontal)
         self.skeletonSliderWeights.setRange(0, 100)
-        self.skeletonSliderWeights.setValue(1)
+        self.skeletonSliderWeights.setValue(2.36)
         self.skeletonSliderWeights.valueChanged.connect(self.update_skel_label)
         self.skeletonLabelWeights = Qt.QLabel(f"Skeleton weight: {self.skeletonSliderWeights.value()}", self)
 

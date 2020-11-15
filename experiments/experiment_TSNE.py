@@ -250,7 +250,7 @@ if __name__ == "__main__":
 
     if "-p" not in arguments:
         iters = int(20e6)
-        show_all_in_one(query_matcher, 0, 5, -1, 1, show=True, top_n=15, reverse=True, strange_scaling=False, is_coarse=False)
+        show_all_in_one(query_matcher, 0, 5, int(10e6), 1, show=True, top_n=15, reverse=True, strange_scaling=False, is_coarse=False)
     # lbl_cnts = [query_matcher.map_to_label(name, True) for name in list(query_matcher.features_df_all_scaled.index)]
 
     # run_parallel_exploration_3D(query_matcher)

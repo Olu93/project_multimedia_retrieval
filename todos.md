@@ -16,6 +16,13 @@
 ### Queriying
 [] Explain how the query occurs procedurally. With algorithm.
 [] For the full feature variant use Mahabolis distance d(x,y) = sqrt((x-y).T * C^-1 * (x-y)) where C is the data covariance matrix
+[] Talk about feature weighting and distance weighting 
+    -> For distance weighting $d(A,B) = w_1*d(a_{1..5},b_{1..5}) + w_2*d(a_{6..n, 6..n) + ... $
+    -> For feature weighting standardization 
+    -> Distance weighting solved with grid search. Why: More flexible way of finding optimal weight combinations. Standard deviation method assumes that all features have same importance with respect to the database. That is not necessarily the case. A database of planes might not have much use for the skeleton endpoint feature for instance. 
+
+### Scalability
+[] TSNE: Use our pairwise distance function
 
 ### Personal tasks
 [x] Parallelize normalisation operation 

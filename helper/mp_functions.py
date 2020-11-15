@@ -23,10 +23,12 @@ def compute_matchings(evaluator, data):
     matchings = pool.imap(evaluator.mono_compute_match, tqdm(data, total=len(data)), chunksize=50)
     return matchings
 
+
 def compute_matchings_old(evaluator, data):
     pool = mp.Pool(math.ceil(mp.cpu_count() * .75))
     matchings = pool.imap(evaluator.mono_compute_match_old, tqdm(data, total=len(data)), chunksize=50)
     return matchings
+
 
 # https://stackoverflow.com/a/13530258/4162265
 def compute_feature_extraction(extractor, data):

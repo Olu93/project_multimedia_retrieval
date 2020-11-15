@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import OrderedDict, Counter
 import colorsys
 import io
 
@@ -130,7 +130,7 @@ def rand_cmap(nlabels, return_hex=False, type='bright', first_color_black=True, 
         random_colormap = LinearSegmentedColormap.from_list('new_map', randRGBcolors, N=nlabels)
 
     if return_hex:
-        return ['#%02x%02x%02x' % tuple([round(i*255) for i in color]) for color in randRGBcolors]
+        return ['#%02x%02x%02x' % tuple([round(i * 255) for i in color]) for color in randRGBcolors]
     return random_colormap
 
 
@@ -196,7 +196,10 @@ def get_sizes_features(features_file=FEATURE_DATA_FILE, drop_feat=None, with_lab
 
     singletons = {key: key.replace("_", " ").replace("scalar", "Scalar:").title() for key, _ in cleaned_features_single_dict.items() if "scalar" in key}
 
-    distributionals = {key: key.replace("_", " ").replace("hist", "Histogram:").replace("skeleton", "Skeleton:").title() for key, _ in cleaned_features_single_dict.items() if "hist" in key or "skeleton" in key}
+    distributionals = {
+        key: key.replace("_", " ").replace("hist", "Histogram:").replace("skeleton", "Skeleton:").title()
+        for key, _ in cleaned_features_single_dict.items() if "hist" in key or "skeleton" in key
+    }
 
     n_singletons = singletons.__len__()
     n_distributionals = len(distributionals)
@@ -205,3 +208,46 @@ def get_sizes_features(features_file=FEATURE_DATA_FILE, drop_feat=None, with_lab
         return n_singletons, n_distributionals, dict(**singletons, **distributionals)
     else:
         return n_singletons, n_distributionals
+
+
+#------------------------------------------------------------------------------
+# accept a dataframe, remove outliers, return cleaned data in a new dataframe
+# see http://www.itl.nist.gov/div898/handbook/prc/section1/prc16.htm
+# Stackoverflow: https://stackoverflow.com/a/46740476/4162265
+#------------------------------------------------------------------------------
+def remove_outlier(df_in, col_name):
+    q1 = df_in[col_name].quantile(0.25)
+    q3 = df_in[col_name].quantile(0.75)
+    iqr = q3 - q1  #Interquartile range
+    fence_low = q1 - 1.5 * iqr
+    fence_high = q3 + 1.5 * iqr
+    df_out = df_in.loc[(df_in[col_name] > fence_low) & (df_in[col_name] < fence_high)]
+    return df_out
+
+
+def normalize(array_like):
+    max_val = np.max(array_like)
+    min_val = np.min(array_like)
+    return (np.array(array_like) - min_val) / (max_val - min_val)
+
+
+def make_bins(data, n_bins):
+    bins = np.linspace(np.min(data), np.max(data), n_bins)
+    indices = np.digitize(data, bins)
+    count_dict = dict(sorted(Counter(indices).items()))
+    count_dict_without_holes = {idx: count_dict[idx] if idx in count_dict.keys() else 0 for idx in range(1, n_bins + 1)}
+    result = np.array(list(count_dict_without_holes.values()))
+    return result / result.sum()
+
+
+def screenshot_mesh(mesh, cam=None):
+    p = pv.Plotter(
+        notebook=False,
+        off_screen=True,
+    )
+    p.add_mesh(mesh)
+    if cam:
+        p.camera_position = cam
+    p.set_background("black")
+    p.render()
+    return p.screenshot(transparent_background=False, return_img=True)
