@@ -252,5 +252,10 @@ def screenshot_mesh(mesh, cam=None):
     p.render()
     return p.screenshot(transparent_background=False, return_img=True)
 
+
 def load_feature_data(path_to_file: str):
     return [data for data in jsonlines.Reader(io.open(path_to_file))]
+
+
+def map_to_label(class_mapping, name, is_coarse=False):
+    return class_mapping[name].get("label" if not is_coarse else "label_coarse", None)

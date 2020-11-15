@@ -25,6 +25,13 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python: Dim Reduction",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/dimension_reducer.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python: Olu",
             "type": "python",
             "request": "launch",
