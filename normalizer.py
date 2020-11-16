@@ -9,7 +9,7 @@ import pyvista as pv
 from pyvista import PolyData
 from tqdm import tqdm
 
-from helper.config import DEBUG, DATA_PATH_PSB, DATA_PATH_DEBUG, CLASS_FILE
+# from helper.config import DEBUG, DATA_PATH_PSB, DATA_PATH_DEBUG, CLASS_FILE
 from helper.mp_functions import compute_normalization
 from reader import PSBDataset
 
@@ -17,9 +17,11 @@ VERBOSE = False
 
 
 class Normalizer:
-    def __init__(self, reader=None, target_path="processed_data"):
+    def __init__(self, reader=None):
+        with open('config.json') as f:
+            data = json.load(f)
         self.num_avg_verts = 35000
-        self.target_path = target_path
+        self.target_path = data["DATA_PATH_NORMED"]
         if reader:
             self.reader = reader
             self.full_data = reader.run_full_pipeline()
@@ -155,6 +157,7 @@ class Normalizer:
 
 
 if __name__ == '__main__':
-    norm = Normalizer(PSBDataset(DATA_PATH_DEBUG if DEBUG else DATA_PATH_PSB, class_file_path=CLASS_FILE))
-    norm.run_full_pipeline(10 if DEBUG else None)
-    print("Done")
+    # norm = Normalizer(PSBDataset(DATA_PATH_DEBUG if DEBUG else DATA_PATH_PSB, class_file_path=CLASS_FILE))
+    # norm.run_full_pipeline(10 if DEBUG else None)
+    # print("Done")
+    pass

@@ -13,7 +13,7 @@ import pyvista as pv
 from plyfile import PlyData
 from tqdm import tqdm
 
-from helper.config import STAT_PATH, CLASS_FILE, DATA_PATH_PSB
+# from helper.config import STAT_PATH, CLASS_FILE, DATA_PATH_PSB
 from helper.mp_functions import compute_read
 from helper.skeleton import extract_graphical_forms
 
@@ -372,12 +372,13 @@ class ModelNet40Dataset(DataSet):
 
 
 if __name__ == "__main__":
-    dataset = PSBDataset(stats_path=STAT_PATH, search_path=DATA_PATH_PSB, class_file_path=CLASS_FILE)
-    dataset.read()
-    dataset.show_class_histogram()
-    dataset.load_files_in_memory()
-    dataset.convert_all_to_polydata()
-    dataset.compute_shape_statistics()
-    dataset.detect_outliers()
-    dataset.save_statistics()
+    pass
+    #dataset = PSBDataset(stats_path=STAT_PATH, search_path=DATA_PATH_PSB, class_file_path=CLASS_FILE)
+    #dataset.read()
+    #dataset.show_class_histogram()
+    #dataset.load_files_in_memory()
+    #dataset.convert_all_to_polydata()
+    #dataset.compute_shape_statistics()
+    #dataset.detect_outliers()
+    #dataset.save_statistics()
     # pprint(dataset.full_data[0])

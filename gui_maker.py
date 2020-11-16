@@ -27,6 +27,8 @@ from reader import DataSet
 class SimilarMeshWindow(Qt.QWidget):
     def __init__(self, mesh, features):
         super().__init__()
+        with open('config.json') as f:
+            self.config_data = json.load(f)
         self.setWindowTitle('Similar Mesh Window')
         self.mesh = mesh
         self.mesh_features = features
@@ -36,7 +38,7 @@ class SimilarMeshWindow(Qt.QWidget):
 
         # Create and add widgets to layout
 
-        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True, drop_feat=["timestamp"])
+        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(features_file=self.config_data["FEATURE_DATA_FILE"],with_labels=True, drop_feat=["timestamp"])
         mapping_of_labels_reversed = {val: key for key, val in mapping_of_labels.items()}
         features_dict_carefully_selected = OrderedDict(
             sorted({mapping_of_labels.get(key): val
@@ -144,7 +146,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.scalarSliderWeights.setRange(0, 100)
         self.scalarSliderWeights.setValue(3.84)
         self.scalarSliderWeights.valueChanged.connect(self.update_scalar_label)
-        self.scalarLabelWeights = Qt.QLabel(f"Scalars weight: {self.scalarSliderWeights.value()}", self)
+        self.scalarLabelWeights = Qt.QLabel(f"Scalar weight: {self.scalarSliderWeights.value()}", self)
 
         self.histSliderWeights = QSlider(QtCore.Horizontal)
         self.histSliderWeights.setRange(0, 100)
@@ -225,7 +227,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
         #                                                                            scalar_dist_func=scalarDistFunction,
         #                                                                            hist_dist_func=histDistFunction)
 
-        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True)
+        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(features_file=self.config_data["FEATURE_DATA_FILE"],with_labels=True)
 
         n_hist = len([key for key, val in mapping_of_labels.items() if "hist_" in key])
         n_skeleton = len([key for key, val in mapping_of_labels.items() if "skeleton_" in key])
@@ -285,8 +287,8 @@ class MainWindow(Qt.QMainWindow):
     def __init__(self, parent=None, show=True):
         Qt.QMainWindow.__init__(self, parent)
         with open('config.json') as f:
-            data = json.load(f)
-        self.query_matcher = QueryMatcher(data["FEATURE_DATA_FILE"])
+            self.config_data = json.load(f)
+        self.query_matcher = QueryMatcher(self.config_data["FEATURE_DATA_FILE"])
         self.supported_file_types = [".ply", ".off"]
         self.buttons = {}
         self.ds = reader.DataSet("")
@@ -324,7 +326,7 @@ class MainWindow(Qt.QMainWindow):
 
         # Create and add widgets to layout
 
-        n_sing, n_hist, mapping_of_labels = get_sizes_features(with_labels=True)
+        n_sing, n_hist, mapping_of_labels = get_sizes_features(features_file=self.config_data["FEATURE_DATA_FILE"],with_labels=True)
 
         # self.hist_labels = list({**FeatureExtractor.get_pipeline_functions()[1]}.values())
         self.hist_labels = [val for key, val in mapping_of_labels.items() if "hist_" in key]
@@ -379,7 +381,7 @@ class MainWindow(Qt.QMainWindow):
         normed_mesh = pv.PolyData(normed_data["history"][-1]["data"]["vertices"], normed_data["history"][-1]["data"]["faces"])
         normed_data['poly_data'] = normed_mesh
         # Extract features
-        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True, drop_feat=["timestamp"])
+        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(features_file=self.config_data["FEATURE_DATA_FILE"],with_labels=True, drop_feat=["timestamp"])
         mapping_of_labels_reversed = {val: key for key, val in mapping_of_labels.items()}
         features_dict = FeatureExtractor.mono_run_pipeline_old(normed_data)
         features_dict_carefully_selected = OrderedDict(

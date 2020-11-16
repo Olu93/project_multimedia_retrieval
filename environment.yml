@@ -1,0 +1,9 @@
+name: test_env
+channels:
+  - defaults
+dependencies:
+  - python=3.7
+  - pip
+  - pip:
+    - -r file:requirements.txt
+prefix: C:\Users\Filippo\Anaconda3\envs\MultimediaRetrieval
