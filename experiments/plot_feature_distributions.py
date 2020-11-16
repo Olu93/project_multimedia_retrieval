@@ -54,6 +54,7 @@ def visualize_histograms(mesh_features, data=None, names=None, plot_titles=None,
     result_sets = mesh_features
     num_items = len(feature_names)
     num_rows = len(result_sets)
+    fontsize = 15
     # Compute data means
     data_stats = compute_stats(features_df, feature_names)
 
@@ -96,8 +97,8 @@ def visualize_histograms(mesh_features, data=None, names=None, plot_titles=None,
         ax.set_yticks([])
 
     for ax_col, x_title in zip(hist_axes[0, :], plot_titles):
-        ax_col.set_title(x_title)
-    hist_axes[0, -1].set_title(example_title)
+        ax_col.set_title(x_title, fontsize=fontsize)
+    hist_axes[0, -1].set_title(example_title, fontsize=fontsize)
 
     handles, labels = hist_axes[-1, -2].get_legend_handles_labels()
     fig.legend(
@@ -106,8 +107,9 @@ def visualize_histograms(mesh_features, data=None, names=None, plot_titles=None,
         loc='lower center',
         ncol=len(labels),
         bbox_to_anchor=(.5, 0.01),
+        fontsize=fontsize,
     )
-    fig.suptitle("Distributional features")
+    fig.suptitle("Distributional features", fontsize=fontsize)
     fig.tight_layout()
     fig.subplots_adjust(bottom=0.1)
     fig.canvas.draw()

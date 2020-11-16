@@ -47,7 +47,7 @@ class Evaluator:
             row["label"] = row['label_coarse'] if self.label_coarse else row["label"]
             k = np.sum(self.mesh_classes_count.values) if k_full_db_switch else (int(self.mesh_classes_count.get(row['label'])))
             param_list.append((row, k, self.query_matcher, function_pipeline, weights))
-        match_results = pd.DataFrame(list([self.mono_compute_match(param) for param in tqdm(param_list)]), columns=['name', 'class', 'matches', 'distances', 'matches_class'])
+        match_results = pd.DataFrame(list([self.mono_compute_match(param) for param in param_list]), columns=['name', 'class', 'matches', 'distances', 'matches_class'])
         return match_results
 
     @staticmethod
@@ -85,12 +85,12 @@ class Evaluator:
 
 
     @staticmethod
-    def metric_F1(k_all_db_result, all_class_counts_list, k=10, use_class_k=True, weightbool=False, weight=1):
+    def metric_F1(k_all_db_result, all_class_counts_list, k=10, use_class_k=True, weightbool=False, weight=1, silent=False):
         def prepare_params(name, class_label, ids, distance_values, clabels):
             use_k = all_class_counts_list.get(class_label) if use_class_k else k
             return Evaluator.confusion_matrix_vals(name, class_label, ids[:use_k], distance_values[:use_k], clabels[:use_k], all_class_counts_list)
-
-        cm_vals_and_label = [(prepare_params(*params), params[1]) for params in tqdm(k_all_db_result.to_numpy())]
+        data_generator = tqdm(k_all_db_result.to_numpy()) if not silent else k_all_db_result.to_numpy()
+        cm_vals_and_label = [(prepare_params(*params), params[1]) for params in data_generator]
         cm_vals = np.array([results for results, _ in cm_vals_and_label])
         TP, FP, TN, FN = cm_vals[:, 0], cm_vals[:, 1], cm_vals[:, 2], cm_vals[:, 3]
 
@@ -161,10 +161,11 @@ class Evaluator:
         plt.show()
 
     @staticmethod
-    def calc_weighted_metric(dataframe_with_metrics, metric, descr):
+    def calc_weighted_metric(dataframe_with_metrics, metric, descr=None):
         mean_per_class = dataframe_with_metrics[['class', metric]].groupby('class').mean()
         overall_metric = np.mean(dataframe_with_metrics[metric].values)
-        print(descr, overall_metric)
+        if descr:
+            print(descr, overall_metric)
         return mean_per_class.sort_values(by='class', ascending=True)[metric].values, overall_metric
 
     @staticmethod

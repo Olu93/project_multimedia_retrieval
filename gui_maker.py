@@ -37,12 +37,11 @@ class SimilarMeshWindow(Qt.QWidget):
 
         # Create and add widgets to layout
 
-        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True,
-                                                                                drop_feat=["timestamp"])
+        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True, drop_feat=["timestamp"])
         mapping_of_labels_reversed = {val: key for key, val in mapping_of_labels.items()}
-        features_dict_carefully_selected = OrderedDict(sorted(
-            {mapping_of_labels.get(key): val for key, val in self.mesh_features.items() if
-             key in mapping_of_labels}.items(), key=lambda t: t[0]))
+        features_dict_carefully_selected = OrderedDict(
+            sorted({mapping_of_labels.get(key): val
+                    for key, val in self.mesh_features.items() if key in mapping_of_labels}.items(), key=lambda t: t[0]))
         features_df = pd.DataFrame([features_dict_carefully_selected]).T.reset_index()
         self.hist_labels = [val for key, val in mapping_of_labels.items() if "hist_" in key]
         # Create Table widget
@@ -56,11 +55,9 @@ class SimilarMeshWindow(Qt.QWidget):
         self.hist_dict = features_df.set_index("index").tail(n=len(self.hist_labels)).to_dict()
         self.buttons = self.tableWidget.get_buttons_in_table()
 
-        tmp = {row.get("index"): row.get(0) for index, row in features_df.iterrows() if
-               "hist_" in mapping_of_labels_reversed[row.get("index")]}
+        tmp = {row.get("index"): row.get(0) for index, row in features_df.iterrows() if "hist_" in mapping_of_labels_reversed[row.get("index")]}
         for key, value in self.buttons.items():
-            value.clicked.connect(
-                lambda state, x=key, y=features_dict_carefully_selected[key]: self.plot_selected_hist(x, y))
+            value.clicked.connect(lambda state, x=key, y=features_dict_carefully_selected[key]: self.plot_selected_hist(x, y))
 
         self.vlayout.addWidget(self.QTIplotter.interactor)
         self.vlayout.addWidget(self.tableWidget)
@@ -70,8 +67,7 @@ class SimilarMeshWindow(Qt.QWidget):
         screen_topleft = QDesktopWidget().availableGeometry().topLeft()
         screen_height = QDesktopWidget().availableGeometry().height()
         width = (QDesktopWidget().availableGeometry().width() * 0.4)
-        self.move((QDesktopWidget().availableGeometry().width() * 0.4) + (
-            (QDesktopWidget().availableGeometry().width() * 0.2)), 0)
+        self.move((QDesktopWidget().availableGeometry().width() * 0.4) + ((QDesktopWidget().availableGeometry().width() * 0.2)), 0)
         self.resize(width, screen_height - 50)
 
         # Set widgets
@@ -168,8 +164,6 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.matchButton = QPushButton('Match with Database', self)
         self.matchButton.clicked.connect(self.update_similar_meshes_list)
 
-
-
         self.plotButton = QPushButton('Plot selected mesh', self)
         self.plotButton.clicked.connect(self.plot_selected_mesh)
         self.plotButton.setEnabled(False)
@@ -244,10 +238,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
                             ([histDistFunction] * n_hist) + \
                             ([skelDistFunction] * n_skeleton)
 
-        indices, distance_values, labels = self.query_matcher.match_with_db(self.query_mesh_features,
-                                                                            k=self.sliderK.value(),
-                                                                            distance_functions=function_pipeline,
-                                                                            weights=weights)
+        indices, distance_values, labels = self.query_matcher.match_with_db(self.query_mesh_features, k=self.sliderK.value(), distance_functions=function_pipeline, weights=weights)
 
         print(f"Distance values and indices are {list(zip(indices, distance_values))}")
 
@@ -262,8 +253,6 @@ class SimilarMeshesListWindow(Qt.QWidget):
             item.setText("ID: " + str(ind) + "\nDistance: " + str("{:.2f}".format(distance_values[i])))
             item.setToolTip(str(ind))
             self.list.addItem(item)
-
-
 
     def plot_selected_mesh(self):
         mesh_name = self.list.selectedItems()[0].toolTip()
@@ -289,8 +278,6 @@ class SimilarMeshesListWindow(Qt.QWidget):
 
     def update_skel_label(self, value):
         self.skeletonLabelWeights.setText("Skeleton weight: " + str(value))
-
-
 
 
 class MainWindow(Qt.QMainWindow):
@@ -370,13 +357,11 @@ class MainWindow(Qt.QMainWindow):
     def check_file(fileName):
         if fileName[-4:] not in self.supported_file_types:
             error_dialog = QtWidgets.QErrorMessage(parent=self)
-            error_dialog.showMessage(("Selected file not supported."
-                                      f"\nPlease select mesh files of type: {self.supported_file_types}"))
+            error_dialog.showMessage(("Selected file not supported." f"\nPlease select mesh files of type: {self.supported_file_types}"))
             return False
 
     def open_file_name_dialog(self):
-        fileName, _ = QFileDialog.getOpenFileName(self, caption="Choose shape to view.",
-                                                  filter="All Files (*);; Model Files (.obj, .off, .ply, .stl)")
+        fileName, _ = QFileDialog.getOpenFileName(self, caption="Choose shape to view.", filter="All Files (*);; Model Files (.obj, .off, .ply, .stl)")
         if not (fileName or self.check_file(fileName)):
             return False
 
@@ -389,17 +374,15 @@ class MainWindow(Qt.QMainWindow):
 
         # Normalize query mesh
         normed_data = self.normalizer.mono_run_pipeline(data)
-        normed_mesh = pv.PolyData(normed_data["history"][-1]["data"]["vertices"],
-                                  normed_data["history"][-1]["data"]["faces"])
+        normed_mesh = pv.PolyData(normed_data["history"][-1]["data"]["vertices"], normed_data["history"][-1]["data"]["faces"])
         normed_data['poly_data'] = normed_mesh
         # Extract features
-        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True,
-                                                                                drop_feat=["timestamp"])
+        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True, drop_feat=["timestamp"])
         mapping_of_labels_reversed = {val: key for key, val in mapping_of_labels.items()}
         features_dict = FeatureExtractor.mono_run_pipeline_old(normed_data)
-        features_dict_carefully_selected = OrderedDict(sorted(
-            {mapping_of_labels.get(key): val for key, val in features_dict.items() if key in mapping_of_labels}.items(),
-            key=lambda t: t[0]))
+        features_dict_carefully_selected = OrderedDict(
+            sorted({mapping_of_labels.get(key): val
+                    for key, val in features_dict.items() if key in mapping_of_labels}.items(), key=lambda t: t[0]))
         features_df = pd.DataFrame([features_dict_carefully_selected]).T.reset_index()
         self.hist_labels = [val for key, val in mapping_of_labels.items() if "hist_" in key]
         self.skeleton_labels = [val for key, val in mapping_of_labels.items() if "skeleton_" in key]
@@ -427,16 +410,14 @@ class MainWindow(Qt.QMainWindow):
         # Compare shapes
         if self.smlw:
             self.smlw.deleteLater()
-            if len(self.smlw.smw_list) != 0:  self.smlw.smw_list[0].deleteLater()
+            if len(self.smlw.smw_list) != 0: self.smlw.smw_list[0].deleteLater()
         self.smlw = SimilarMeshesListWindow(features_dict)
 
         self.buttons = self.tableWidget.get_buttons_in_table()
         self.hist_dict = features_df.set_index("index").tail(n=len(self.hist_labels)).to_dict()
-        tmp = {row.get("index"): row.get(0) for index, row in features_df.iterrows() if
-               "hist_" in mapping_of_labels_reversed[row.get("index")]}
+        tmp = {row.get("index"): row.get(0) for index, row in features_df.iterrows() if "hist_" in mapping_of_labels_reversed[row.get("index")]}
         for key, value in self.buttons.items():
-            value.clicked.connect(
-                lambda state, x=key, y=features_dict_carefully_selected[key]: self.plot_selected_hist(x, y))
+            value.clicked.connect(lambda state, x=key, y=features_dict_carefully_selected[key]: self.plot_selected_hist(x, y))
         self.smlw.show()
 
     def plot_selected_hist(self, hist_title, hist_data):
@@ -452,16 +433,18 @@ class MainWindow(Qt.QMainWindow):
         self.graphWidget.setYRange(min(hist_data), max(hist_data))
         self.graphWidget.plot(np.arange(0, len(hist_data)), hist_data, pen=pen)
 
-
     def plot_tsne(self):
         labels = [dic["label"].replace("_", " ").title() for dic in self.query_matcher.features_raw]
-        labels_coarse = [dic["label_coarse"].replace("_", " ").title() for dic in self.query_matcher.features_raw]
-        filename = "tsne.html"
+        filename = "tsne_visualizer"
 
-        tsne_plotter = TsneVisualiser(labels, # labels_coarse,
-                                      self.query_matcher.features_list_of_list,
-                                      filename)
+        tsne_plotter = TsneVisualiser(
+            self.query_matcher,
+            labels,  # labels_coarse,
+            filename,
+            False,
+            False)
         tsne_plotter.plot()
+
 
 if __name__ == '__main__':
     app = Qt.QApplication(sys.argv)
