@@ -45,7 +45,7 @@ class SimilarMeshWindow(Qt.QWidget):
         self.hist_labels = [val for key, val in mapping_of_labels.items() if "hist_" in key]
         # Create Table widget
         self.tableWidget = TableWidget(features_dict_carefully_selected, self, mapping_of_labels_reversed)
-        self.tableWidget.horizontalHeader().setSctionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
 
         # Create Plots widget
         self.graphWidget = pg.PlotWidget()
@@ -356,8 +356,7 @@ class MainWindow(Qt.QMainWindow):
             error_dialog = QtWidgets.QErrorMessage(parent=self)
             error_dialog.showMessage("Please drag only one mesh at the time.")
 
-    @staticmethod
-    def check_file(fileName):
+    def check_file(self, fileName):
         if fileName[-4:] not in self.supported_file_types:
             error_dialog = QtWidgets.QErrorMessage(parent=self)
             error_dialog.showMessage(("Selected file not supported." f"\nPlease select mesh files of type: {self.supported_file_types}"))
