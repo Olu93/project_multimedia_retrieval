@@ -1,4 +1,4 @@
-name: test_env
+name: mmr_system_env
 channels:
   - defaults
 dependencies:

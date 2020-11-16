@@ -1,9 +1,10 @@
 import json
 import os
 
+from feature_extractor import FeatureExtractor
 from normalizer import Normalizer
 from reader import PSBDataset
-from feature_extractor import FeatureExtractor
+
 
 def initialise():
     while True:
@@ -84,7 +85,7 @@ def initialise_everything():
     path_normed = data["DATA_PATH_NORMED"]
     path_feature = data["FEATURE_DATA_FILE"]
     db = PSBDataset()
-    if not os.path.isfile(path_psd):
+    if len(os.listdir(path_psd)) == 0:
         print("No valid dataset found.\nPoint to a valid dataset.")
         return
     if not os.path.isfile(path_normed):
@@ -94,9 +95,7 @@ def initialise_everything():
     if not os.path.isfile(path_feature):
         print("No valid feature file found.\nRun feature extraction.")
         FE = FeatureExtractor(db)
-        # FE.run_full_pipeline_slow()
         FE.run_full_pipeline()
-        # FE.run_full_pipeline_old()
 
 
 def generate_default():
@@ -121,12 +120,18 @@ def generate_default():
     to_feature_file = os.path.join(to_working_directory, "stats", "2020-11-02-features.jsonl")
     to_stat_dir = os.path.join(to_working_directory, "stats")
 
-    data["DATA_PATH_PSB"] = str(to_shape_database)
-    data["DATA_PATH_NORMED"] = str(to_shape_normed_database)
-    data["CLASS_FILE"] = str(to_classification_file)
-    data["CLASS_FILE_COARSE"] = str(to_coarse_classification_file)
-    data["FEATURE_DATA_FILE"] = str(to_feature_file)
-    data["STAT_PATH"] = str(to_stat_dir)
+    if data["DATA_PATH_PSB"] == "":
+        data["DATA_PATH_PSB"] = str(to_shape_database)
+    if data["DATA_PATH_NORMED"] == "":
+        data["DATA_PATH_NORMED"] = str(to_shape_normed_database)
+    if data["CLASS_FILE"] == "":
+        data["CLASS_FILE"] = str(to_classification_file)
+    if data["CLASS_FILE_COARSE"] == "":
+        data["CLASS_FILE_COARSE"] = str(to_coarse_classification_file)
+    if data["FEATURE_DATA_FILE"] == "":
+        data["FEATURE_DATA_FILE"] = str(to_feature_file)
+    if data["STAT_PATH"] == "":
+        data["STAT_PATH"] = str(to_stat_dir)
 
     with open('config.json', 'w') as outfile:
         json.dump(data, outfile)

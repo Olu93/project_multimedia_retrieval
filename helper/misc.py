@@ -11,7 +11,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from pyvista import PolyData
 from scipy.spatial import ConvexHull
 from scipy.spatial.qhull import QhullError
-from helper.config import FEATURE_DATA_FILE
+# from helper.config import FEATURE_DATA_FILE
 
 
 def exception_catcher(func):
@@ -179,7 +179,7 @@ def get_feature_type_positions(cols):
     }
 
 
-def get_sizes_features(features_file=FEATURE_DATA_FILE, drop_feat=None, with_labels=False):
+def get_sizes_features(features_file, drop_feat=None, with_labels=False):
     """
       Get number of distributionals and scalars features.
       :param features_file: path to features file, default: FEATURE_DATA_FILE
