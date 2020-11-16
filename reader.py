@@ -1,6 +1,7 @@
 import glob
 import inspect
 import io
+import json
 from collections import Counter
 from itertools import chain
 from pathlib import Path
@@ -12,8 +13,9 @@ import pyvista as pv
 from plyfile import PlyData
 from tqdm import tqdm
 
-from helper.config import STAT_PATH, CLASS_FILE, DATA_PATH_DEBUG, DATA_PATH_PSB
+from helper.config import STAT_PATH, CLASS_FILE, DATA_PATH_PSB
 from helper.mp_functions import compute_read
+from helper.skeleton import extract_graphical_forms
 
 
 class DataSet:
@@ -43,6 +45,14 @@ class DataSet:
         self.full_data = list(read_data)
         return self.full_data
 
+    def run_full_pipeline_slow(self, max_num_items=None):
+        self.read()
+        num_full_data = len(self.data_descriptors)
+        relevant_subset_of_data = self.data_descriptors[:min(max_num_items, num_full_data)] if max_num_items else self.data_descriptors
+        num_data_being_processed = len(relevant_subset_of_data)
+        read_data = (self.mono_run_pipeline(item) for item in tqdm(relevant_subset_of_data, total=num_data_being_processed))
+        self.full_data = list(read_data)
+        return self.full_data
 
     @staticmethod
     def mono_run_pipeline(descriptor):
@@ -115,6 +125,14 @@ class DataSet:
         self.has_loaded_data = True
         print(f"Finished {inspect.currentframe().f_code.co_name}")
 
+    def load_image_data(self):
+        print("Load images")
+        len_of_ds = len(self.data_descriptors)
+        self.full_data = [
+            dict(**mesh_data, images=extract_graphical_forms(pv.PolyData(mesh_data["data"]["vertices"], mesh_data["data"]["faces"])))
+            for mesh_data in tqdm(self.full_data, total=len_of_ds)
+        ]
+
     def compute_shape_statistics(self):
         self.all_statistics = pd.DataFrame([mesh_object["statistics"] for mesh_object in self.full_data])
         self.has_stats = True
@@ -167,7 +185,8 @@ class DataSet:
         file_name = path.stem
         file_type = path.suffix
         label = "no_class"
-        meta_data = {"label": label, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
+        coarse_label = "no_coarse_class"
+        meta_data = {"label": label, "label_coarse": coarse_label, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
         data = DataSet._load_mesh(meta_data["path"])
         poly_data = pv.PolyData(data["vertices"], data["faces"])
         curr_data = dict(meta_data=meta_data, data=data, poly_data=poly_data)
@@ -221,9 +240,9 @@ class DataSet:
         mesh = None
         if not file_name:
             return mesh
-        if str(file_name).split(".")[1] != "off":
+        if str(file_name)[::-1].split(".")[0][::-1] != "off":
             mesh = DataSet._load_ply(file_name)
-        elif str(file_name).split(".")[1] == "off":
+        elif str(file_name)[::-1].split(".")[0][::-1] == "off":
             mesh = DataSet._load_off(file_name)
         else:
             raise Exception("File type not yet supported.")
@@ -287,17 +306,20 @@ class DataSet:
 
 class PSBDataset(DataSet):
     def __init__(self, search_path=None, stats_path=None, **kwargs):
-        self.search_path = "data/psb" if not search_path else search_path
+        with open('config.json') as f:
+            data = json.load(f)
+        self.search_path = data["DATA_PATH_PSB"] if not search_path else search_path
         self.search_paths = [Path(self.search_path) / scheme for scheme in self.schemes]
-        self.stats_path = Path("data/psb") if not stats_path else Path(stats_path)
-        self.class_file_path = kwargs["class_file_path"] if "class_file_path" in kwargs else None
-        self.class_member_ships = self.load_classes()
+        self.stats_path = Path("data/psb") if not data["STAT_PATH"] else Path(stats_path)
+        self.class_member_ships = PSBDataset.load_classes(kwargs.get("class_file_path", data["CLASS_FILE"]))
+        self.class_member_ships_coarse = PSBDataset.load_classes(kwargs.get("class_file_path_coarse", data["CLASS_FILE_COARSE"]))
         super().__init__(self.search_paths, self.stats_path)
 
-    def load_classes(self):
-        if not self.class_file_path:
+    @staticmethod
+    def load_classes(class_file_path):
+        if not class_file_path:
             return {}
-        path_to_classes = Path(self.class_file_path)
+        path_to_classes = Path(class_file_path)
         search_pattern = path_to_classes / "*.cla"
         class_files = list(glob.glob(str(search_pattern), recursive=True))
         class_file_handlers = [io.open(cfile, mode="r") for cfile in class_files]
@@ -324,8 +346,9 @@ class PSBDataset(DataSet):
         path = Path(file_path)
         file_name = path.stem
         file_type = path.suffix
-        label = self.class_member_ships[file_name] if file_name in self.class_member_ships.keys() else "no_class"
-        return {"label": label, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
+        label = self.class_member_ships.get(file_name, "no_class")
+        label_coarse = self.class_member_ships_coarse.get(file_name, "no_class")
+        return {"label": label, "label_coarse": label_coarse, "name": file_name, "type": file_type, "path": path.resolve().as_posix()}
 
 
 class ModelNet40Dataset(DataSet):

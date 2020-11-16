@@ -13,15 +13,6 @@ from normalizer import Normalizer
 from reader import DataSet
 
 
-# df = pd.DataFrame({'a': ['Mary', 'Jim', 'John'],
-#                    'b': [100, 200, 300],
-#                    'c': ['a', 'b', 'c']})
-
-
-# TODO: [x] Fix bug, when "cancel" pressed on file choosing window
-# TODO: [] Add Tabular viewer from QT and link it to data table from feature extractor
-
-
 class MainWindow(Qt.QMainWindow):
     def __init__(self, parent=None, show=True):
         Qt.QMainWindow.__init__(self, parent)

@@ -120,12 +120,12 @@ class Normalizer:
         history.append({"op": "(b) Scale", "data": new_mesh})
         new_mesh = Normalizer.mono_centering(dict(data, poly_data=new_mesh))
         history.append({"op": "(c) Center", "data": new_mesh})
-        new_mesh = Normalizer.mono_alignment(dict(data, poly_data=new_mesh))
-        history.append({"op": "(d) Align", "data": new_mesh})
-        new_mesh = Normalizer.mono_flipping(dict(data, poly_data=new_mesh))
-        history.append({"op": "(e) Flip", "data": new_mesh})
         new_mesh = Normalizer.mono_uniform_remeshing(dict(data, poly_data=new_mesh))
-        history.append({"op": "(f) Remesh", "data": new_mesh})
+        history.append({"op": "(d) Remesh", "data": new_mesh})
+        new_mesh = Normalizer.mono_alignment(dict(data, poly_data=new_mesh))
+        history.append({"op": "(e) Align", "data": new_mesh})
+        new_mesh = Normalizer.mono_flipping(dict(data, poly_data=new_mesh))
+        history.append({"op": "(f) Flip", "data": new_mesh})
 
         history = [{"op": step["op"], "data": {"vertices": step["data"].points, "faces": step["data"].faces}} for step
                    in history]
@@ -141,6 +141,15 @@ class Normalizer:
                                   :min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
         num_data_being_processed = len(relevant_subset_of_data)
         normalization_data_generator = compute_normalization(self, relevant_subset_of_data)
+        items_generator = tqdm(normalization_data_generator, total=num_data_being_processed)
+        return list((self.mono_saving(item, self.target_path) for item in items_generator))
+
+    def run_full_pipeline_slow(self, max_num_items=None):
+        num_full_data = len(self.reader.full_data)
+        relevant_subset_of_data = self.reader.full_data[
+                                  :min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
+        num_data_being_processed = len(relevant_subset_of_data)
+        normalization_data_generator = (self.mono_run_pipeline(item) for item in relevant_subset_of_data)
         items_generator = tqdm(normalization_data_generator, total=num_data_being_processed)
         return list((self.mono_saving(item, self.target_path) for item in items_generator))
 
