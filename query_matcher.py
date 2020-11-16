@@ -19,10 +19,6 @@ from feature_extractor import FeatureExtractor
 from helper.config import DEBUG, FEATURE_DATA_FILE
 from helper.misc import get_feature_type_positions, get_sizes_features
 
-# TODO: EMD does not work for scalars
-# if DEBUG:
-#     debug_file = io.open("analysis.txt", mode="w")
-
 
 class QueryMatcher(object):
     IGNORE_COLUMNS = ["timestamp", "label", "label_coarse"]
@@ -167,7 +163,9 @@ class QueryMatcher(object):
         assert len_fst == len_df, f"Not enough OR too many distance functions supplied! - requires {len_fst} functions and not {len_df}"
 
         if QueryMatcher.perform_knn in distance_functions:
-            values, position_in_rank = self.perform_knn(QueryMatcher.flatten_feature_dict(standardised_item), self.features_flattened, k)
+            flat_query = np.concatenate([np.array(s).flatten() for s in standardised_item])
+            flat_features = [[val for sublist in row for val in sublist] for row in self.features_list_of_list]
+            values, position_in_rank = self.perform_knn(np.array(flat_features), flat_query, k)
         else:
             all_distances = np.array(
                 [QueryMatcher.mono_run_functions_pipeline(standardised_item, mesh_in_db, distance_functions, weights) for mesh_in_db in self.features_list_of_list])

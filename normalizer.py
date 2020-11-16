@@ -121,11 +121,11 @@ class Normalizer:
         new_mesh = Normalizer.mono_centering(dict(data, poly_data=new_mesh))
         history.append({"op": "(c) Center", "data": new_mesh})
         new_mesh = Normalizer.mono_uniform_remeshing(dict(data, poly_data=new_mesh))
-        history.append({"op": "(f) Remesh", "data": new_mesh})
+        history.append({"op": "(d) Remesh", "data": new_mesh})
         new_mesh = Normalizer.mono_alignment(dict(data, poly_data=new_mesh))
-        history.append({"op": "(d) Align", "data": new_mesh})
+        history.append({"op": "(e) Align", "data": new_mesh})
         new_mesh = Normalizer.mono_flipping(dict(data, poly_data=new_mesh))
-        history.append({"op": "(e) Flip", "data": new_mesh})
+        history.append({"op": "(f) Flip", "data": new_mesh})
 
         history = [{"op": step["op"], "data": {"vertices": step["data"].points, "faces": step["data"].faces}} for step
                    in history]

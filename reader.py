@@ -1,6 +1,7 @@
 import glob
 import inspect
 import io
+import json
 from collections import Counter
 from itertools import chain
 from pathlib import Path
@@ -305,11 +306,13 @@ class DataSet:
 
 class PSBDataset(DataSet):
     def __init__(self, search_path=None, stats_path=None, **kwargs):
-        self.search_path = "data/psb" if not search_path else search_path
+        with open('config.json') as f:
+            data = json.load(f)
+        self.search_path = data["DATA_PATH_PSB"] if not search_path else search_path
         self.search_paths = [Path(self.search_path) / scheme for scheme in self.schemes]
-        self.stats_path = Path("data/psb") if not stats_path else Path(stats_path)
-        self.class_member_ships = PSBDataset.load_classes(kwargs.get("class_file_path", None))
-        self.class_member_ships_coarse = PSBDataset.load_classes(kwargs.get("class_file_path_coarse", None))
+        self.stats_path = Path("data/psb") if not data["STAT_PATH"] else Path(stats_path)
+        self.class_member_ships = PSBDataset.load_classes(kwargs.get("class_file_path", data["CLASS_FILE"]))
+        self.class_member_ships_coarse = PSBDataset.load_classes(kwargs.get("class_file_path_coarse", data["CLASS_FILE_COARSE"]))
         super().__init__(self.search_paths, self.stats_path)
 
     @staticmethod
