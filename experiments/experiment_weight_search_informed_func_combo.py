@@ -70,7 +70,7 @@ if __name__ == "__main__":
     features_df_raw = pd.DataFrame([data for data in jsonlines.Reader(io.open(FEATURE_DATA_FILE))])
     count_hists = sum([1 for header_name in features_df_raw.columns if "hist_" in header_name])
     count_skeletons = sum([1 for header_name in features_df_raw.columns if "skeleton_" in header_name])
-    function_pipeline = [cosine] + ([wasserstein_distance] * count_hists) + ([euclidean] * count_skeletons)
+    function_pipeline = [cosine] + ([wasserstein_distance] * count_hists) + ([cityblock] * count_skeletons)
     scalar_range = np.linspace(1, 10, 20)
     hist_range = np.linspace(1, 300, 20)
     skeleton_range = np.linspace(1, 10, 20)
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     cols = "sr hr skr class_label val".split()
     pool = mp.Pool(6)
 
-    with io.open("stats/hyper_params.csv", "w", newline='', encoding='utf-8') as csv_file:
+    with io.open("stats/hyper_params_informed_func_combo.csv", "w", newline='', encoding='utf-8') as csv_file:
         writer = csv.DictWriter(csv_file, cols)
         writer.writeheader()
         for idx in tqdm(range(1000), total=1000):

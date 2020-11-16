@@ -46,7 +46,7 @@ class SimilarMeshWindow(Qt.QWidget):
         self.hist_labels = [val for key, val in mapping_of_labels.items() if "hist_" in key]
         # Create Table widget
         self.tableWidget = TableWidget(features_dict_carefully_selected, self, mapping_of_labels_reversed)
-        self.tableWidget.horizontalHeader().setSctionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.tableWidget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
 
         # Create Plots widget
         self.graphWidget = pg.PlotWidget()
@@ -141,19 +141,19 @@ class SimilarMeshesListWindow(Qt.QWidget):
 
         self.scalarSliderWeights = QSlider(QtCore.Horizontal)
         self.scalarSliderWeights.setRange(0, 100)
-        self.scalarSliderWeights.setValue(4.15)
+        self.scalarSliderWeights.setValue(3.84)
         self.scalarSliderWeights.valueChanged.connect(self.update_scalar_label)
         self.scalarLabelWeights = Qt.QLabel(f"Scalars weight: {self.scalarSliderWeights.value()}", self)
 
         self.histSliderWeights = QSlider(QtCore.Horizontal)
         self.histSliderWeights.setRange(0, 100)
-        self.histSliderWeights.setValue(197.4)
+        self.histSliderWeights.setValue(284.26)
         self.histSliderWeights.valueChanged.connect(self.update_hist_label)
         self.histLabelWeights = Qt.QLabel(f"Histogram weight: {self.histSliderWeights.value()}", self)
 
         self.skeletonSliderWeights = QSlider(QtCore.Horizontal)
         self.skeletonSliderWeights.setRange(0, 100)
-        self.skeletonSliderWeights.setValue(2.36)
+        self.skeletonSliderWeights.setValue(2.89)
         self.skeletonSliderWeights.valueChanged.connect(self.update_skel_label)
         self.skeletonLabelWeights = Qt.QLabel(f"Skeleton weight: {self.skeletonSliderWeights.value()}", self)
 
