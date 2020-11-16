@@ -45,7 +45,7 @@ class TableWidget(QTableWidget):
         for idx, (key, values) in enumerate(feature_dict.items()):
             if "hist_" in mapping.get(key, key):
                 self.setItem(idx, 0, QTableWidgetItem(key))
-                btn = QPushButton(QIcon('histogramicon.png'), 'Plot Values', self)
+                btn = QPushButton(QIcon('figs\histogramicon.png'), 'Plot Values', self)
                 btn.setText('Plot Values')
 
                 self.setCellWidget(idx, 1, btn)
