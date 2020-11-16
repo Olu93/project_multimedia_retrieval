@@ -37,7 +37,7 @@ python gui_maker.py
 This should open the upload mesh windows, here is possible to select a mesh from the explorer or drop in onto the window. This will activate the query interface. In this second window is possible to set some parameters before querying.
 The best evaluated parameters and distance function combinations are the default values. 
 
-# Setting new paths
+## Setting new paths
 
 Once the initialise.py script is run, is also possible to set new values (for instance this could be setting a new database and compute normalisation and feature extraction).
 To do so, when prompted with exit or continue, press 2 to continue and visualize the option available. 
