@@ -14,20 +14,11 @@ from matplotlib.cm import ScalarMappable
 
 if __name__ == "__main__":
     fig = plt.figure(figsize=(8, 6))
-    data = pd.read_csv('stats/hyper_params_copy.csv', index_col=False)
-    
-    
-    # best_weight_combos_data = pd.read_csv('feature_combinations.csv')
-
-
-
-    # top_ant_weights = get_top_weights(best_weight_combos_data, "ant")
-    # top_helmet_weights = get_top_weights(best_weight_combos_data, "helmet")
-    
+    data = pd.read_csv('stats/hyper_params_best_func_combo.csv', index_col=False)
     
     
     grouped = data.groupby("sr hr skr".split()).mean()
-    points = grouped.reset_index().values
+    points = grouped.reset_index().sort_values(by="val").values
     ax = fig.add_subplot(111, projection='3d')
     scat = ax.scatter(points[:, 0], points[:, 1], points[:, 2], c=points[:, 3])
     cmap = plt.get_cmap("Spectral")
