@@ -1,0 +1,20 @@
+\
+    \datasets
+        \normed_psb
+        \psb
+            \benchmark
+                \classification
+                    \v1
+                        \base
+                        \coarse1
+    \experiments
+        ...
+    \figs
+        ...
+    \helper
+        ...
+    \stats
+        ...
+    *.py
+    README.md
+    ...

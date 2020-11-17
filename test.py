@@ -42,7 +42,8 @@ if __name__ == "__main__":
 
     print("=" * 10 + "Testing full pipeline for normalizer" + "=" * 10)
     init_dataset = PSBDataset(DATA_PATH_DEBUG, class_file_path=CLASS_FILE)
-    norm = Normalizer(init_dataset, target_path=DATA_PATH_NORMED_SUBSET)
+    norm = Normalizer(init_dataset)
+    norm.target_path = DATA_PATH_NORMED_SUBSET
     normed_data = norm.run_full_pipeline()
     print("======================================= Done! ===========================================")
 

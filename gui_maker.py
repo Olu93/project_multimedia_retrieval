@@ -1,4 +1,5 @@
 import glob
+import json
 import sys
 from collections import OrderedDict
 
@@ -6,7 +7,6 @@ import numpy as np
 import pandas as pd
 import pyqtgraph as pg
 import pyvista as pv
-from PIL import Image
 from PyQt5 import Qt as Qt
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtCore import Qt as QtCore, QUrl
@@ -17,7 +17,6 @@ from scipy.stats import wasserstein_distance
 
 import reader
 from feature_extractor import FeatureExtractor
-from helper.config import FEATURE_DATA_FILE, DATA_PATH_NORMED, DATA_PATH_PSB
 from helper.misc import get_sizes_features
 from helper.viz import TableWidget, TsneVisualiser
 from normalizer import Normalizer
@@ -28,6 +27,8 @@ from reader import DataSet
 class SimilarMeshWindow(Qt.QWidget):
     def __init__(self, mesh, features):
         super().__init__()
+        with open('config.json') as f:
+            self.config_data = json.load(f)
         self.setWindowTitle('Similar Mesh Window')
         self.mesh = mesh
         self.mesh_features = features
@@ -37,7 +38,7 @@ class SimilarMeshWindow(Qt.QWidget):
 
         # Create and add widgets to layout
 
-        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True, drop_feat=["timestamp"])
+        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(features_file=self.config_data["FEATURE_DATA_FILE"],with_labels=True, drop_feat=["timestamp"])
         mapping_of_labels_reversed = {val: key for key, val in mapping_of_labels.items()}
         features_dict_carefully_selected = OrderedDict(
             sorted({mapping_of_labels.get(key): val
@@ -92,8 +93,10 @@ class SimilarMeshWindow(Qt.QWidget):
 class SimilarMeshesListWindow(Qt.QWidget):
     def __init__(self, feature_dict):
         super().__init__()
+        with open('config.json') as f:
+            self.config_data = json.load(f)
         self.smw_list = []
-        self.query_matcher = QueryMatcher(FEATURE_DATA_FILE)
+        self.query_matcher = QueryMatcher(self.config_data["FEATURE_DATA_FILE"])
         self.query_mesh_features = feature_dict
         self.layout = Qt.QVBoxLayout()
         self.setLayout(self.layout)
@@ -143,7 +146,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
         self.scalarSliderWeights.setRange(0, 100)
         self.scalarSliderWeights.setValue(3.84)
         self.scalarSliderWeights.valueChanged.connect(self.update_scalar_label)
-        self.scalarLabelWeights = Qt.QLabel(f"Scalars weight: {self.scalarSliderWeights.value()}", self)
+        self.scalarLabelWeights = Qt.QLabel(f"Scalar weight: {self.scalarSliderWeights.value()}", self)
 
         self.histSliderWeights = QSlider(QtCore.Horizontal)
         self.histSliderWeights.setRange(0, 100)
@@ -224,7 +227,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
         #                                                                            scalar_dist_func=scalarDistFunction,
         #                                                                            hist_dist_func=histDistFunction)
 
-        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True)
+        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(features_file=self.config_data["FEATURE_DATA_FILE"],with_labels=True)
 
         n_hist = len([key for key, val in mapping_of_labels.items() if "hist_" in key])
         n_skeleton = len([key for key, val in mapping_of_labels.items() if "skeleton_" in key])
@@ -247,7 +250,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
             item = Qt.QListWidgetItem()
             icon = Qt.QIcon()
             filename = str(ind) + "_thumb.jpg"
-            path_to_thumb = glob.glob(DATA_PATH_PSB + "\\**\\" + filename, recursive=True)
+            path_to_thumb = glob.glob(self.config_data["DATA_PATH_PSB"] + "\\**\\" + filename, recursive=True)
             icon.addPixmap(Qt.QPixmap(path_to_thumb[0]), QtGui.QIcon.Normal, QtGui.QIcon.Off)
             item.setIcon(icon)
             item.setText("ID: " + str(ind) + "\nDistance: " + str("{:.2f}".format(distance_values[i])))
@@ -256,7 +259,7 @@ class SimilarMeshesListWindow(Qt.QWidget):
 
     def plot_selected_mesh(self):
         mesh_name = self.list.selectedItems()[0].toolTip()
-        path_to_mesh = glob.glob(DATA_PATH_NORMED + "\\**\\" + mesh_name + ".*", recursive=True)
+        path_to_mesh = glob.glob(self.config_data["DATA_PATH_NORMED"] + "\\**\\" + mesh_name + ".*", recursive=True)
         data = DataSet._load_ply(path_to_mesh[0])
         mesh = pv.PolyData(data["vertices"], data["faces"])
         mesh_features = [d for d in self.query_matcher.features_raw_init if d["name"] == mesh_name][0]
@@ -283,7 +286,9 @@ class SimilarMeshesListWindow(Qt.QWidget):
 class MainWindow(Qt.QMainWindow):
     def __init__(self, parent=None, show=True):
         Qt.QMainWindow.__init__(self, parent)
-        self.query_matcher = QueryMatcher(FEATURE_DATA_FILE)
+        with open('config.json') as f:
+            self.config_data = json.load(f)
+        self.query_matcher = QueryMatcher(self.config_data["FEATURE_DATA_FILE"])
         self.supported_file_types = [".ply", ".off"]
         self.buttons = {}
         self.ds = reader.DataSet("")
@@ -321,7 +326,7 @@ class MainWindow(Qt.QMainWindow):
 
         # Create and add widgets to layout
 
-        n_sing, n_hist, mapping_of_labels = get_sizes_features(with_labels=True)
+        n_sing, n_hist, mapping_of_labels = get_sizes_features(features_file=self.config_data["FEATURE_DATA_FILE"],with_labels=True)
 
         # self.hist_labels = list({**FeatureExtractor.get_pipeline_functions()[1]}.values())
         self.hist_labels = [val for key, val in mapping_of_labels.items() if "hist_" in key]
@@ -353,8 +358,7 @@ class MainWindow(Qt.QMainWindow):
             error_dialog = QtWidgets.QErrorMessage(parent=self)
             error_dialog.showMessage("Please drag only one mesh at the time.")
 
-    @staticmethod
-    def check_file(fileName):
+    def check_file(self, fileName):
         if fileName[-4:] not in self.supported_file_types:
             error_dialog = QtWidgets.QErrorMessage(parent=self)
             error_dialog.showMessage(("Selected file not supported." f"\nPlease select mesh files of type: {self.supported_file_types}"))
@@ -377,7 +381,7 @@ class MainWindow(Qt.QMainWindow):
         normed_mesh = pv.PolyData(normed_data["history"][-1]["data"]["vertices"], normed_data["history"][-1]["data"]["faces"])
         normed_data['poly_data'] = normed_mesh
         # Extract features
-        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(with_labels=True, drop_feat=["timestamp"])
+        n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(features_file=self.config_data["FEATURE_DATA_FILE"],with_labels=True, drop_feat=["timestamp"])
         mapping_of_labels_reversed = {val: key for key, val in mapping_of_labels.items()}
         features_dict = FeatureExtractor.mono_run_pipeline_old(normed_data)
         features_dict_carefully_selected = OrderedDict(

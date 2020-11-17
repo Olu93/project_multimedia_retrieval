@@ -16,12 +16,8 @@ from scipy.stats.stats import wasserstein_distance
 from sklearn.preprocessing import StandardScaler
 import itertools
 from feature_extractor import FeatureExtractor
-from helper.config import DEBUG, FEATURE_DATA_FILE
+# from helper.config import DEBUG, FEATURE_DATA_FILE
 from helper.misc import get_feature_type_positions, get_sizes_features
-
-# TODO: EMD does not work for scalars
-# if DEBUG:
-#     debug_file = io.open("analysis.txt", mode="w")
 
 
 class QueryMatcher(object):
@@ -167,7 +163,9 @@ class QueryMatcher(object):
         assert len_fst == len_df, f"Not enough OR too many distance functions supplied! - requires {len_fst} functions and not {len_df}"
 
         if QueryMatcher.perform_knn in distance_functions:
-            values, position_in_rank = self.perform_knn(QueryMatcher.flatten_feature_dict(standardised_item), self.features_flattened, k)
+            flat_query = np.concatenate([np.array(s).flatten() for s in standardised_item])
+            flat_features = [[val for sublist in row for val in sublist] for row in self.features_list_of_list]
+            values, position_in_rank = self.perform_knn(np.array(flat_features), flat_query, k)
         else:
             all_distances = np.array(
                 [QueryMatcher.mono_run_functions_pipeline(standardised_item, mesh_in_db, distance_functions, weights) for mesh_in_db in self.features_list_of_list])
@@ -272,21 +270,22 @@ class QueryMatcher(object):
 
 
 if __name__ == "__main__":
-    qm = QueryMatcher(FEATURE_DATA_FILE)
-    # sampled_mesh = qm.features_flattened[0]
-    # close_meshes, computed_values = qm.compare_features_with_database(pd.DataFrame(sampled_mesh, index=[0]), 5, QueryMatcher.cosine_distance)
-    # assert sampled_mesh["name"] in close_meshes
-    tmp_mappings = get_feature_type_positions(list(qm.list_of_list_cols))
-    function_pipeline = [cosine] + ([wasserstein_distance] * (len(tmp_mappings["hist"]))) + ([cityblock] * (len(tmp_mappings["skeleton"])))
-    print(QueryMatcher.mono_run_functions_pipeline(qm.features_list_of_list[0], qm.features_list_of_list[1], function_pipeline))
-    print(qm.match_with_db(qm.features_raw[0], 5, function_pipeline))
-    print("Everything worked!")
+    # qm = QueryMatcher(FEATURE_DATA_FILE)
+    # # sampled_mesh = qm.features_flattened[0]
+    # # close_meshes, computed_values = qm.compare_features_with_database(pd.DataFrame(sampled_mesh, index=[0]), 5, QueryMatcher.cosine_distance)
+    # # assert sampled_mesh["name"] in close_meshes
+    # tmp_mappings = get_feature_type_positions(list(qm.list_of_list_cols))
+    # function_pipeline = [cosine] + ([wasserstein_distance] * (len(tmp_mappings["hist"]))) + ([cityblock] * (len(tmp_mappings["skeleton"])))
+    # print(QueryMatcher.mono_run_functions_pipeline(qm.features_list_of_list[0], qm.features_list_of_list[1], function_pipeline))
+    # print(qm.match_with_db(qm.features_raw[0], 5, function_pipeline))
+    # print("Everything worked!")
 
-    data = DataSet.mono_run_pipeline(DataSet._extract_descr('./processed_data_bkp/bicycle/m1475.ply'))
-    normed_data = Normalizer.mono_run_pipeline(data)
-    normed_mesh = pv.PolyData(normed_data["history"][-1]["data"]["vertices"], normed_data["history"][-1]["data"]["faces"])
-    normed_data['poly_data'] = normed_mesh
-    features_dict = FeatureExtractor.mono_run_pipeline_old(normed_data)
-    feature_formatted_keys = [form_key.replace("_", " ").title() for form_key in features_dict.keys()]
-    features_df = pd.DataFrame({'key': list(feature_formatted_keys), 'value': list([list(f) if isinstance(f, np.ndarray) else f for f in features_dict.values()])})
-    print(qm.match_with_db(features_dict, 5, function_pipeline))
+    # data = DataSet.mono_run_pipeline(DataSet._extract_descr('./processed_data_bkp/bicycle/m1475.ply'))
+    # normed_data = Normalizer.mono_run_pipeline(data)
+    # normed_mesh = pv.PolyData(normed_data["history"][-1]["data"]["vertices"], normed_data["history"][-1]["data"]["faces"])
+    # normed_data['poly_data'] = normed_mesh
+    # features_dict = FeatureExtractor.mono_run_pipeline_old(normed_data)
+    # feature_formatted_keys = [form_key.replace("_", " ").title() for form_key in features_dict.keys()]
+    # features_df = pd.DataFrame({'key': list(feature_formatted_keys), 'value': list([list(f) if isinstance(f, np.ndarray) else f for f in features_dict.values()])})
+    # print(qm.match_with_db(features_dict, 5, function_pipeline))
+    pass

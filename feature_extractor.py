@@ -1,7 +1,8 @@
 from collections import Counter
 from datetime import datetime
 import itertools
-from helper.skeleton import compute_conjunctions, compute_distance_to_center, compute_edge_lengths, compute_endpoints, compute_img_eccentricity, extract_graphical_forms, compute_asymmetry
+from helper.skeleton import compute_conjunctions, compute_distance_to_center, compute_edge_lengths, compute_endpoints, \
+    compute_img_eccentricity, extract_graphical_forms, compute_asymmetry
 from pprint import pprint
 import glob
 
@@ -11,9 +12,10 @@ import pyvista as pv
 from tqdm import tqdm
 
 from helper import diameter_computer
-from helper.misc import compactness_computation, convex_hull_transformation, exception_catcher, fill_holes, jsonify, sphericity_computation
+from helper.misc import compactness_computation, convex_hull_transformation, exception_catcher, fill_holes, jsonify, \
+    sphericity_computation
 from helper.diameter_computer import compute_diameter
-from helper.config import CLASS_FILE_COARSE, DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
+# from helper.config import CLASS_FILE_COARSE, DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
 from helper.mp_functions import compute_feature_extraction, compute_feature_extraction_old
 from reader import PSBDataset
 import jsonlines
@@ -24,26 +26,10 @@ import pyvista as pv
 import multiprocessing as mp
 import tracemalloc
 import faulthandler
-# faulthandler.enable() 
-# tracemalloc.start()
-# TODO: [x] surface area
-# TODO: [x] compactness (with respect to a sphere)
-# TODO: [x] axis-aligned bounding-box volume
-# TODO: [x] diameter
-# TODO: [x] eccentricity
-# TODO: [x] A3: angle between 3 random vertices
-# TODO: [x] D1: distance between barycenter and random vertex
-# TODO: [x] D2: distance between 2 random vertices
-# TODO: [x] D3: square root of area of triangle given by 3 random vertices
-# TODO: [x] D4: cube root of volume of tetrahedron formed by 4 random vertices
-# TODO: [ ] Mention m94, m778 removal and m1693 eccentricity stabilisation
-# TODO: [ ] Change fill_holes with convex hull operation
-#
-# np.seterr('raise')
 
 
 class FeatureExtractor:
-    number_vertices_sampled = 100 if DEBUG else 100000
+    number_vertices_sampled = 100000
     number_bins = 20
 
     def __init__(self, reader=None, target_file="./computed_features.jsonl", append_mode=False):
@@ -78,7 +64,8 @@ class FeatureExtractor:
         final_dict["label_coarse"] = data["meta_data"].get("label_coarse", None)
         data["poly_data"] = pv.PolyData(data["data"]["vertices"], data["data"]["faces"])
         singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
-        gather_data = [list(func(data).items())[0] for func in [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
+        gather_data = [list(func(data).items())[0] for func in
+                       [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
 
         skeleton_features = FeatureExtractor.skeleton_singleton_features(data)
 
@@ -98,7 +85,8 @@ class FeatureExtractor:
         singleton_pipeline, histogram_pipeline = FeatureExtractor.get_pipeline_functions()
         # histogram_pipeline.update({FeatureExtractor.gaussian_curvature: "Gaussian Curvature"})
 
-        gather_data = [list(func(data).items())[0] for func in [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
+        gather_data = [list(func(data).items())[0] for func in
+                       [*list(singleton_pipeline.keys()), *list(histogram_pipeline.keys())]]
         skeleton_features = FeatureExtractor.mono_skeleton_features(data["images"])
 
         final_dict.update(gather_data)
@@ -126,7 +114,8 @@ class FeatureExtractor:
 
     def run_full_pipeline(self, max_num_items=None):
         num_full_data = len(self.full_data)
-        relevant_subset_of_data = self.full_data[:min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
+        relevant_subset_of_data = self.full_data[
+                                  :min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
         result = compute_feature_extraction(self, relevant_subset_of_data)
 
         filenames = glob.glob("stats/tmp/tmp-*.jsonl")
@@ -145,7 +134,8 @@ class FeatureExtractor:
             relevant_subset_of_data = self.reader.full_data[
                                       :min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
             num_data_being_processed = len(relevant_subset_of_data)
-            feature_data_generator = compute_feature_extraction_old(self, tqdm(relevant_subset_of_data, total=num_data_being_processed))
+            feature_data_generator = compute_feature_extraction_old(self, tqdm(relevant_subset_of_data,
+                                                                               total=num_data_being_processed))
             prepared_data = (jsonify(item) for item in feature_data_generator)
             prepared_data = (dict(timestamp=self.timestamp, **item) for item in prepared_data)
             for next_feature_set in prepared_data:
@@ -162,7 +152,8 @@ class FeatureExtractor:
             relevant_subset_of_data = self.reader.full_data[
                                       :min(max_num_items, num_full_data)] if max_num_items else self.reader.full_data
             num_data_being_processed = len(relevant_subset_of_data)
-            prepared_data = (FeatureExtractor.mono_run_pipeline_slow(data) for data in tqdm(relevant_subset_of_data, total=num_data_being_processed))
+            prepared_data = (FeatureExtractor.mono_run_pipeline_slow(data) for data in
+                             tqdm(relevant_subset_of_data, total=num_data_being_processed))
             prepared_data = (jsonify(item) for item in prepared_data)
             prepared_data = (dict(timestamp=self.timestamp, **item) for item in prepared_data)
             for next_feature_set in prepared_data:
@@ -279,7 +270,8 @@ class FeatureExtractor:
         eigenvalues, _ = np.linalg.eig(A_cov)
         eigenvalues = np.sort(eigenvalues)
         return {
-            "scalar_eccentricity": np.max(eigenvalues) / np.min(eigenvalues) if np.min(eigenvalues) != 0 else eigenvalues[1]}
+            "scalar_eccentricity": np.max(eigenvalues) / np.min(eigenvalues) if np.min(eigenvalues) != 0 else
+            eigenvalues[1]}
 
     @staticmethod
     @exception_catcher
@@ -400,7 +392,9 @@ class FeatureExtractor:
 
 
 if __name__ == "__main__":
-    FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE, class_file_path_coarse=CLASS_FILE_COARSE))
+    # FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE,
+    #                                 class_file_path_coarse=CLASS_FILE_COARSE))
     # FE.run_full_pipeline_slow()
-    FE.run_full_pipeline()
+    # FE.run_full_pipeline()
     # FE.run_full_pipeline_old()
+    pass

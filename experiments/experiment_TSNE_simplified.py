@@ -182,7 +182,7 @@ def show_all_in_one(query_matcher, idx, perplexity, n_iter, lr, show=False, top_
     figsize = (16, 8)
     figdpi = 80
     msize = 10
-    num_subset_views = 3
+    num_subset_views = 5
     fig, axes = plt.subplots(2, 3, num=idx, figsize=figsize, dpi=figdpi, sharex=True, sharey=True)
     ax = axes.ravel()
     cmap = plt.cm.get_cmap("nipy_spectral", len(unique_label_ids))
@@ -194,23 +194,12 @@ def show_all_in_one(query_matcher, idx, perplexity, n_iter, lr, show=False, top_
     ax[idx].set_title("t-SNE with PCA to 50")
     ax[idx].scatter("x", "y", c="lbl_id", s=msize, cmap=cmap, data=tsne_result_pca)
 
-    # Full image
-    idx = 1
-    chosen_triplets = np.array([class_to_id.get(lbl) for lbl in ("plant", "handheld", "human") if lbl in class_to_id])
-    tmp_ax = ax[idx]
-    lbl_wi_color = np.isin(label_ids, chosen_triplets)
-    tmp_ax.scatter("x", "y", s=1, c="w", cmap=cmap, data=tsne_result_pca[np.isin(label_ids, chosen_triplets) != 1])
-    tmp_ax.scatter("x", "y", s=msize * 1, c="lbl_id", cmap=cmap, data=tsne_result_pca[lbl_wi_color == 1])
-    legend_elements = [Line2D([0], [0], marker='o', color='w', label=id_to_class[lbl_id], markerfacecolor=cmap(norm(lbl_id)), markersize=5) for lbl_id in chosen_triplets]
-    tmp_ax.set_title(f'fixed ({", ".join([id_to_class[lbl_id] for lbl_id in chosen_triplets])})', fontsize=12)
-    tmp_ax.legend(handles=legend_elements, loc="upper right")
-    # cmap = plt.cm.get_cmap("hsv", len(set(label_ids)) + 1)
     num_unique_lbls = len(unique_label_ids)
     num_pick = min(num_unique_lbls // num_subset_views, 3)
     skip = 3 if num_unique_lbls > 27 else 1
-    rand_choice = np.random.choice(np.array(unique_label_ids)[::skip], (3, num_pick), replace=False)
-    for idx, chosen_triplets in zip(range(3, len(ax)), rand_choice):
-        tmp_ax = ax[idx]
+    rand_choice = np.random.choice(np.array(unique_label_ids)[::skip], (num_subset_views, num_pick), replace=False)
+    for idx, chosen_triplets, tmp_ax in zip(range(1, len(ax)), rand_choice, ax[1:]):
+        # tmp_ax = ax[idx]
         lbl_wi_color = np.isin(label_ids, chosen_triplets)
         tmp_ax.scatter("x", "y", s=1, c="w", cmap=cmap, data=tsne_result_pca[np.isin(label_ids, rand_choice) != 1])
         tmp_ax.scatter("x", "y", s=msize * 1, c="lbl_id", cmap=cmap, data=tsne_result_pca[lbl_wi_color == 1])
@@ -414,20 +403,12 @@ if __name__ == "__main__":
         # if "-p" not in arguments:
         #     show_all_in_one(query_matcher, 0, 20, int(10e7), 1, show=True, top_n=10, reverse=False, strange_scaling=False, is_coarse=True)
 
-        # if "-p" not in arguments:
-        #     show_all_in_one(query_matcher, 0, 19, int(10e7), 1, show=True, top_n=15, reverse=False, strange_scaling=False, is_coarse=False)
-        # tsne_result_fine_data = compute_tsne_for_figure(class_to_id=class_to_id,
-        #                                                 flat_data=fine_data,
-        #                                                 perplexity=19,
-        #                                                 n_iter=n_iter,
-        #                                                 lr=1,
-        #                                                 names_n_labels=names_n_labels,
-        #                                                 is_coarse=True,
-        #                                                 d=2,
-        #                                                 num_jobs=5)
     if "-p" not in arguments:
-        fig = plot_figure(query_matcher, skip=False)
-        plt.show()
+        show_all_in_one(query_matcher, 0, 19, int(10e7), 1, show=True, top_n=15, reverse=False, strange_scaling=False, is_coarse=False)
+
+    # if "-p" not in arguments:
+    #     fig = plot_figure(query_matcher, skip=False)
+    #     plt.show()
 
     # lbl_cnts = [query_matcher.map_to_label(name, True) for name in list(query_matcher.features_df_all_scaled.index)]
 
