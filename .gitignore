@@ -7,7 +7,7 @@ config.py
 stats/tmp/**/*.jsonl
 k_all_db_results.csv
 trash/tsne*/**
-k_all_db_*.csv
+k_all_db_*.json
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,pycharm+all,python,jupyternotebooks
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,pycharm+all,python,jupyternotebooks
 
