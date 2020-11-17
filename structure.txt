@@ -1,20 +1,231 @@
-\
-    \datasets
-        \normed_psb
-        \psb
-            \benchmark
-                \classification
-                    \v1
-                        \base
-                        \coarse1
-    \experiments
-        ...
-    \figs
-        ...
-    \helper
-        ...
-    \stats
-        ...
-    *.py
-    README.md
-    ...
+├───datasets
+│   ├───normed_psb
+│   │   ├───acoustic_guitar
+│   │   ├───ant
+│   │   ├───antique_car
+│   │   ├───apatosaurus
+│   │   ├───axe
+│   │   ├───barn
+│   │   ├───barren
+│   │   ├───bed
+│   │   ├───bee
+│   │   ├───bench
+│   │   ├───bicycle
+│   │   ├───billboard
+│   │   ├───biplane
+│   │   ├───book
+│   │   ├───bottle
+│   │   ├───brain
+│   │   ├───bridge
+│   │   ├───bush
+│   │   ├───butcher_knife
+│   │   ├───butterfly
+│   │   ├───cabinet
+│   │   ├───castle
+│   │   ├───chess_piece
+│   │   ├───chess_set
+│   │   ├───chest
+│   │   ├───church
+│   │   ├───city
+│   │   ├───commercial
+│   │   ├───computer_monitor
+│   │   ├───conical
+│   │   ├───couch
+│   │   ├───covered_wagon
+│   │   ├───desktop
+│   │   ├───desk_chair
+│   │   ├───desk_lamp
+│   │   ├───desk_with_hutch
+│   │   ├───dining_chair
+│   │   ├───dirigible
+│   │   ├───dog
+│   │   ├───dolphin
+│   │   ├───dome_church
+│   │   ├───door
+│   │   ├───double_doors
+│   │   ├───dragon
+│   │   ├───duck
+│   │   ├───electrical_guitar
+│   │   ├───enterprise_like
+│   │   ├───eyeglasses
+│   │   ├───F117
+│   │   ├───face
+│   │   ├───feline
+│   │   ├───fighter_jet
+│   │   ├───fireplace
+│   │   ├───fish
+│   │   ├───flowers
+│   │   ├───flower_with_stem
+│   │   ├───flying_bird
+│   │   ├───flying_saucer
+│   │   ├───gazebo
+│   │   ├───gear
+│   │   ├───geographic_map
+│   │   ├───glass_with_stem
+│   │   ├───glider
+│   │   ├───hammer
+│   │   ├───hand
+│   │   ├───handgun
+│   │   ├───hat
+│   │   ├───head
+│   │   ├───helicopter
+│   │   ├───helmet
+│   │   ├───horse
+│   │   ├───hot_air_balloon
+│   │   ├───hourglass
+│   │   ├───human
+│   │   ├───human_arms_out
+│   │   ├───ice_cream
+│   │   ├───jeep
+│   │   ├───knife
+│   │   ├───ladder
+│   │   ├───laptop
+│   │   ├───large_sail_boat
+│   │   ├───lighthouse
+│   │   ├───mailbox
+│   │   ├───microchip
+│   │   ├───microscope
+│   │   ├───military_tank
+│   │   ├───monster_truck
+│   │   ├───motorcycle
+│   │   ├───mug
+│   │   ├───multiple__peak_tent
+│   │   ├───multi_fuselage
+│   │   ├───newtonian_toy
+│   │   ├───one_peak_tent
+│   │   ├───one_story_home
+│   │   ├───pail
+│   │   ├───palm
+│   │   ├───phone_handle
+│   │   ├───piano
+│   │   ├───pickup_truck
+│   │   ├───pig
+│   │   ├───potted_plant
+│   │   ├───rabbit
+│   │   ├───race_car
+│   │   ├───rectangular
+│   │   ├───rifle
+│   │   ├───roman_building
+│   │   ├───round
+│   │   ├───sailboat
+│   │   ├───sailboat_with_oars
+│   │   ├───satellite
+│   │   ├───satellite_dish
+│   │   ├───school_desk
+│   │   ├───screwdriver
+│   │   ├───sea_turtle
+│   │   ├───sedan
+│   │   ├───semi
+│   │   ├───shark
+│   │   ├───shelves
+│   │   ├───ship
+│   │   ├───shoe
+│   │   ├───shovel
+│   │   ├───single_leg
+│   │   ├───sink
+│   │   ├───skateboard
+│   │   ├───skeleton
+│   │   ├───skull
+│   │   ├───skyscraper
+│   │   ├───slot_machine
+│   │   ├───snake
+│   │   ├───snowman
+│   │   ├───space_shuttle
+│   │   ├───spider
+│   │   ├───sports_car
+│   │   ├───staircase
+│   │   ├───standing_bird
+│   │   ├───stealth_bomber
+│   │   ├───stool
+│   │   ├───streetlight
+│   │   ├───street_sign
+│   │   ├───submarine
+│   │   ├───suv
+│   │   ├───swingset
+│   │   ├───sword
+│   │   ├───table_and_chairs
+│   │   ├───tank
+│   │   ├───tie_fighter
+│   │   ├───tire
+│   │   ├───torso
+│   │   ├───train
+│   │   ├───train_car
+│   │   ├───tree
+│   │   ├───trex
+│   │   ├───tv
+│   │   ├───two_story_home
+│   │   ├───umbrella
+│   │   ├───vase
+│   │   ├───walking
+│   │   ├───watch
+│   │   ├───wheel
+│   │   ├───wrench
+│   │   └───x_wing
+│   └───psb
+│       └───benchmark
+│           ├───classification
+│           │   └───v1
+│           │       ├───base
+│           │       ├───coarse1
+│           │       ├───coarse2
+│           │       └───coarse3
+│           ├───db
+│           │   ├───0
+│           │   │   ├───m0-99
+│           │   ├───1
+│           │   │   ├───m100-199
+│           │   ├───10
+│           │   │   ├───m1000-1099
+│           │   ├───11
+│           │   │   ├───m1100-1199
+│           │   ├───12
+│           │   │   ├───m1200-1299
+│           │   ├───13
+│           │   │   ├───m1300-1399
+│           │   ├───14
+│           │   │   ├───m1400-1499
+│           │   ├───15
+│           │   │   ├───m1500-1599
+│           │   ├───16
+│           │   │   ├───m1600-1699
+│           │   ├───17
+│           │   │   ├───m1700-1799
+│           │   ├───18
+│           │   │   ├───m1800-1814
+│           │   ├───2
+│           │   │   ├───m200-299
+│           │   ├───3
+│           │   │   ├───m300-399
+│           │   ├───4
+│           │   │   ├───m400-499
+│           │   ├───5
+│           │   │   ├───m500-599
+│           │   ├───6
+│           │   │   ├───m600-699
+│           │   ├───7
+│           │   │   ├───m700-799
+│           │   ├───8
+│           │   │   ├───m800-899
+│           │   └───9
+│           │       ├───m0-900
+│           ├───documentation
+│           └───util
+│               ├───bestMatch
+│               ├───claoverview
+│               ├───clastats
+│               ├───offstats
+│               ├───offviewer
+│               ├───printmatrix
+│               ├───psbPlot
+│               ├───psbTable
+│               └───SimMat
+│                   └───src
+│                       ├───Acme
+│                       │   └───JPM
+│                       │       └───Encoders
+│                       └───psb
+├───experiments
+├───figs
+├───helper
+├───stats
+│   └───tmp
