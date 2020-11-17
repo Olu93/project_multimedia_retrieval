@@ -262,3 +262,5 @@ dmypy.json
 test_mesh/
 
 *.off
+
+config.json
