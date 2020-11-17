@@ -15,7 +15,7 @@ from helper import diameter_computer
 from helper.misc import compactness_computation, convex_hull_transformation, exception_catcher, fill_holes, jsonify, \
     sphericity_computation
 from helper.diameter_computer import compute_diameter
-from helper.config import CLASS_FILE_COARSE, DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
+# from helper.config import CLASS_FILE_COARSE, DATA_PATH_NORMED, DEBUG, DATA_PATH_NORMED_SUBSET, CLASS_FILE
 from helper.mp_functions import compute_feature_extraction, compute_feature_extraction_old
 from reader import PSBDataset
 import jsonlines
@@ -29,7 +29,7 @@ import faulthandler
 
 
 class FeatureExtractor:
-    number_vertices_sampled = 100 if DEBUG else 100000
+    number_vertices_sampled = 100000
     number_bins = 20
 
     def __init__(self, reader=None, target_file="./computed_features.jsonl", append_mode=False):
@@ -392,8 +392,9 @@ class FeatureExtractor:
 
 
 if __name__ == "__main__":
-    FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE,
-                                     class_file_path_coarse=CLASS_FILE_COARSE))
+    # FE = FeatureExtractor(PSBDataset(DATA_PATH_NORMED_SUBSET if DEBUG else DATA_PATH_NORMED, class_file_path=CLASS_FILE,
+    #                                 class_file_path_coarse=CLASS_FILE_COARSE))
     # FE.run_full_pipeline_slow()
-    FE.run_full_pipeline()
+    # FE.run_full_pipeline()
     # FE.run_full_pipeline_old()
+    pass
