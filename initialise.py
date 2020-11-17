@@ -37,21 +37,11 @@ def prompt_for_class_files(new_path):
     coarse = False
     for root, dirs, files in os.walk(new_path):
         if "coarse" in root and not coarse:
-            print("Found coarse class file at " + str(root))
-            print("The system will default the coarse file class as follows:")
-            print(f'''
-            - New path to the coarse classification file: {root}
-            If you wish to change these, you can do it from the main menu.
-                        ''')
+            print(f"- New path to the coarse classification file found at: {root}")
             data["CLASS_FILE_COARSE"] = root
             coarse = True
         if "base" in root:
-            print("Found base class file at " + str(root))
-            print("The system will default the base file class as follows:")
-            print(f'''
-            - New path to the fine grained classification file: {root}
-            If you wish to change these, you can do it from the main menu.
-                   ''')
+            print(f"\n\n- New path to the fine grained classification file found at: {root}")
             data["CLASS_FILE"] = root
             base = True
     if not base and not coarse:

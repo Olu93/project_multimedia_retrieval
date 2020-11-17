@@ -161,7 +161,7 @@ class QueryMatcher(object):
         len_fst = len(standardised_item)
         len_df = len(distance_functions)
         assert len_fst == len_df, f"Not enough OR too many distance functions supplied! - requires {len_fst} functions and not {len_df}"
-
+        #1811, 166
         if QueryMatcher.perform_knn in distance_functions:
             flat_query = np.concatenate([np.array(s).flatten() for s in standardised_item])
             flat_features = [[val for sublist in row for val in sublist] for row in self.features_list_of_list]
