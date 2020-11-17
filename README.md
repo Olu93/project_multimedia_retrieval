@@ -27,8 +27,12 @@ To initialise the correct paths to each just run:
 ```
 python initialise.py
 ```
-This should create defaults value for every parameter and prompt for further action or exit. 
-If the aim is to run the system, then exit. Otherwise see “Setting new paths” below. 
+This should create defaults value for every parameter and prompt for further action or exit.
+This script also aims to ask for classification files in case the user has not specified any yet.
+Classification files should be of type "*.cla" like the ones present in the psb dataset, if no file is specified 
+the system will label every mesh as "no_class". 
+If the aim is to run the system, the user should now be able to run it with the 
+defaults values set. Otherwise is possible to further change this settings as described in *Setting new paths* section below. 
 Once the defaults are set, is possible to finally run the system itself. 
 To do so, type:
 ```
@@ -41,4 +45,6 @@ The best evaluated parameters and distance function combinations are the default
 
 Once the initialise.py script is run, is also possible to set new values (for instance this could be setting a new database and compute normalisation and feature extraction).
 To do so, when prompted with exit or continue, press 2 to continue and visualize the option available. 
-Change database paths before running new pipelines, otherwise the system will pick up the existent ones and not perform the operation.
+This gives the option to further change paths to files or even run a normalisation and feature extraction pipeline 
+on a another shape dataset.
+If the latter action wants to be performed, the user should make sure to have set a new database path.
