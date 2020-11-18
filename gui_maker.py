@@ -56,7 +56,6 @@ class SimilarMeshWindow(Qt.QWidget):
         self.hist_dict = features_df.set_index("index").tail(n=len(self.hist_labels)).to_dict()
         self.buttons = self.tableWidget.get_buttons_in_table()
 
-        tmp = {row.get("index"): row.get(0) for index, row in features_df.iterrows() if "hist_" in mapping_of_labels_reversed[row.get("index")]}
         for key, value in self.buttons.items():
             value.clicked.connect(lambda state, x=key, y=features_dict_carefully_selected[key]: self.plot_selected_hist(x, y))
 
@@ -210,28 +209,10 @@ class SimilarMeshesListWindow(Qt.QWidget):
             self.histDistanceMethodList.setCurrentText("K-Nearest Neighbors")
             self.skeletonDistancesMethodList.setCurrentText("K-Nearest Neighbors")
 
-        #                       OLDER VERSION
-        # scalarDistanceFunctionText = self.scalarDistanceMethodList.currentText()
-        # scalarDistFunction = self.scalarDistancesDict[scalarDistanceFunctionText]
-        #
-        # histDistanceFunctionText = self.histDistanceMethodList.currentText()
-        # histDistFunction = self.histDistancesDict[histDistanceFunctionText]
-        #
-        # weights = [self.scalarSliderWeights.value()] + [self.histSliderWeights.value()] * 5
-        #
-        # features_flattened = QueryMatcher.flatten_feature_dict(self.query_mesh_features)
-        # features_df = pd.DataFrame(features_flattened, index=[0])
-        # indices, cosine_values = self.query_matcher.compare_features_with_database(features_df,
-        #                                                                            weights=weights,
-        #                                                                            k=self.sliderK.value(),
-        #                                                                            scalar_dist_func=scalarDistFunction,
-        #                                                                            hist_dist_func=histDistFunction)
-
         n_singletons, n_distributionals, mapping_of_labels = get_sizes_features(features_file=self.config_data["FEATURE_DATA_FILE"],with_labels=True)
 
         n_hist = len([key for key, val in mapping_of_labels.items() if "hist_" in key])
         n_skeleton = len([key for key, val in mapping_of_labels.items() if "skeleton_" in key])
-        n_distributionals = n_distributionals - n_skeleton
 
         weights = ([self.scalarSliderWeights.value()]) + \
                   ([self.histSliderWeights.value()] * n_hist) + \
@@ -419,7 +400,6 @@ class MainWindow(Qt.QMainWindow):
 
         self.buttons = self.tableWidget.get_buttons_in_table()
         self.hist_dict = features_df.set_index("index").tail(n=len(self.hist_labels)).to_dict()
-        tmp = {row.get("index"): row.get(0) for index, row in features_df.iterrows() if "hist_" in mapping_of_labels_reversed[row.get("index")]}
         for key, value in self.buttons.items():
             value.clicked.connect(lambda state, x=key, y=features_dict_carefully_selected[key]: self.plot_selected_hist(x, y))
         self.smlw.show()

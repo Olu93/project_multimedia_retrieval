@@ -1,20 +1,3 @@
-\
-    \datasets
-        \normed_psb
-        \psb
-            \benchmark
-                \classification
-                    \v1
-                        \base
-                        \coarse1
-    \experiments
-        ...
-    \figs
-        ...
-    \helper
-        ...
-    \stats
-        ...
-    *.py
-    README.md
-    ...
+version https://git-lfs.github.com/spec/v1
+oid sha256:a584013958540dd7bff467990e689040466c8264aa0ac706a2ca748014dc9304
+size 8039
